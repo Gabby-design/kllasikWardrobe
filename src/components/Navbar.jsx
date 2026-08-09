@@ -2,9 +2,15 @@
 import Link from 'next/link';
 import { KlasikLogo } from './KlasikLogo';
 import { useCartStore } from '../store/cartStore';
+import { useState, useEffect } from 'react';
 
 export function Navbar({ searchQuery, setSearchQuery, setIsSizeGuideOpen }) {
   const { cartItemCount, setIsCartOpen } = useCartStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   return (
     <div className="fixed top-0 w-full z-50 flex flex-col">
@@ -42,7 +48,7 @@ export function Navbar({ searchQuery, setSearchQuery, setIsSizeGuideOpen }) {
             </button>
             <button className="flex items-center gap-2 text-xs uppercase tracking-[0.15em] font-medium hover:opacity-70 transition-opacity" onClick={() => setIsCartOpen(true)}>
               <span>BAG</span>
-              <span className="bg-foreground text-background text-[10px] px-1.5 py-0.5 rounded-full min-w-[20px] text-center">{cartItemCount()}</span>
+              <span className="bg-foreground text-background text-[10px] px-1.5 py-0.5 rounded-full min-w-[20px] text-center">{mounted ? cartItemCount() : 0}</span>
             </button>
           </div>
         </div>

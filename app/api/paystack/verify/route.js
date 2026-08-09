@@ -74,7 +74,7 @@ export async function GET(request) {
     }
 
     // 4. Redirect to success
-    return NextResponse.redirect(new URL('/?success=true', request.url));
+    return NextResponse.redirect(new URL('/success', request.url));
     
   } catch (error) {
     console.error('Error verifying Paystack payment:', error);

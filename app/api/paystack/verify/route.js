@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { Resend } from 'resend';
 import { createClient } from '../../../../utils/supabase/server';
+import { sendBuyerReceipt, sendOwnerNotification } from '../../../../lib/brevo';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -46,26 +46,32 @@ export async function GET(request) {
         }
       ]);
 
-    // 3. Send Confirmation Email via Resend
-    const resend = new Resend(process.env.RESEND_API_KEY || 're_123');
-    
+    // 3. Send Confirmation Emails via Brevo
     const productsSummary = cart.map(item => {
-      return `- ${item.title} - ${item.size} (${item.color}) (Qty: ${item.quantity})`;
-    }).join('<br>');
+      return `<p>- ${item.title} - ${item.size} (${item.color}) (Qty: ${item.quantity})</p>`;
+    }).join('');
 
-    await resend.emails.send({
-      from: 'onboarding@resend.dev',
-      to: 'gabrieltolulope50@gmail.com',
-      subject: `[Klasik] New Order Received! (₦${amountInNaira})`,
-      html: `
-        <p><strong>New Order Alert!</strong></p>
-        <p>A customer just completed a checkout session via Paystack.</p>
-        <p><strong>Customer Email:</strong> ${customerEmail}</p>
-        <p><strong>Total Amount:</strong> ₦${amountInNaira}</p>
-        <p><strong>Products Ordered:</strong><br>${productsSummary || 'No items found in metadata.'}</p>
-        <p><strong>Paystack Reference:</strong> ${reference}</p>
-      `,
-    });
+    try {
+      await Promise.all([
+        sendBuyerReceipt({
+          buyerEmail: customerEmail,
+          buyerName: customer.first_name || '',
+          orderDetails: productsSummary,
+          totalAmount: amountInNaira
+        }),
+        sendOwnerNotification({
+          ownerEmail: process.env.OWNER_EMAIL,
+          buyerEmail: customerEmail,
+          buyerName: customer.first_name || '',
+          orderDetails: productsSummary,
+          totalAmount: amountInNaira,
+          shippingAddress: metadata?.shippingAddress || 'N/A' // fallback if not collected
+        })
+      ]);
+    } catch (emailError) {
+      console.error('Failed to send confirmation emails:', emailError);
+      // Do not crash the redirect, email failure shouldn't prevent success page
+    }
 
     // 4. Redirect to success
     return NextResponse.redirect(new URL('/?success=true', request.url));

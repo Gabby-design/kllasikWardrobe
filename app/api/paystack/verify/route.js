@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '../../../../utils/supabase/server';
+import { createAdminClient } from '../../../../utils/supabase/admin';
 import { sendBuyerReceipt, sendOwnerNotification } from '../../../../lib/brevo';
 
 export async function GET(request) {
@@ -31,20 +31,37 @@ export async function GET(request) {
     const cart = metadata?.cart || [];
 
     // 2. Record order in Supabase
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     
     // We attempt to insert into 'orders' table. 
-    await supabase
+    const { error: insertError } = await supabase
       .from('orders')
       .insert([
         {
-          email: customerEmail,
-          amount: amount / 100,
-          reference: reference,
           items: cart,
-          status: 'paid'
+          total_amount: amount / 100,
+          payment_status: 'paid',
+          delivery_status: 'Processing',
+          shipping_address: metadata?.shippingAddress || null,
         }
       ]);
+
+    if (insertError) {
+      console.error('Failed to insert order:', insertError);
+    }
+
+    // Decrement stock for each item in the order
+    for (const item of cart) {
+      if (item.id) {
+        const { error: stockError } = await supabase.rpc('decrement_stock', {
+          p_id: item.id,
+          qty: item.quantity
+        });
+        if (stockError) {
+          console.error(`Failed to decrement stock for product ${item.id}:`, stockError);
+        }
+      }
+    }
 
     // 3. Send Confirmation Emails via Brevo
     const productsSummary = cart.map(item => {

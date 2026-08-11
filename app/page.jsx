@@ -41,6 +41,7 @@ function App() {
           title: p.name,
           price: p.price,
           description: p.description,
+          stock: p.stock !== undefined ? p.stock : 10,
           image: p.image_url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
           fallbackImage: p.image_url,
           gallery: [p.image_url],
@@ -58,25 +59,15 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   
-  const { addToCart, setIsCartOpen, cart, cartSubtotal } = useCartStore();
+  const { addToCart, setIsCartOpen, cart, cartSubtotal, clearCart } = useCartStore();
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const [quickViewSize, setQuickViewSize] = useState('L');
   const [quickViewColor, setQuickViewColor] = useState('');
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState('FORM');
   const [selectedCardSizes, setSelectedCardSizes] = useState({});
   const [selectedCardColors, setSelectedCardColors] = useState({});
   const [cardActiveImages, setCardActiveImages] = useState({});
   const [quickViewActiveImg, setQuickViewActiveImg] = useState(null);
-  const [customerForm, setCustomerForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: 'Lagos',
-    paymentMethod: 'PAY_ON_DELIVERY',
-  });
 
   const getSelectedSize = (productId) => selectedCardSizes[productId] || 'L';
 
@@ -119,16 +110,13 @@ function App() {
     const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
     const matchesSearch =
       searchQuery.trim() === '' ||
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchQuery.toLowerCase());
+      (p.title && p.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return matchesPrice && matchesCategory && matchesSearch;
   });
 
-  const handleCheckoutSubmit = (e) => {
-    e.preventDefault();
-    setCheckoutStep('SUCCESS');
-  };
+
 
   return (
     <div className="app-container">
@@ -194,18 +182,11 @@ function App() {
       
       <CartDrawer />
 
-      
       <CheckoutModal
-        isCheckoutOpen={isCheckoutOpen}
-        setIsCheckoutOpen={setIsCheckoutOpen}
-        checkoutStep={checkoutStep}
-        setCheckoutStep={setCheckoutStep}
-        customerForm={customerForm}
-        setCustomerForm={setCustomerForm}
-        handleCheckoutSubmit={handleCheckoutSubmit}
         formatPrice={formatPrice}
         cartSubtotal={cartSubtotal()}
         cart={cart}
+        setCart={clearCart}
       />
     </div>
   );

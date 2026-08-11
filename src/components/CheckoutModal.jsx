@@ -1,18 +1,35 @@
 import { motion } from 'framer-motion';
+import { useCartStore } from '../store/cartStore';
+import { checkoutAction } from '../../app/actions/paystack';
+import { useState } from 'react';
+import toast from 'react-hot-toast';
 
-export function CheckoutModal({
-  isCheckoutOpen,
-  setIsCheckoutOpen,
-  checkoutStep,
-  setCheckoutStep,
-  customerForm,
-  setCustomerForm,
-  handleCheckoutSubmit,
-  formatPrice,
-  cartSubtotal,
-  cart,
-  setCart
-}) {
+export function CheckoutModal({ formatPrice, cartSubtotal, cart, setCart }) {
+  const { 
+    isCheckoutOpen, setIsCheckoutOpen, 
+    checkoutStep, setCheckoutStep, 
+    customerForm, setCustomerForm 
+  } = useCartStore();
+
+  const [loading, setLoading] = useState(false);
+
+  const handleCheckoutSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const result = await checkoutAction(cart, customerForm);
+      if (result.url) {
+        window.location.href = result.url;
+      } else {
+        toast.error('Failed to initiate checkout.');
+      }
+    } catch (error) {
+      toast.error('Error starting checkout: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isCheckoutOpen) return null;
   return (
     <>
@@ -120,8 +137,8 @@ export function CheckoutModal({
                     </div>
                   </div>
 
-                  <button className="w-full bg-foreground text-background font-sans text-xs uppercase tracking-[0.2em] py-4 mt-4 border border-foreground hover:bg-transparent hover:text-foreground transition-all duration-[700ms]" type="submit">
-                    Confirm & Place Order ({formatPrice(cartSubtotal + (cartSubtotal >= 70000 ? 0 : 2500))})
+                  <button disabled={loading} className="w-full bg-foreground text-background font-sans text-xs uppercase tracking-[0.2em] py-4 mt-4 border border-foreground hover:bg-transparent hover:text-foreground transition-all duration-[700ms] disabled:opacity-50" type="submit">
+                    {loading ? 'Processing...' : `Confirm & Place Order (${formatPrice(cartSubtotal + (cartSubtotal >= 70000 ? 0 : 2500))})`}
                   </button>
                 </form>
               </>

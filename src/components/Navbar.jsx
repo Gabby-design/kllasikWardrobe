@@ -1,12 +1,14 @@
 "use client";
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { KlasikLogo } from './KlasikLogo';
 import { useCartStore } from '../store/cartStore';
-import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 export function Navbar({ searchQuery, setSearchQuery, setIsSizeGuideOpen }) {
   const { cartItemCount, setIsCartOpen } = useCartStore();
   const [mounted, setMounted] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     setMounted(true);
@@ -43,6 +45,7 @@ export function Navbar({ searchQuery, setSearchQuery, setIsSizeGuideOpen }) {
             <Link href="/catalog" className="text-xs uppercase tracking-[0.15em] font-medium hover:opacity-70 transition-opacity">
               Catalog
             </Link>
+
             <button className="text-xs uppercase tracking-[0.15em] font-medium hover:opacity-70 transition-opacity" onClick={() => setIsSizeGuideOpen && setIsSizeGuideOpen(true)}>
               Size Guide
             </button>

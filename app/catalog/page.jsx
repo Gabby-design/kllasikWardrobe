@@ -52,25 +52,15 @@ function CatalogPage() {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   
-  const { addToCart, setIsCartOpen, cart, cartSubtotal } = useCartStore();
+  const { addToCart, setIsCartOpen, cart, cartSubtotal, clearCart } = useCartStore();
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const [quickViewSize, setQuickViewSize] = useState('L');
   const [quickViewColor, setQuickViewColor] = useState('');
   const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false);
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState('FORM');
   const [selectedCardSizes, setSelectedCardSizes] = useState({});
   const [selectedCardColors, setSelectedCardColors] = useState({});
   const [cardActiveImages, setCardActiveImages] = useState({});
   const [quickViewActiveImg, setQuickViewActiveImg] = useState(null);
-  const [customerForm, setCustomerForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: 'Lagos',
-    paymentMethod: 'PAY_ON_DELIVERY',
-  });
 
   const getSelectedSize = (productId) => selectedCardSizes[productId] || 'L';
 
@@ -113,16 +103,13 @@ function CatalogPage() {
     const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
     const matchesSearch =
       searchQuery.trim() === '' ||
-      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchQuery.toLowerCase());
+      (p.title && p.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return matchesPrice && matchesCategory && matchesSearch;
   });
 
-  const handleCheckoutSubmit = (e) => {
-    e.preventDefault();
-    setCheckoutStep('SUCCESS');
-  };
+
 
   return (
     <div className="app-container">
@@ -196,16 +183,10 @@ function CatalogPage() {
       <CartDrawer />
 
       <CheckoutModal
-        isCheckoutOpen={isCheckoutOpen}
-        setIsCheckoutOpen={setIsCheckoutOpen}
-        checkoutStep={checkoutStep}
-        setCheckoutStep={setCheckoutStep}
-        customerForm={customerForm}
-        setCustomerForm={setCustomerForm}
-        handleCheckoutSubmit={handleCheckoutSubmit}
         formatPrice={formatPrice}
         cartSubtotal={cartSubtotal()}
         cart={cart}
+        setCart={clearCart}
       />
     </div>
   );

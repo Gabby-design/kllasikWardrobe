@@ -6,8 +6,21 @@ export const useCartStore = create(
     (set, get) => ({
       cart: [],
       isCartOpen: false,
+      isCheckoutOpen: false,
+      checkoutStep: 'FORM',
+      customerForm: {
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: 'Lagos',
+        paymentMethod: 'PAY_ON_DELIVERY',
+      },
 
       setIsCartOpen: (isOpen) => set({ isCartOpen: isOpen }),
+      setIsCheckoutOpen: (isOpen) => set({ isCheckoutOpen: isOpen }),
+      setCheckoutStep: (step) => set({ checkoutStep: step }),
+      setCustomerForm: (form) => set({ customerForm: form }),
 
       addToCart: (product, size = 'L', color = null) => {
         const chosenColor = color || (product.colors && product.colors[0]?.name) || 'Standard';

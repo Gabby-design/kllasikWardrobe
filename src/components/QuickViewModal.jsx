@@ -99,13 +99,15 @@ export function QuickViewModal({
                 </div>
 
                 <button
-                  className="w-full bg-foreground text-background font-sans text-xs uppercase tracking-[0.2em] py-4 border border-foreground hover:bg-transparent hover:text-foreground transition-all duration-[700ms]"
+                  disabled={quickViewProduct.stock <= 0}
+                  className={`w-full bg-foreground text-background font-sans text-xs uppercase tracking-[0.2em] py-4 border border-foreground hover:bg-transparent hover:text-foreground transition-all duration-[700ms] ${quickViewProduct.stock <= 0 ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
                   onClick={() => {
+                    if (quickViewProduct.stock <= 0) return;
                     handleAddToCart(quickViewProduct, quickViewSize, quickViewColor);
                     setQuickViewProduct(null);
                   }}
                 >
-                  Add {quickViewSize} to Bag — {formatPrice(quickViewProduct.price)}
+                  {quickViewProduct.stock <= 0 ? 'Sold Out' : `Add ${quickViewSize} to Bag — ${formatPrice(quickViewProduct.price)}`}
                 </button>
               </div>
             </div>

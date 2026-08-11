@@ -1,17 +1,16 @@
 'use server';
 
-import { createClient } from '../../utils/supabase/server';
-
-export async function checkoutAction(cart) {
+export async function checkoutAction(cart, customerForm) {
   try {
     if (!cart || cart.length === 0) {
       throw new Error('Cart is empty');
     }
 
-    // 1. Get user email or fallback for guests
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    const email = user?.email || 'guest@klasic.com';
+    if (!customerForm || !customerForm.email) {
+      throw new Error('Customer information is missing');
+    }
+
+    const email = customerForm.email;
 
     // 2. Calculate amount in Kobo
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -22,6 +21,13 @@ export async function checkoutAction(cart) {
 
     // 3. Prepare Metadata
     const metadata = {
+      customerName: customerForm.name,
+      customerPhone: customerForm.phone,
+      shippingAddress: JSON.stringify({
+        address: customerForm.address,
+        city: customerForm.city,
+      }),
+      paymentMethod: customerForm.paymentMethod,
       cart: cart.map(item => ({
         id: item.id,
         title: item.title,

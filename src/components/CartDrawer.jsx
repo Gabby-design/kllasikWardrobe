@@ -12,20 +12,9 @@ export function CartDrawer() {
   const subtotal = cartSubtotal();
   const formatPrice = (amount) => `₦${amount.toLocaleString()}`;
 
-  const handleCheckout = async () => {
-    setLoading(true);
-    try {
-      const result = await checkoutAction(cart);
-      if (result.url) {
-        window.location.href = result.url;
-      } else {
-        toast.error('Failed to initiate checkout.');
-      }
-    } catch (error) {
-      toast.error('Error starting checkout: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
+  const handleCheckout = () => {
+    setIsCartOpen(false);
+    useCartStore.getState().setIsCheckoutOpen(true);
   };
 
   return (

@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 
-export function AvantGardeButton({ children, onClick, className = '' }) {
+export function AvantGardeButton({ children, onClick, className = '', disabled = false }) {
   return (
     <motion.button
-      onClick={onClick}
+      disabled={disabled}
+      onClick={disabled ? undefined : onClick}
       className={`relative overflow-hidden bg-transparent text-foreground border border-foreground font-sans text-xs uppercase tracking-[0.2em] px-6 py-3 transition-colors duration-300 group ${className}`}
       whileHover="hover"
       initial="initial"

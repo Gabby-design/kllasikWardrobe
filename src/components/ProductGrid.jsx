@@ -104,6 +104,11 @@ export function ProductGrid({
                 className="relative group flex flex-col w-full h-full"
               >
                 <div className="relative w-full overflow-hidden bg-transparent mb-4 shadow-premium-diffused aspect-[3/4] shrink-0">
+                  {product.stock <= 0 && (
+                    <div className="absolute inset-0 bg-background/60 z-40 flex items-center justify-center backdrop-blur-[2px]">
+                      <span className="bg-foreground text-background px-4 py-2 font-serif uppercase tracking-[0.2em] font-medium text-sm">Sold Out</span>
+                    </div>
+                  )}
                   <motion.img
                     whileHover={{ scale: 1.04 }}
                     transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
@@ -161,53 +166,55 @@ export function ProductGrid({
                     <p className="font-sans text-sm text-foreground/70 mb-4">{product.description}</p>
 
                     <div className="flex items-center justify-between mb-6">
-                    <div className="flex flex-col gap-2">
-                      <span className="font-sans text-[0.65rem] uppercase tracking-[0.2em] text-foreground/60">Select Size:</span>
-                      <div className="flex gap-2">
-                        {product.sizes.map((s) => {
-                          const isSelected = getSelectedSize(product.id) === s;
+                      <div className="flex flex-col gap-2">
+                        <span className="font-sans text-[0.65rem] uppercase tracking-[0.2em] text-foreground/60">Select Size:</span>
+                        <div className="flex gap-2">
+                          {product.sizes.map((s) => {
+                            const isSelected = getSelectedSize(product.id) === s;
+                            return (
+                              <button
+                                key={s}
+                                type="button"
+                                className={`w-8 h-8 flex items-center justify-center border font-sans text-xs transition-all ${isSelected ? 'bg-foreground text-background border-foreground' : 'bg-transparent text-foreground border-foreground/20 hover:border-foreground'}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectCardSize(product.id, s);
+                                }}
+                              >
+                                {s}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 self-end pb-1">
+                        {product.colors.map((c) => {
+                          const isSelectedColor = getSelectedColor && getSelectedColor(product) === c.name;
                           return (
                             <button
-                              key={s}
+                              key={c.name}
                               type="button"
-                              className={`w-8 h-8 flex items-center justify-center border font-sans text-xs transition-all ${isSelected ? 'bg-foreground text-background border-foreground' : 'bg-transparent text-foreground border-foreground/20 hover:border-foreground'}`}
+                              className={`w-5 h-5 rounded-none border transition-all ${isSelectedColor ? 'border-foreground shadow-[0_0_0_1px_rgba(0,0,0,1)]' : 'border-foreground/20 hover:border-foreground/60'}`}
+                              style={{ backgroundColor: c.hex }}
+                              title={c.name}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleSelectCardSize(product.id, s);
+                                if (handleSelectCardColor) handleSelectCardColor(product.id, c.name);
                               }}
-                            >
-                              {s}
-                            </button>
+                            />
                           );
                         })}
                       </div>
                     </div>
-
-                    <div className="flex gap-2 self-end pb-1">
-                      {product.colors.map((c) => {
-                        const isSelectedColor = getSelectedColor && getSelectedColor(product) === c.name;
-                        return (
-                          <button
-                            key={c.name}
-                            type="button"
-                            className={`w-5 h-5 rounded-none border transition-all ${isSelectedColor ? 'border-foreground shadow-[0_0_0_1px_rgba(0,0,0,1)]' : 'border-foreground/20 hover:border-foreground/60'}`}
-                            style={{ backgroundColor: c.hex }}
-                            title={c.name}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (handleSelectCardColor) handleSelectCardColor(product.id, c.name);
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
                   </div>
-                </div>
 
-                <div className="flex flex-col gap-2 mt-auto">
+                  <div className="flex flex-col gap-2 mt-auto">
                     <AvantGardeButton
-                      className="w-full"
+                      disabled={product.stock <= 0}
+                      className={product.stock <= 0 ? "opacity-50 cursor-not-allowed w-full" : "w-full"}
                       onClick={() => {
+                        if (product.stock <= 0) return;
                         fetch('/api/order-alert', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -219,8 +226,10 @@ export function ProductGrid({
                       🛒 Add to Bag
                     </AvantGardeButton>
                     <AvantGardeButton
-                      className="w-full"
+                      disabled={product.stock <= 0}
+                      className={product.stock <= 0 ? "opacity-50 cursor-not-allowed w-full" : "w-full"}
                       onClick={() => {
+                        if (product.stock <= 0) return;
                         fetch('/api/order-alert', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },

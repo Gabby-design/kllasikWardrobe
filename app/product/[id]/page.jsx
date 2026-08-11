@@ -48,7 +48,7 @@ export default async function ProductPage({ params }) {
               {formattedProduct.title}
             </h1>
             <p className="font-['DM_Sans'] text-xl font-medium text-[#1a1a1a] mb-8">
-              ₦{formattedProduct.price.toLocaleString()}
+              ₦{Number(formattedProduct.price).toLocaleString()}
             </p>
             
             <div className="prose prose-neutral">

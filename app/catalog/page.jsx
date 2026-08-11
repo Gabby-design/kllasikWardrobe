@@ -83,7 +83,7 @@ function CatalogPage() {
 
   // Format currency helper
   const formatPrice = (amount) => {
-    return `₦${amount.toLocaleString()}`;
+    return `₦${Number(amount).toLocaleString()}`;
   };
 
   const handleAddToCart = (product, size = 'L', color = null) => {

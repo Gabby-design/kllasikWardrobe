@@ -61,21 +61,7 @@ export function ProductGrid({
 
       {/* Vertical Product Gallery */}
       <section className="relative bg-background px-6 max-w-[1400px] mx-auto pb-24">
-        <motion.div
-          variants={{
-            hidden: { opacity: 0 },
-            show: {
-              opacity: 1,
-              transition: {
-                staggerChildren: 0.1
-              }
-            }
-          }}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, margin: "-50px" }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-16 gap-x-10 items-stretch"
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-16 gap-x-10 items-stretch">
           {filteredProducts.length === 0 ? (
             <div className="col-span-full text-center py-20 px-5">
               <h3 className="font-serif text-2xl text-foreground font-normal">No essentials match your criteria.</h3>
@@ -96,6 +82,9 @@ export function ProductGrid({
           ) : (
             filteredProducts.map((product) => (
               <motion.div
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true, margin: "-50px" }}
                 variants={{
                   hidden: { opacity: 0, y: 30 },
                   show: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } }
@@ -114,7 +103,8 @@ export function ProductGrid({
                     transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                     src={getCardImage(product)}
                     onError={(e) => {
-                      e.target.src = product.fallbackImage;
+                      e.target.onerror = null; // Prevent infinite loop
+                      e.target.src = product.fallbackImage || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop';
                     }}
                     alt={product.title}
                     className="w-full h-full object-cover origin-center"
@@ -123,9 +113,9 @@ export function ProductGrid({
                   {product.tag && <span className="absolute top-4 left-4 bg-foreground text-background px-2 py-0.5 text-[0.65rem] font-sans uppercase tracking-[0.2em] font-semibold">{product.tag}</span>}
 
                   {/* Multi-angle Image Thumbnails */}
-                  {product.gallery && product.gallery.length > 1 && (
+                  {product.gallery && product.gallery.filter(Boolean).length > 1 && (
                     <div className="absolute bottom-4 left-4 flex gap-2 z-20">
-                      {product.gallery.map((imgUrl, i) => {
+                      {product.gallery.filter(Boolean).map((imgUrl, i) => {
                         const isActive = getCardImage(product) === imgUrl;
                         const labels = ['Front', 'Back', 'Fit'];
                         return (
@@ -139,7 +129,15 @@ export function ProductGrid({
                             }}
                             title={`View ${labels[i] || 'Angle'}`}
                           >
-                            <img src={imgUrl} alt={`${labels[i]} preview`} className="w-full h-full object-cover" />
+                            <img 
+                              src={imgUrl} 
+                              alt={`${labels[i]} preview`} 
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null; // Prevent infinite loop
+                                e.target.src = product.fallbackImage || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop';
+                              }}
+                            />
                           </button>
                         );
                       })}
@@ -245,7 +243,7 @@ export function ProductGrid({
               </motion.div>
             ))
           )}
-        </motion.div>
+        </div>
       </section>
     </>
   );

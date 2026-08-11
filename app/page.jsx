@@ -38,6 +38,7 @@ function App() {
       if (data && data.length > 0) {
         const formattedProducts = data.map(p => ({
           id: p.id,
+          name: p.name,
           title: p.name,
           price: p.price,
           description: p.description,
@@ -110,6 +111,7 @@ function App() {
     const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
     const matchesSearch =
       searchQuery.trim() === '' ||
+      (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (p.title && p.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
 

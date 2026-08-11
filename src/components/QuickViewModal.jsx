@@ -40,7 +40,7 @@ export function QuickViewModal({
                 />
                 {quickViewProduct.gallery && (
                   <div className="flex gap-2 mt-8 justify-center">
-                    {quickViewProduct.gallery.map((imgUrl, idx) => {
+                    {quickViewProduct.gallery.filter(Boolean).map((imgUrl, idx) => {
                       const isCurrent = (quickViewActiveImg || quickViewProduct.image) === imgUrl;
                       return (
                         <img
@@ -49,6 +49,10 @@ export function QuickViewModal({
                           alt={`Angle ${idx + 1}`}
                           className={`w-14 h-14 object-cover cursor-pointer transition-all ${isCurrent ? 'border border-foreground opacity-100' : 'border border-foreground/20 opacity-60 hover:opacity-100'}`}
                           onClick={() => setQuickViewActiveImg(imgUrl)}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = quickViewProduct.fallbackImage || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop';
+                          }}
                         />
                       );
                     })}

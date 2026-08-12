@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { KlasikLogo } from './KlasikLogo';
-import { useCartStore } from '../store/cartStore';
+import { useCartStore } from '../../store/cartStore';
 import { usePathname } from 'next/navigation';
 
 export function Navbar({ searchQuery, setSearchQuery, setIsSizeGuideOpen }) {

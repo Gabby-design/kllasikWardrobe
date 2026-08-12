@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '../../../../utils/supabase/admin';
-import { sendBuyerReceipt, sendOwnerNotification } from '../../../../lib/brevo';
+import { createAdminClient } from '../../../../backend/lib/supabase';
+import { sendBuyerReceipt, sendOwnerNotification } from '../../../../backend/services/brevo';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);

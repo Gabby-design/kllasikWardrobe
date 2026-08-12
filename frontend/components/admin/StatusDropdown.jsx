@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { updateDeliveryStatus } from '../../../app/actions/admin'
+import { updateDeliveryStatus } from '../../../backend/actions/admin'
 import { toast } from 'react-hot-toast'
 import { Loader2 } from 'lucide-react'
 

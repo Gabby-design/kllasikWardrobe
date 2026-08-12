@@ -1,7 +1,7 @@
-import { createAdminClient } from '../../utils/supabase/admin'
-import { StatusDropdown } from '../../src/components/admin/StatusDropdown'
-import { cookies } from 'next/headers'
-import { verifyAdminPassword, logoutAdmin } from '../actions/adminAuth'
+import { getOrders } from '../../backend/services/orders';
+import { StatusDropdown } from '../../frontend/components/admin/StatusDropdown';
+import { cookies } from 'next/headers';
+import { verifyAdminPassword, logoutAdmin } from '../../backend/actions/adminAuth';
 
 export const dynamic = 'force-dynamic'
 
@@ -42,15 +42,7 @@ export default async function AdminPage() {
     );
   }
 
-  const adminAuth = createAdminClient()
-  const { data: orders, error } = await adminAuth
-    .from('orders')
-    .select('*')
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error('Failed to fetch orders:', error)
-  }
+  const orders = await getOrders();
 
   return (
     <div className="min-h-screen bg-[#f8f8f8] pt-32 pb-24 px-6 md:px-12">

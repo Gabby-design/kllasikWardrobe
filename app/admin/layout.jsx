@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '../../utils/supabase/server'
+import { createClient } from '../../backend/lib/supabase'
 
 export default async function AdminLayout({ children }) {
   const supabase = await createClient()

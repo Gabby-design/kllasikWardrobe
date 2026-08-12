@@ -1,56 +1,36 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createClient } from '../utils/supabase/client';
-import { useCartStore } from '../src/store/cartStore';
+import { getLatestProducts } from '../backend/services/products';
+import { formatPrice } from '../frontend/lib/utils';
+import { useCartStore } from '../store/cartStore';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { PRODUCTS } from '../src/data/catalog';
-import { ShopTheLook } from '../src/components/ShopTheLook';
-import { QuickViewModal } from '../src/components/QuickViewModal';
-import { SizeGuideModal } from '../src/components/SizeGuideModal';
-import { CartDrawer } from '../src/components/CartDrawer';
-import { CheckoutModal } from '../src/components/CheckoutModal';
+import { PRODUCTS } from '../data/catalog';
+import { ShopTheLook } from '../frontend/components/ShopTheLook';
+import { QuickViewModal } from '../frontend/components/QuickViewModal';
+import { SizeGuideModal } from '../frontend/components/SizeGuideModal';
+import { CartDrawer } from '../frontend/components/CartDrawer';
+import { CheckoutModal } from '../frontend/components/CheckoutModal';
 
-import { Navbar } from '../src/components/Navbar';
-import { Hero } from '../src/components/Hero';
-import { ProductGrid } from '../src/components/ProductGrid';
-import { AvantGardeButton } from '../src/components/Button';
+import { Navbar } from '../frontend/components/Navbar';
+import { Hero } from '../frontend/components/Hero';
+import { ProductGrid } from '../frontend/components/ProductGrid';
+import { AvantGardeButton } from '../frontend/components/Button';
 import Link from 'next/link';
 
 
 function App() {
-  const supabase = createClient();
+  // const supabase = createClient();
   const [dbProducts, setDbProducts] = useState(PRODUCTS.slice(0, 4));
 
   useEffect(() => {
     async function fetchProducts() {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(4);
-      
-      if (error) {
-        console.warn('Supabase fetch products error (ignoring if tables not created):', error.message);
-      }
+      const data = await getLatestProducts(4);
+      const error = null;
       
       if (data && data.length > 0) {
-        const formattedProducts = data.map(p => ({
-          id: p.id,
-          name: p.name,
-          title: p.name,
-          price: p.price,
-          description: p.description,
-          stock: p.stock !== undefined ? p.stock : 10,
-          image: p.image_url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
-          fallbackImage: p.image_url,
-          gallery: [p.image_url],
-          category: 'Essential',
-          sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-          colors: [{ name: 'Standard', hex: '#1a1a1a' }]
-        }));
-        setDbProducts([...formattedProducts, ...PRODUCTS].slice(0, 4));
+        setDbProducts([...data, ...PRODUCTS].slice(0, 4));
       }
     }
     fetchProducts();
@@ -88,10 +68,7 @@ function App() {
     setCardActiveImages((prev) => ({ ...prev, [productId]: imgUrl }));
   };
 
-  // Format currency helper
-  const formatPrice = (amount) => {
-    return `₦${Number(amount).toLocaleString()}`;
-  };
+  // Format currency helper imported from utils
 
   const handleAddToCart = (product, size = 'L', color = null) => {
     addToCart(product, size, color);

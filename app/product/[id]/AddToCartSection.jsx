@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useCartStore } from '../../../src/store/cartStore';
+import { useCartStore } from '../../../store/cartStore';
 import toast from 'react-hot-toast';
 
 export default function AddToCartSection({ product }) {

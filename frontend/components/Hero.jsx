@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
-import heroTshirt from '../assets/hero-tshirt-blank.png';
+import heroTshirt from '../../public/assets/hero-tshirt-blank.png';
 
 export function Hero() {
   const heroRef = useRef(null);

@@ -1,8 +1,8 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createAdminClient } from '../../utils/supabase/admin'
-import { createClient } from '../../utils/supabase/server'
+import { createClient } from '../lib/supabase'
+import { updateOrderDeliveryStatus } from '../services/orders'
 
 export async function updateDeliveryStatus(orderId, newStatus) {
   try {
@@ -13,22 +13,15 @@ export async function updateDeliveryStatus(orderId, newStatus) {
       return { error: 'Unauthorized' }
     }
 
-    const adminAuth = createAdminClient()
-    const { data: orderData, error } = await adminAuth
-      .from('orders')
-      .update({ delivery_status: newStatus })
-      .eq('id', orderId)
-      .select()
-      .single()
+    const orderData = await updateOrderDeliveryStatus(orderId, newStatus);
       
-    if (error) {
-      console.error('Update status error:', error)
+    if (!orderData) {
       return { error: 'Failed to update delivery status' }
     }
 
     if (newStatus === 'Shipped' && orderData) {
       // Send email asynchronously so it doesn't block the UI
-      import('../../lib/brevo').then(({ sendShippingNotification }) => {
+      import('../services/brevo').then(({ sendShippingNotification }) => {
         const parsedAddress = typeof orderData.shipping_address === 'string' 
           ? JSON.parse(orderData.shipping_address) 
           : orderData.shipping_address;

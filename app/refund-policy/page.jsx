@@ -1,4 +1,4 @@
-import { Navbar } from '../../src/components/Navbar';
+import { Navbar } from '../../frontend/components/Navbar';
 
 export const metadata = {
   title: 'Refund Policy | Klasik Wardrobe',

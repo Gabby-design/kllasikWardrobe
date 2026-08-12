@@ -1,4 +1,4 @@
-import '../src/index.css';
+import './globals.css';
 import { ToastProvider } from './ToastProvider';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 
@@ -7,7 +7,7 @@ export const metadata = {
   description: "Klasik Wardrobe is Nigeria's premier luxury streetwear brand, offering premium 240-300 GSM organic cotton and silk-blend heavyweight t-shirts.",
 }
 
-import { Footer } from '../src/components/Footer';
+import { Footer } from '../frontend/components/Footer';
 
 import { Analytics } from '@vercel/analytics/react';
 

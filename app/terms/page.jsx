@@ -1,4 +1,4 @@
-import { Navbar } from '../../src/components/Navbar';
+import { Navbar } from '../../frontend/components/Navbar';
 
 export const metadata = {
   title: 'Terms of Service | Klasik Wardrobe',

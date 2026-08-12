@@ -1,31 +1,17 @@
-import { createClient } from '../../../utils/supabase/server';
+import { getProductById } from '../../../backend/services/products';
 import { notFound } from 'next/navigation';
 import AddToCartSection from './AddToCartSection';
-import { Navbar } from '../../../src/components/Navbar';
-import { CartDrawer } from '../../../src/components/CartDrawer';
+import { Navbar } from '../../../frontend/components/Navbar';
+import { CartDrawer } from '../../../frontend/components/CartDrawer';
 
 export default async function ProductPage({ params }) {
   const { id } = await params;
-  const supabase = await createClient();
+  
+  const formattedProduct = await getProductById(id);
 
-  const { data: product, error } = await supabase
-    .from('products')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error || !product) {
+  if (!formattedProduct) {
     notFound();
   }
-
-  const formattedProduct = {
-    id: product.id,
-    title: product.name,
-    price: product.price,
-    description: product.description,
-    image: product.image_url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
-    colors: [{ name: 'Standard', hex: '#1a1a1a' }]
-  };
 
   return (
     <div className="min-h-screen bg-[#f8f8f8] flex flex-col">

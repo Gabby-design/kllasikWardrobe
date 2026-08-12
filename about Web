@@ -1,0 +1,46 @@
+Listed directory klasic
+Viewed package.json:1-38
+Viewed README.md:1-4
+Viewed database_setup.sql:1-75
+Listed directory app
+Listed directory src
+
+Based on the codebase, here is a complete breakdown of your project, **Klassic Wardrobe**. It is a modern, full-stack e-commerce storefront for selling premium luxury heavyweight t-shirts. 
+
+Although the README mentions "React + Vite", the project is actually built on a powerful **Next.js** foundation using the latest App Router architecture. 
+
+Here is everything you need to know about the frontend and the backend:
+
+### 🎨 The Frontend (User Interface & Experience)
+Your frontend is built for high performance, dynamic routing, and smooth user experiences.
+* **Framework:** **Next.js (App Router)**. Your routes are located in the `app/` folder, which handles server-side rendering and static generation out of the box.
+* **Styling:** **Tailwind CSS**. It provides utility-first CSS for rapid UI development, configured via `tailwind.config.js`.
+* **State Management:** **Zustand**. A lightweight state management library, with the global store located in `src/store/`. This is likely used for managing the shopping cart state.
+* **Animations & Icons:** Smooth interactions and transitions are powered by **Framer Motion**, and UI icons are provided by **Lucide React**.
+* **Forms & Feedback:** You are using **React Hook Form** for efficient, uncontrolled form validation (likely for checkout or admin forms), and **React Hot Toast** for sleek pop-up notifications (configured via `ToastProvider.jsx`).
+* **Pages Structure (`app/` directory):**
+  * `/catalog`: The main store listing all products.
+  * `/product`: Individual product detail pages.
+  * `/admin`: An admin dashboard to manage inventory.
+  * `/success`: The success page shown after a completed payment.
+  * *Legal Pages*: Dedicated routes for `/terms`, `/privacy-policy`, and `/refund-policy`.
+
+### ⚙️ The Backend (Database, Auth, & Integrations)
+Instead of a traditional monolithic backend, this project leverages a modern "Backend-as-a-Service" (BaaS) architecture using Next.js API Routes and Server Actions (`app/actions/` and `app/api/`) alongside powerful third-party services.
+
+* **Database & Authentication:** **Supabase** (PostgreSQL). 
+  * The schema (`database_setup.sql`) defines two main tables: `products` and `orders`. 
+  * **Row Level Security (RLS)** is strictly enforced: Anyone can view products, but only authenticated users (admins) can add or update them. Users can also securely view their own order history.
+  * Supabase is also handling **Authentication** (associating orders to users via `auth.uid()`).
+* **Storage:** Supabase Storage is configured with a `products` bucket to securely store and serve product images.
+* **Payments & Checkout:** **Stripe** is fully integrated. You are using the server-side `stripe` package to create checkout sessions and the client-side `@stripe/stripe-js` to handle secure card inputs.
+* **Email Service:** **Resend** is integrated to send transactional emails, which is perfect for sending order confirmations or receipts to customers.
+* **Analytics & Performance Tracking:** The app uses **Vercel Analytics** (`@vercel/analytics`) and **Speed Insights** (`@vercel/speed-insights`) to track visitor metrics and monitor page load performance directly in the Vercel dashboard.
+
+### 📁 Project Structure Highlights
+* `app/`: Next.js routes, pages, API endpoints, and server actions.
+* `src/`: Houses your reusable UI `components/`, Zustand `store/`, static `data/`, and `assets/`.
+* `lib/` & `utils/`: Likely contains your helper functions, Supabase client initialization, and Stripe configuration.
+* `database_setup.sql`: The raw SQL queries to set up the database, RLS policies, and storage buckets.
+
+It’s a very solid and scalable modern tech stack for an e-commerce platform! Let me know if you want to dive deeper into any specific feature, or if you need help modifying anything.

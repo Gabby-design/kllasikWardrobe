@@ -1,7 +1,7 @@
 "use client";
 import { motion, AnimatePresence } from 'framer-motion';
-import { useCartStore } from '../store/cartStore';
-import { checkoutAction } from '../../app/actions/paystack';
+import { useCartStore } from '../../store/cartStore';
+import { checkoutAction } from '../../backend/actions/paystack';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 

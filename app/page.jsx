@@ -10,8 +10,7 @@ import { ShopTheLook } from '../src/components/ShopTheLook';
 import { QuickViewModal } from '../src/components/QuickViewModal';
 import { SizeGuideModal } from '../src/components/SizeGuideModal';
 import { CartDrawer } from '../src/components/CartDrawer';
-import { CheckoutModal } from '../src/components/CheckoutModal';
-
+import { Footer } from '../src/components/Footer';
 import { Navbar } from '../src/components/Navbar';
 import { Hero } from '../src/components/Hero';
 import { ProductGrid } from '../src/components/ProductGrid';
@@ -183,13 +182,6 @@ function App() {
 
       
       <CartDrawer />
-
-      <CheckoutModal
-        formatPrice={formatPrice}
-        cartSubtotal={cartSubtotal()}
-        cart={cart}
-        setCart={clearCart}
-      />
     </div>
   );
 }

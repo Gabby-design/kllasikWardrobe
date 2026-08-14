@@ -20,9 +20,9 @@ export default function SuccessPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h1 className="font-serif text-3xl md:text-4xl font-bold mb-4 tracking-tight">Payment Successful</h1>
+        <h1 className="font-serif text-3xl md:text-4xl font-bold mb-4 tracking-tight">Order Received</h1>
         <p className="font-sans text-foreground/70 mb-8 leading-relaxed">
-          Thank you for your purchase. Your luxury pieces are being prepared and your receipt has been sent to your email.
+          Thank you for your order. We have received your request and it is currently pending transfer confirmation. Once confirmed, we will begin preparing your luxury pieces.
         </p>
         <Link 
           href="/catalog" 

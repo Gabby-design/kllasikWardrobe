@@ -1,5 +1,6 @@
 import { createAdminClient } from '../../utils/supabase/admin'
 import { StatusDropdown } from '../../src/components/admin/StatusDropdown'
+import { PaymentConfirmButton } from '../../src/components/admin/PaymentConfirmButton'
 import { cookies } from 'next/headers'
 import { verifyAdminPassword, logoutAdmin } from '../actions/adminAuth'
 
@@ -77,6 +78,7 @@ export default async function AdminPage() {
                   <th className="p-4 font-semibold whitespace-nowrap">Items</th>
                   <th className="p-4 font-semibold whitespace-nowrap">Total</th>
                   <th className="p-4 font-semibold whitespace-nowrap">Shipping</th>
+                  <th className="p-4 font-semibold whitespace-nowrap">Payment</th>
                   <th className="p-4 font-semibold whitespace-nowrap">Status</th>
                 </tr>
               </thead>
@@ -101,6 +103,16 @@ export default async function AdminPage() {
                       <td className="p-4 font-semibold whitespace-nowrap">₦{(order.total_amount || 0).toLocaleString()}</td>
                       <td className="p-4 text-neutral-500 text-xs max-w-[200px] truncate" title={addressString}>
                         {addressString}
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-2 py-1 text-xs uppercase tracking-wider font-semibold rounded-sm ${order.payment_status === 'Paid' || order.payment_status?.toLowerCase() === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                          {order.payment_status || 'Paid'}
+                        </span>
+                        {order.payment_status === 'Pending Transfer' && (
+                          <div className="mt-2">
+                            <PaymentConfirmButton orderId={order.id} />
+                          </div>
+                        )}
                       </td>
                       <td className="p-4">
                         <StatusDropdown orderId={order.id} initialStatus={order.delivery_status} />

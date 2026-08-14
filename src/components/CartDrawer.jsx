@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '../store/cartStore';
 import { checkoutAction } from '../../app/actions/paystack';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 export function CartDrawer() {
@@ -12,9 +13,11 @@ export function CartDrawer() {
   const subtotal = cartSubtotal();
   const formatPrice = (amount) => `₦${amount.toLocaleString()}`;
 
+  const router = useRouter();
+
   const handleCheckout = () => {
     setIsCartOpen(false);
-    useCartStore.getState().setIsCheckoutOpen(true);
+    router.push('/checkout');
   };
 
   return (

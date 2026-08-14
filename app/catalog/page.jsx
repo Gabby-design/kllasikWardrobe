@@ -1,35 +1,57 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { createClient } from '../../utils/supabase/client';
 import { useCartStore } from '../../src/store/cartStore';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { PRODUCTS } from '../../src/data/catalog';
 import { QuickViewModal } from '../../src/components/QuickViewModal';
 import { SizeGuideModal } from '../../src/components/SizeGuideModal';
 import { CartDrawer } from '../../src/components/CartDrawer';
-import { CheckoutModal } from '../../src/components/CheckoutModal';
 
 import { Navbar } from '../../src/components/Navbar';
 import { ProductGrid } from '../../src/components/ProductGrid';
+import { CategoryFilter } from '../../src/components/CategoryFilter';
 
-function CatalogPage() {
+function CatalogContent() {
   const supabase = createClient();
-  const [dbProducts, setDbProducts] = useState(PRODUCTS);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  
+  const pageParam = searchParams.get('page');
+  const currentPage = pageParam ? parseInt(pageParam, 10) : 1;
+  const itemsPerPage = 9;
+
+  const selectedCategory = searchParams.get('category') || 'ALL';
+
+  const [dbProducts, setDbProducts] = useState([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchProducts() {
-      const { data, error } = await supabase
+      setIsLoading(true);
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      let query = supabase
         .from('products')
-        .select('*')
+        .select('*', { count: 'exact' })
         .order('created_at', { ascending: false });
+        
+      if (selectedCategory !== 'ALL') {
+        query = query.eq('category', selectedCategory);
+      }
+
+      const { data, error, count } = await query.range(from, to);
       
       if (error) {
-        console.warn('Supabase fetch products error (ignoring if tables not created):', error.message);
+        console.warn('Supabase fetch products error:', error.message);
       }
       
-      if (data && data.length > 0) {
+      if (data) {
         const formattedProducts = data.map(p => ({
           id: p.id,
           name: p.name,
@@ -43,14 +65,18 @@ function CatalogPage() {
           sizes: ['S', 'M', 'L', 'XL', 'XXL'],
           colors: [{ name: 'Standard', hex: '#1a1a1a' }]
         }));
-        setDbProducts([...formattedProducts, ...PRODUCTS]);
+        setDbProducts(formattedProducts);
+        setTotalPages(count ? Math.ceil(count / itemsPerPage) : 1);
+      } else {
+        setDbProducts([]);
+        setTotalPages(1);
       }
+      setIsLoading(false);
     }
     fetchProducts();
-  }, []);
+  }, [currentPage, itemsPerPage, selectedCategory]);
 
   const [selectedPrice, setSelectedPrice] = useState('ALL');
-  const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   
   const { addToCart, setIsCartOpen, cart, cartSubtotal, clearCart } = useCartStore();
@@ -81,7 +107,6 @@ function CatalogPage() {
     setCardActiveImages((prev) => ({ ...prev, [productId]: imgUrl }));
   };
 
-  // Format currency helper
   const formatPrice = (amount) => {
     return `₦${Number(amount).toLocaleString()}`;
   };
@@ -98,7 +123,6 @@ function CatalogPage() {
     setIsCartOpen(true); 
   };
 
-  // Filtered Products
   const filteredProducts = dbProducts.filter((p) => {
     const matchesPrice = selectedPrice === 'ALL' || p.price === Number(selectedPrice);
     const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
@@ -111,19 +135,36 @@ function CatalogPage() {
     return matchesPrice && matchesCategory && matchesSearch;
   });
 
+  const handlePageChange = (newPage) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', newPage.toString());
+    router.push(`${pathname}?${params.toString()}`, { scroll: true });
+  };
 
+  const generatePagination = () => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 3) {
+      return [1, 2, 3, 4, '...', totalPages];
+    }
+    if (currentPage >= totalPages - 2) {
+      return [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+  };
+
+  const paginationItems = generatePagination();
 
   return (
-    <div className="app-container">
+    <>
       <Navbar 
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         setIsSizeGuideOpen={setIsSizeGuideOpen}
       />
 
-      <main className="w-full pt-32" id="catalog-page">
-        
-        {/* Catalog Header */}
+      <main className="w-full pt-40" id="catalog-page">
         <section className="max-w-[1400px] mx-auto px-6 mb-8 text-center">
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
@@ -143,26 +184,61 @@ function CatalogPage() {
           </motion.p>
         </section>
 
-        <ProductGrid
-          filteredProducts={filteredProducts}
-          selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
-          setSelectedPrice={setSelectedPrice}
-          setSearchQuery={setSearchQuery}
-          getCardImage={getCardImage}
-          formatPrice={formatPrice}
-          handleSelectCardImage={handleSelectCardImage}
-          setQuickViewProduct={setQuickViewProduct}
-          setQuickViewActiveImg={setQuickViewActiveImg}
-          setQuickViewSize={setQuickViewSize}
-          setQuickViewColor={setQuickViewColor}
-          getSelectedSize={getSelectedSize}
-          handleSelectCardSize={handleSelectCardSize}
-          getSelectedColor={getSelectedColor}
-          handleSelectCardColor={handleSelectCardColor}
-          handleAddToCart={handleAddToCart}
-          handleBuyNow={handleBuyNow}
-        />
+        <CategoryFilter />
+
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20 min-h-[50vh]">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        ) : (
+          <ProductGrid
+            filteredProducts={filteredProducts}
+            selectedCategory={selectedCategory}
+            setSelectedCategory={() => {}}
+            showCategoryFilter={false}
+            setSelectedPrice={setSelectedPrice}
+            setSearchQuery={setSearchQuery}
+            getCardImage={getCardImage}
+            formatPrice={formatPrice}
+            handleSelectCardImage={handleSelectCardImage}
+            setQuickViewProduct={setQuickViewProduct}
+            setQuickViewActiveImg={setQuickViewActiveImg}
+            setQuickViewSize={setQuickViewSize}
+            setQuickViewColor={setQuickViewColor}
+            getSelectedSize={getSelectedSize}
+            handleSelectCardSize={handleSelectCardSize}
+            getSelectedColor={getSelectedColor}
+            handleSelectCardColor={handleSelectCardColor}
+            handleAddToCart={handleAddToCart}
+            handleBuyNow={handleBuyNow}
+          />
+        )}
+
+        {/* Pagination UI */}
+        <section className="max-w-[1400px] mx-auto px-6 py-12 flex justify-center items-center">
+          <div className="flex items-center gap-3">
+            {paginationItems.map((item, index) => {
+              if (item === '...') {
+                return <span key={`ellipsis-${index}`} className="px-1 text-foreground/50">...</span>;
+              }
+              const isActive = item === currentPage;
+              return (
+                <button
+                  key={`page-${item}`}
+                  onClick={() => handlePageChange(item)}
+                  disabled={isLoading}
+                  className={`w-10 h-10 flex items-center justify-center rounded-full text-sm font-medium transition-colors duration-300 border ${
+                    isActive 
+                      ? 'bg-foreground text-background border-foreground' 
+                      : 'bg-transparent text-foreground border-border/50 hover:bg-foreground hover:text-background'
+                  }`}
+                >
+                  {item}
+                </button>
+              );
+            })}
+          </div>
+        </section>
       </main>
 
       <QuickViewModal
@@ -183,13 +259,20 @@ function CatalogPage() {
       />
 
       <CartDrawer />
+    </>
+  );
+}
 
-      <CheckoutModal
-        formatPrice={formatPrice}
-        cartSubtotal={cartSubtotal()}
-        cart={cart}
-        setCart={clearCart}
-      />
+function CatalogPage() {
+  return (
+    <div className="app-container">
+      <Suspense fallback={
+        <div className="flex justify-center items-center h-screen">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      }>
+        <CatalogContent />
+      </Suspense>
     </div>
   );
 }

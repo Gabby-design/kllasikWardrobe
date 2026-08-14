@@ -20,16 +20,18 @@ export function ProductGrid({
   getSelectedColor,
   handleSelectCardColor,
   handleAddToCart,
-  handleBuyNow
+  handleBuyNow,
+  showCategoryFilter = true
 }) {
   return (
     <>
       {/* Filter Bar */}
-      <section id="catalog" className="scroll-mt-[100px] max-w-[1400px] mx-auto px-6 pt-12">
-        <div className="flex justify-center mb-12 w-full">
+      {showCategoryFilter && (
+        <section id="catalog" className="scroll-mt-[100px] max-w-[1400px] mx-auto px-6 pt-12">
+          <div className="flex justify-center mb-12 w-full">
 
-          {/* Category Filter */}
-          <div className="flex flex-wrap justify-center items-center gap-6">
+            {/* Category Filter */}
+            <div className="flex flex-wrap justify-center items-center gap-6">
             <span className="font-serif text-sm tracking-[0.2em] uppercase text-foreground/50 mr-2">COLLECTION</span>
             <button
               className={`text-xs uppercase tracking-[0.1em] pb-1 border-b transition-all duration-300 ${selectedCategory === 'ALL' ? 'border-foreground text-foreground font-medium' : 'border-transparent text-foreground/70 hover:text-foreground'}`}
@@ -58,6 +60,7 @@ export function ProductGrid({
           </div>
         </div>
       </section>
+      )}
 
       {/* Vertical Product Gallery */}
       <section className="relative bg-background px-6 max-w-[1400px] mx-auto pb-24">

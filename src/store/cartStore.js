@@ -33,7 +33,7 @@ export const useCartStore = create(
           if (existingIndex > -1) {
             const updated = [...state.cart];
             updated[existingIndex].quantity += 1;
-            return { cart: updated, isCartOpen: true };
+            return { cart: updated };
           }
 
           return {
@@ -41,15 +41,14 @@ export const useCartStore = create(
               ...state.cart,
               {
                 id: product.id,
-                title: product.title,
+                title: product.title || product.name,
                 price: product.price,
                 size,
                 color: chosenColor,
-                image: product.image,
+                image: product.image || product.image_url,
                 quantity: 1,
               },
             ],
-            isCartOpen: true,
           };
         });
       },

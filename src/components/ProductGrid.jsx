@@ -98,6 +98,15 @@ export function ProductGrid({
               const currentSize = getSelectedSize(product.id);
               const currentColor = getSelectedColor ? getSelectedColor(product) : product.colors[0]?.name;
 
+              const handleOpenDetails = () => {
+                if (setQuickViewProduct) {
+                  setQuickViewProduct(product);
+                  setQuickViewActiveImg(currentImage || product.image);
+                  setQuickViewSize(currentSize);
+                  setQuickViewColor(currentColor || product.colors?.[0]?.name || '');
+                }
+              };
+
               return (
                 <motion.div
                   initial="hidden"
@@ -108,7 +117,9 @@ export function ProductGrid({
                     show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }
                   }}
                   key={product.id}
-                  className="group flex flex-col bg-white border border-foreground/10 shadow-sm hover:shadow-md transition-all duration-500 overflow-hidden"
+                  onClick={handleOpenDetails}
+                  className="group flex flex-col bg-white border border-foreground/10 shadow-sm hover:shadow-xl hover:border-foreground/30 transition-all duration-500 overflow-hidden cursor-pointer relative"
+                  title="Click anywhere to view full details"
                 >
                   
                   {/* Image Showcase Container */}
@@ -178,19 +189,11 @@ export function ProductGrid({
                     )}
 
                     {/* Quick View Button Hover Overlay */}
-                    <div className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-30">
-                      <button
-                        onClick={() => {
-                          setQuickViewProduct(product);
-                          setQuickViewActiveImg(product.image);
-                          setQuickViewSize(currentSize);
-                          setQuickViewColor(product.colors[0]?.name || '');
-                        }}
-                        className="bg-background text-foreground font-sans text-xs uppercase tracking-[0.2em] font-bold px-6 py-3 border border-foreground hover:bg-foreground hover:text-background transition-all duration-300 flex items-center gap-2 shadow-lg cursor-pointer"
-                      >
+                    <div className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-30 pointer-events-none">
+                      <div className="bg-background text-foreground font-sans text-xs uppercase tracking-[0.2em] font-bold px-6 py-3 border border-foreground flex items-center gap-2 shadow-lg">
                         <Eye className="w-4 h-4" />
                         <span>Specs & Gallery</span>
-                      </button>
+                      </div>
                     </div>
 
                   </div>
@@ -276,13 +279,15 @@ export function ProductGrid({
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="grid grid-cols-2 gap-2 mt-auto pt-2">
+                    <div className="grid grid-cols-2 gap-2.5 mt-auto pt-2">
                       <button
+                        type="button"
                         disabled={product.stock <= 0}
-                        className={`w-full bg-white text-foreground hover:bg-foreground hover:text-background border border-foreground font-sans text-[0.7rem] uppercase tracking-[0.18em] font-bold py-3 transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer ${
+                        className={`w-full bg-white text-foreground hover:bg-foreground hover:text-background active:scale-[0.98] border border-foreground font-sans text-[0.7rem] uppercase tracking-[0.18em] font-bold py-3.5 px-3 transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
                           product.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (product.stock <= 0) return;
                           handleAddToCart(product, currentSize, currentColor);
                         }}
@@ -292,11 +297,13 @@ export function ProductGrid({
                       </button>
 
                       <button
+                        type="button"
                         disabled={product.stock <= 0}
-                        className={`w-full bg-foreground text-background hover:bg-neutral-800 border border-foreground font-sans text-[0.7rem] uppercase tracking-[0.18em] font-bold py-3 transition-all duration-300 flex items-center justify-center gap-1.5 shadow-md cursor-pointer ${
+                        className={`w-full bg-foreground text-background hover:bg-neutral-800 active:scale-[0.98] border border-foreground font-sans text-[0.7rem] uppercase tracking-[0.18em] font-bold py-3.5 px-3 transition-all duration-300 flex items-center justify-center gap-1.5 shadow-md cursor-pointer ${
                           product.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (product.stock <= 0) return;
                           handleBuyNow(product);
                         }}

@@ -159,8 +159,9 @@ export function QuickViewModal({
 
             {/* CTA Button */}
             <button
+              type="button"
               disabled={quickViewProduct.stock <= 0}
-              className={`w-full bg-foreground text-background font-sans text-xs uppercase tracking-[0.2em] font-bold py-4.5 border border-foreground hover:bg-neutral-800 transition-all duration-300 flex items-center justify-center gap-2 shadow-lg cursor-pointer ${
+              className={`w-full bg-foreground text-background font-sans text-xs uppercase tracking-[0.2em] font-bold py-4 px-6 border border-foreground hover:bg-neutral-800 active:scale-[0.99] transition-all duration-300 flex items-center justify-center gap-2.5 shadow-xl cursor-pointer ${
                 quickViewProduct.stock <= 0 ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''
               }`}
               onClick={() => {

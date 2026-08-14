@@ -468,20 +468,20 @@ export default function CheckoutPage() {
                         </div>
                         
                         <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center border border-foreground/20">
+                          <div className="flex items-center border border-foreground/20 bg-white">
                             <button
                               type="button"
                               onClick={() => updateCartQty(idx, -1)}
-                              className="px-2 py-0.5 text-xs hover:bg-foreground/10 transition-colors text-foreground/70"
+                              className="w-7 h-7 flex items-center justify-center text-xs hover:bg-foreground/10 transition-colors text-foreground/70 cursor-pointer"
                               aria-label="Decrease quantity"
                             >
                               -
                             </button>
-                            <span className="px-2 text-xs font-bold font-sans">{item.quantity}</span>
+                            <span className="w-8 text-center text-xs font-bold font-sans">{item.quantity}</span>
                             <button
                               type="button"
                               onClick={() => updateCartQty(idx, 1)}
-                              className="px-2 py-0.5 text-xs hover:bg-foreground/10 transition-colors text-foreground/70"
+                              className="w-7 h-7 flex items-center justify-center text-xs hover:bg-foreground/10 transition-colors text-foreground/70 cursor-pointer"
                               aria-label="Increase quantity"
                             >
                               +
@@ -581,7 +581,7 @@ export default function CheckoutPage() {
                       <button
                         type="button"
                         onClick={handleCopyAccount}
-                        className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white font-sans text-xs font-semibold px-3.5 py-2 border border-white/20 transition-all cursor-pointer"
+                        className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 active:scale-95 text-white font-sans text-xs font-semibold px-4 py-2.5 border border-white/20 transition-all cursor-pointer shadow-sm"
                       >
                         {copied ? (
                           <>
@@ -603,7 +603,7 @@ export default function CheckoutPage() {
                     form="checkout-form"
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-[#F9F8F6] text-[#111111] hover:bg-white active:scale-[0.99] font-sans text-xs uppercase tracking-[0.2em] font-bold py-4 px-6 border border-white transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-3 shadow-lg cursor-pointer group"
+                    className="w-full bg-[#F9F8F6] text-[#111111] hover:bg-white active:scale-[0.99] font-sans text-xs uppercase tracking-[0.22em] font-bold py-5 px-6 border border-white transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-3 shadow-xl cursor-pointer group mt-2"
                   >
                     {loading ? (
                       <>

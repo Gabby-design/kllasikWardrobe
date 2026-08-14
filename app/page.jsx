@@ -42,11 +42,11 @@ function App() {
           image: p.image_url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
           fallbackImage: p.image_url,
           gallery: [p.image_url],
-          category: 'Essential',
+          category: p.category || 'Essential',
           sizes: ['S', 'M', 'L', 'XL', 'XXL'],
           colors: [{ name: 'Standard', hex: '#1a1a1a' }]
         }));
-        setDbProducts([...formattedProducts, ...PRODUCTS]);
+        setDbProducts(formattedProducts);
       }
     }
     fetchProducts();

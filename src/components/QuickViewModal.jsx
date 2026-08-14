@@ -46,10 +46,6 @@ export function QuickViewModal({
               <img
                 src={currentImage}
                 referrerPolicy="no-referrer"
-                crossOrigin="anonymous"
-                onError={(e) => {
-                  e.target.src = quickViewProduct.fallbackImage || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop';
-                }}
                 alt={quickViewProduct.title}
                 className="w-full h-full object-cover"
               />
@@ -81,12 +77,7 @@ export function QuickViewModal({
                         src={imgUrl}
                         alt={`Angle ${idx + 1}`}
                         referrerPolicy="no-referrer"
-                        crossOrigin="anonymous"
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = quickViewProduct.fallbackImage || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop';
-                        }}
                       />
                     </button>
                   );

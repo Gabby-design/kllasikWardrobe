@@ -443,7 +443,6 @@ export default function CheckoutPage() {
                             src={item.image} 
                             alt={item.title} 
                             referrerPolicy="no-referrer"
-                            crossOrigin="anonymous"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                           />
                         ) : (

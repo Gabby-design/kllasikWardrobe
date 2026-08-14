@@ -105,7 +105,6 @@ export function CartDrawer() {
                           src={item.image} 
                           alt={item.title} 
                           referrerPolicy="no-referrer"
-                          crossOrigin="anonymous"
                           className="w-full h-full object-cover" 
                         />
                       ) : (

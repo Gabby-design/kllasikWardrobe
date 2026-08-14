@@ -128,11 +128,6 @@ export function ProductGrid({
                       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                       src={currentImage}
                       referrerPolicy="no-referrer"
-                      crossOrigin="anonymous"
-                      onError={(e) => {
-                        e.target.onerror = null;
-                        e.target.src = product.fallbackImage || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop';
-                      }}
                       alt={product.title}
                       className="w-full h-full object-cover origin-center"
                     />
@@ -174,7 +169,6 @@ export function ProductGrid({
                                 src={imgUrl} 
                                 alt={`${labels[i]} preview`} 
                                 referrerPolicy="no-referrer"
-                                crossOrigin="anonymous"
                                 className="w-full h-full object-cover"
                               />
                             </button>

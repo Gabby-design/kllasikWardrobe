@@ -101,7 +101,13 @@ export function CartDrawer() {
                   <div key={`${item.id}-${item.size}-${item.color}`} className="py-4 flex gap-4">
                     <div className="w-20 h-24 flex-shrink-0 bg-foreground/5 border border-foreground/10 overflow-hidden">
                       {item.image ? (
-                        <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                        <img 
+                          src={item.image} 
+                          alt={item.title} 
+                          referrerPolicy="no-referrer"
+                          crossOrigin="anonymous"
+                          className="w-full h-full object-cover" 
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center font-serif text-xs opacity-40">
                           KLASIK

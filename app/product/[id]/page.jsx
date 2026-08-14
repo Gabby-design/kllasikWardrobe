@@ -76,6 +76,8 @@ export default async function ProductPage({ params }) {
               <img 
                 src={formattedProduct.image} 
                 alt={formattedProduct.title} 
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
 

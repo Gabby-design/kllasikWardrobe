@@ -45,6 +45,8 @@ export function QuickViewModal({
             <div className="relative w-full max-w-sm aspect-[3/4] overflow-hidden bg-white shadow-sm border border-foreground/10">
               <img
                 src={currentImage}
+                referrerPolicy="no-referrer"
+                crossOrigin="anonymous"
                 onError={(e) => {
                   e.target.src = quickViewProduct.fallbackImage || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop';
                 }}
@@ -78,6 +80,8 @@ export function QuickViewModal({
                       <img
                         src={imgUrl}
                         alt={`Angle ${idx + 1}`}
+                        referrerPolicy="no-referrer"
+                        crossOrigin="anonymous"
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.target.onerror = null;

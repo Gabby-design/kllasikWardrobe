@@ -3,13 +3,56 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+    color-scheme: light;
+  }
+  
   body {
-    @apply bg-background text-foreground font-sans antialiased m-0 p-0 overflow-x-hidden;
+    @apply bg-background text-foreground font-sans antialiased m-0 p-0 overflow-x-hidden selection:bg-foreground selection:text-background;
+  }
+
+  ::selection {
+    background-color: #121212;
+    color: #F9F8F6;
   }
 }
 
 @layer utilities {
   .avant-garde-btn {
-    @apply inline-block px-8 py-4 bg-transparent text-foreground font-sans uppercase tracking-[0.15em] font-semibold text-sm border border-foreground rounded-none cursor-pointer text-center transition-colors duration-700 ease-avant-garde hover:bg-foreground hover:text-background;
+    @apply relative inline-block px-8 py-4 bg-transparent text-foreground font-sans uppercase tracking-[0.2em] font-semibold text-xs border border-foreground rounded-none cursor-pointer text-center transition-all duration-500 ease-avant-garde hover:bg-foreground hover:text-background hover:shadow-lg active:scale-[0.99];
+  }
+
+  .avant-garde-btn-dark {
+    @apply relative inline-block px-8 py-4 bg-foreground text-background font-sans uppercase tracking-[0.2em] font-semibold text-xs border border-foreground rounded-none cursor-pointer text-center transition-all duration-500 ease-avant-garde hover:bg-neutral-800 hover:shadow-xl active:scale-[0.99];
+  }
+
+  .glass-card {
+    @apply bg-background/80 backdrop-blur-md border border-foreground/10;
+  }
+
+  .glass-card-dark {
+    @apply bg-[#111111]/90 backdrop-blur-md border border-white/10 text-white;
+  }
+
+  .luxury-border-glow {
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 20px 40px -15px rgba(0, 0, 0, 0.05);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.03);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.4);
   }
 }

@@ -6,13 +6,15 @@ import { createClient } from '../../utils/supabase/client';
 import { useCartStore } from '../../src/store/cartStore';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { PRODUCTS } from '../../src/data/catalog';
 import { QuickViewModal } from '../../src/components/QuickViewModal';
 import { SizeGuideModal } from '../../src/components/SizeGuideModal';
 import { CartDrawer } from '../../src/components/CartDrawer';
-
 import { Navbar } from '../../src/components/Navbar';
 import { ProductGrid } from '../../src/components/ProductGrid';
 import { CategoryFilter } from '../../src/components/CategoryFilter';
+import { Sparkles, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 function CatalogContent() {
   const supabase = createClient();
@@ -26,52 +28,61 @@ function CatalogContent() {
 
   const selectedCategory = searchParams.get('category') || 'ALL';
 
-  const [dbProducts, setDbProducts] = useState([]);
+  const [dbProducts, setDbProducts] = useState(PRODUCTS);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function fetchProducts() {
       setIsLoading(true);
-      const from = (currentPage - 1) * itemsPerPage;
-      const to = from + itemsPerPage - 1;
+      try {
+        const from = (currentPage - 1) * itemsPerPage;
+        const to = from + itemsPerPage - 1;
 
-      let query = supabase
-        .from('products')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false });
+        let query = supabase
+          .from('products')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false });
+          
+        if (selectedCategory !== 'ALL' && selectedCategory !== 'All') {
+          query = query.eq('category', selectedCategory);
+        }
+
+        const { data, error, count } = await query.range(from, to);
         
-      if (selectedCategory !== 'ALL') {
-        query = query.eq('category', selectedCategory);
+        if (data && data.length > 0) {
+          const formattedProducts = data.map(p => ({
+            id: p.id,
+            name: p.name,
+            title: p.name,
+            price: p.price,
+            description: p.description,
+            image: p.image_url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
+            fallbackImage: p.image_url,
+            gallery: [p.image_url],
+            category: p.category || 'Essential',
+            gsm: p.gsm || '240 GSM',
+            material: p.material || '100% Combed Cotton',
+            fit: p.fit || 'Drop Shoulder',
+            sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+            colors: [{ name: 'Standard', hex: '#1a1a1a' }]
+          }));
+          setDbProducts(formattedProducts);
+          setTotalPages(count ? Math.ceil(count / itemsPerPage) : 1);
+        } else {
+          // Fallback to rich catalog data
+          let filteredStatic = PRODUCTS;
+          if (selectedCategory !== 'ALL' && selectedCategory !== 'All') {
+            filteredStatic = PRODUCTS.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
+          }
+          setDbProducts(filteredStatic);
+          setTotalPages(Math.max(1, Math.ceil(filteredStatic.length / itemsPerPage)));
+        }
+      } catch (err) {
+        setDbProducts(PRODUCTS);
+      } finally {
+        setIsLoading(false);
       }
-
-      const { data, error, count } = await query.range(from, to);
-      
-      if (error) {
-        console.warn('Supabase fetch products error:', error.message);
-      }
-      
-      if (data) {
-        const formattedProducts = data.map(p => ({
-          id: p.id,
-          name: p.name,
-          title: p.name,
-          price: p.price,
-          description: p.description,
-          image: p.image_url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
-          fallbackImage: p.image_url,
-          gallery: [p.image_url],
-          category: 'Essential',
-          sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-          colors: [{ name: 'Standard', hex: '#1a1a1a' }]
-        }));
-        setDbProducts(formattedProducts);
-        setTotalPages(count ? Math.ceil(count / itemsPerPage) : 1);
-      } else {
-        setDbProducts([]);
-        setTotalPages(1);
-      }
-      setIsLoading(false);
     }
     fetchProducts();
   }, [currentPage, itemsPerPage, selectedCategory]);
@@ -79,7 +90,7 @@ function CatalogContent() {
   const [selectedPrice, setSelectedPrice] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   
-  const { addToCart, setIsCartOpen, cart, cartSubtotal, clearCart } = useCartStore();
+  const { addToCart, setIsCartOpen } = useCartStore();
   const [quickViewProduct, setQuickViewProduct] = useState(null);
   const [quickViewSize, setQuickViewSize] = useState('L');
   const [quickViewColor, setQuickViewColor] = useState('');
@@ -107,9 +118,7 @@ function CatalogContent() {
     setCardActiveImages((prev) => ({ ...prev, [productId]: imgUrl }));
   };
 
-  const formatPrice = (amount) => {
-    return `₦${Number(amount).toLocaleString()}`;
-  };
+  const formatPrice = (amount) => `₦${Number(amount || 0).toLocaleString()}`;
 
   const handleAddToCart = (product, size = 'L', color = null) => {
     addToCart(product, size, color);
@@ -125,7 +134,11 @@ function CatalogContent() {
 
   const filteredProducts = dbProducts.filter((p) => {
     const matchesPrice = selectedPrice === 'ALL' || p.price === Number(selectedPrice);
-    const matchesCategory = selectedCategory === 'ALL' || p.category === selectedCategory;
+    const matchesCategory = 
+      selectedCategory === 'ALL' || 
+      selectedCategory === 'All' || 
+      p.category?.toLowerCase() === selectedCategory?.toLowerCase();
+    
     const matchesSearch =
       searchQuery.trim() === '' ||
       (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -141,54 +154,52 @@ function CatalogContent() {
     router.push(`${pathname}?${params.toString()}`, { scroll: true });
   };
 
-  const generatePagination = () => {
-    if (totalPages <= 5) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
-    }
-    if (currentPage <= 3) {
-      return [1, 2, 3, 4, '...', totalPages];
-    }
-    if (currentPage >= totalPages - 2) {
-      return [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-    }
-    return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
-  };
-
-  const paginationItems = generatePagination();
-
   return (
-    <>
+    <div className="min-h-screen bg-[#F9F8F6] text-[#121212]">
       <Navbar 
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         setIsSizeGuideOpen={setIsSizeGuideOpen}
       />
 
-      <main className="w-full pt-40" id="catalog-page">
-        <section className="max-w-[1400px] mx-auto px-6 mb-8 text-center">
+      <main className="w-full pt-32 sm:pt-40 pb-20" id="catalog-page">
+        
+        {/* Editorial Header */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10 text-center">
+          
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+            <span className="font-sans text-[0.7rem] uppercase tracking-[0.25em] font-bold text-foreground/50">
+              Nigeria&apos;s Heavyweight Archive
+            </span>
+          </div>
+
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="font-serif text-4xl md:text-5xl font-medium tracking-tight mb-4"
+            className="font-serif text-3xl sm:text-5xl font-bold tracking-tight mb-4 text-foreground"
           >
-            The Full Catalog
+            The Full Collection
           </motion.h1>
+
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="font-sans text-sm text-foreground/70 max-w-xl mx-auto"
+            className="font-sans text-xs sm:text-sm text-foreground/70 max-w-xl mx-auto leading-relaxed"
           >
-            Explore our complete collection of essential and signature pieces, crafted for the modern individual.
+            Explore our complete archive of 240–300 GSM organic cotton and silk-blend luxury essentials. Transparent fixed pricing at ₦30,000, ₦35,000, and ₦40,000.
           </motion.p>
         </section>
 
+        {/* Category Filter Pills */}
         <CategoryFilter />
 
+        {/* Product Grid Area */}
         {isLoading ? (
-          <div className="flex justify-center items-center py-20 min-h-[50vh]">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <div className="flex justify-center items-center py-24 min-h-[40vh]">
+            <div className="w-8 h-8 border-2 border-foreground border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : (
           <ProductGrid
@@ -215,30 +226,28 @@ function CatalogContent() {
         )}
 
         {/* Pagination UI */}
-        <section className="max-w-[1400px] mx-auto px-6 py-12 flex justify-center items-center">
-          <div className="flex items-center gap-3">
-            {paginationItems.map((item, index) => {
-              if (item === '...') {
-                return <span key={`ellipsis-${index}`} className="px-1 text-foreground/50">...</span>;
-              }
-              const isActive = item === currentPage;
-              return (
-                <button
-                  key={`page-${item}`}
-                  onClick={() => handlePageChange(item)}
-                  disabled={isLoading}
-                  className={`w-10 h-10 flex items-center justify-center rounded-full text-sm font-medium transition-colors duration-300 border ${
-                    isActive 
-                      ? 'bg-foreground text-background border-foreground' 
-                      : 'bg-transparent text-foreground border-border/50 hover:bg-foreground hover:text-background'
-                  }`}
-                >
-                  {item}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        {totalPages > 1 && (
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex justify-center items-center">
+            <div className="flex items-center gap-2">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                const isActive = pageNum === currentPage;
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`w-10 h-10 flex items-center justify-center font-sans text-xs font-bold transition-all cursor-pointer ${
+                      isActive 
+                        ? 'bg-foreground text-background border border-foreground shadow-md' 
+                        : 'bg-white text-foreground border border-foreground/15 hover:border-foreground'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
 
       <QuickViewModal
@@ -259,21 +268,19 @@ function CatalogContent() {
       />
 
       <CartDrawer />
-    </>
+    </div>
   );
 }
 
 function CatalogPage() {
   return (
-    <div className="app-container">
-      <Suspense fallback={
-        <div className="flex justify-center items-center h-screen">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      }>
-        <CatalogContent />
-      </Suspense>
-    </div>
+    <Suspense fallback={
+      <div className="flex justify-center items-center h-screen bg-[#F9F8F6]">
+        <div className="w-8 h-8 border-2 border-foreground border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    }>
+      <CatalogContent />
+    </Suspense>
   );
 }
 

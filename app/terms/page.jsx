@@ -1,40 +1,65 @@
 import { Navbar } from '../../src/components/Navbar';
+import Link from 'next/link';
+import { ArrowLeft, ShieldCheck } from 'lucide-react';
 
 export const metadata = {
   title: 'Terms of Service | Klasik Wardrobe',
+  description: 'Terms of service and customer conditions for Klasik Wardrobe.',
 };
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-[#f8f8f8] flex flex-col text-[#1a1a1a]">
+    <div className="min-h-screen bg-[#F9F8F6] text-[#121212] flex flex-col">
       <Navbar />
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-6 pt-32 pb-16">
-        <h1 className="font-['Syne'] text-4xl font-bold mb-8">Terms of Service</h1>
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-36 sm:pt-40 pb-20">
         
-        <div className="prose prose-neutral font-['DM_Sans'] text-neutral-600 space-y-6">
-          <p>
-            Welcome to Klasik Wardrobe. By accessing our website, you agree to be bound by these Terms of Service, all applicable laws and regulations, and agree that you are responsible for compliance with any applicable local laws.
-          </p>
-          
-          <h2 className="text-xl font-bold text-[#1a1a1a] mt-8 mb-4">1. Use License</h2>
-          <p>
-            Permission is granted to temporarily download one copy of the materials (information or software) on Klasik Wardrobe's website for personal, non-commercial transitory viewing only.
-          </p>
-          
-          <h2 className="text-xl font-bold text-[#1a1a1a] mt-8 mb-4">2. Disclaimer</h2>
-          <p>
-            The materials on Klasik Wardrobe's website are provided on an 'as is' basis. Klasik Wardrobe makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.
-          </p>
+        <div className="mb-8">
+          <Link 
+            href="/" 
+            className="inline-flex items-center gap-2 font-sans text-xs uppercase tracking-[0.2em] font-semibold text-foreground/70 hover:text-foreground transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+            <span>Return to Store</span>
+          </Link>
+        </div>
 
-          <h2 className="text-xl font-bold text-[#1a1a1a] mt-8 mb-4">3. Governing Law</h2>
-          <p>
-            These terms and conditions are governed by and construed in accordance with the laws of Nigeria and you irrevocably submit to the exclusive jurisdiction of the courts in that State or location.
-          </p>
+        <div className="bg-white border border-foreground/10 p-8 sm:p-12 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <ShieldCheck className="w-4 h-4 text-amber-700" />
+            <span className="font-sans text-[0.7rem] uppercase tracking-[0.2em] font-bold text-foreground/50">
+              Customer Agreement
+            </span>
+          </div>
 
-          <p className="mt-8 pt-8 border-t border-neutral-200 text-sm">
-            Last updated: {new Date().toLocaleDateString()}
-          </p>
+          <h1 className="font-serif text-3xl sm:text-4xl font-bold mb-8 text-foreground tracking-tight">
+            Terms of Service
+          </h1>
+          
+          <div className="font-sans text-xs sm:text-sm text-foreground/80 space-y-6 leading-relaxed">
+            <p>
+              Welcome to Klasik Wardrobe. By accessing our platform and placing orders for our heavyweight luxury streetwear pieces, you agree to the following terms and conditions.
+            </p>
+            
+            <h2 className="font-serif text-lg font-bold text-foreground mt-8 mb-2">1. Authenticity & Material Integrity</h2>
+            <p>
+              All Klasik pieces are guaranteed 100% authentic, constructed from combed organic cotton and mulberry silk blends. Fixed transparent pricing is maintained at ₦30,000 (Essential), ₦35,000 (Signature), and ₦40,000 (Executive).
+            </p>
+            
+            <h2 className="font-serif text-lg font-bold text-foreground mt-8 mb-2">2. Order Fulfillment & Bank Transfers</h2>
+            <p>
+              Orders placed via Direct Bank Transfer are reserved upon checkout and processed once the transaction confirmation is matched by our accounts concierge team.
+            </p>
+            
+            <h2 className="font-serif text-lg font-bold text-foreground mt-8 mb-2">3. Nationwide Delivery</h2>
+            <p>
+              Express delivery timelines vary by city (24–48 hours for Lagos, 2–4 business days for other states across Nigeria). Orders exceeding ₦70,000 qualify for complimentary insured shipping.
+            </p>
+
+            <p className="mt-8 pt-8 border-t border-foreground/10 text-xs text-foreground/50">
+              Last updated: {new Date().getFullYear()} &bull; Klasik Wardrobe Nigeria
+            </p>
+          </div>
         </div>
       </main>
     </div>

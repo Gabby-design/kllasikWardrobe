@@ -1,4 +1,6 @@
-import { motion } from 'framer-motion';
+"use client";
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShoppingBag, X, Sparkles, Layers, Feather, ShieldCheck } from 'lucide-react';
 
 export function QuickViewModal({
   quickViewProduct,
@@ -12,112 +14,177 @@ export function QuickViewModal({
   handleAddToCart
 }) {
   if (!quickViewProduct) return null;
+
+  const currentImage = quickViewActiveImg || quickViewProduct.image;
+
   return (
-    <>
-{/* Quick View Modal */}
-      {quickViewProduct && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/30 backdrop-blur-sm p-4" onClick={() => setQuickViewProduct(null)}>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-5xl bg-background border border-foreground/10 overflow-hidden flex flex-col md:flex-row max-h-[90vh] md:max-h-none overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
+    <AnimatePresence>
+      <div 
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/40 backdrop-blur-md p-4 sm:p-6" 
+        onClick={() => setQuickViewProduct(null)}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 15 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative w-full max-w-5xl bg-[#F9F8F6] border border-foreground/15 shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh] md:max-h-[85vh]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Close Button */}
+          <button 
+            className="absolute top-4 right-4 z-20 w-9 h-9 flex items-center justify-center bg-white/80 backdrop-blur-md text-foreground font-sans text-lg border border-foreground/15 hover:bg-foreground hover:text-background transition-all duration-300 cursor-pointer shadow-sm" 
+            onClick={() => setQuickViewProduct(null)}
+            aria-label="Close modal"
           >
-            <button className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-background/50 backdrop-blur-md text-foreground font-sans text-xl border border-foreground/10 hover:bg-foreground hover:text-background transition-colors duration-300" onClick={() => setQuickViewProduct(null)}>
-              ✕
-            </button>
-            <div className="flex w-full flex-col md:flex-row">
-              <div className="w-full md:w-1/2 relative bg-foreground/5 p-4 md:p-8 flex flex-col items-center justify-center">
-                <img
-                  src={quickViewActiveImg || quickViewProduct.image}
-                  onError={(e) => {
-                    e.target.src = quickViewProduct.fallbackImage;
-                  }}
-                  alt={quickViewProduct.title}
-                  className="w-full max-w-sm h-auto object-cover"
-                />
-                {quickViewProduct.gallery && (
-                  <div className="flex gap-2 mt-8 justify-center">
-                    {quickViewProduct.gallery.filter(Boolean).map((imgUrl, idx) => {
-                      const isCurrent = (quickViewActiveImg || quickViewProduct.image) === imgUrl;
-                      return (
-                        <img
-                          key={idx}
-                          src={imgUrl}
-                          alt={`Angle ${idx + 1}`}
-                          className={`w-14 h-14 object-cover cursor-pointer transition-all ${isCurrent ? 'border border-foreground opacity-100' : 'border border-foreground/20 opacity-60 hover:opacity-100'}`}
-                          onClick={() => setQuickViewActiveImg(imgUrl)}
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = quickViewProduct.fallbackImage || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop';
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
+            <X className="w-4 h-4" />
+          </button>
+
+          {/* Left Column: Multi-angle Product Gallery */}
+          <div className="w-full md:w-1/2 relative bg-[#F2EFEB] p-6 sm:p-8 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-foreground/10 overflow-hidden">
+            <div className="relative w-full max-w-sm aspect-[3/4] overflow-hidden bg-white shadow-sm border border-foreground/10">
+              <img
+                src={currentImage}
+                onError={(e) => {
+                  e.target.src = quickViewProduct.fallbackImage || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop';
+                }}
+                alt={quickViewProduct.title}
+                className="w-full h-full object-cover"
+              />
+
+              {quickViewProduct.tag && (
+                <span className="absolute top-3 left-3 bg-foreground text-background px-2.5 py-1 text-[0.65rem] font-sans uppercase tracking-[0.2em] font-bold">
+                  {quickViewProduct.tag}
+                </span>
+              )}
+            </div>
+
+            {/* Gallery Thumbnail Strip */}
+            {quickViewProduct.gallery && quickViewProduct.gallery.filter(Boolean).length > 1 && (
+              <div className="flex gap-2 mt-4 justify-center">
+                {quickViewProduct.gallery.filter(Boolean).map((imgUrl, idx) => {
+                  const isCurrent = currentImage === imgUrl;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      className={`w-12 h-16 overflow-hidden border bg-white transition-all cursor-pointer ${
+                        isCurrent 
+                          ? 'border-foreground shadow-md scale-105' 
+                          : 'border-foreground/15 opacity-60 hover:opacity-100'
+                      }`}
+                      onClick={() => setQuickViewActiveImg(imgUrl)}
+                    >
+                      <img
+                        src={imgUrl}
+                        alt={`Angle ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = quickViewProduct.fallbackImage || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop';
+                        }}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Right Column: Garment Specifications & Size Picker */}
+          <div className="w-full md:w-1/2 p-6 sm:p-10 flex flex-col justify-between overflow-y-auto custom-scrollbar bg-white">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="bg-foreground text-background font-sans text-[0.65rem] uppercase tracking-[0.2em] font-bold px-2.5 py-0.5 inline-block">
+                  {quickViewProduct.category} Collection
+                </span>
+                <span className="text-[0.65rem] font-sans uppercase tracking-[0.15em] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 border border-amber-200">
+                  {quickViewProduct.gsm || '240 GSM'}
+                </span>
               </div>
 
-              <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col overflow-y-auto">
-                <div className="flex-1">
-                  <span className="bg-foreground text-background font-sans text-[0.65rem] uppercase tracking-[0.2em] font-semibold px-2 py-0.5 inline-block mb-4">{quickViewProduct.category} Collection</span>
-                  <h2 className="font-serif text-3xl md:text-4xl tracking-[-0.02em] font-bold mb-2">
-                    {quickViewProduct.title}
-                  </h2>
-                  <div className="font-sans text-lg text-foreground/80 mb-6">{formatPrice(quickViewProduct.price)}</div>
-                  <p className="font-sans text-sm text-foreground/70 leading-relaxed mb-8">
-                    {quickViewProduct.description}
-                  </p>
+              <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-2">
+                {quickViewProduct.title}
+              </h2>
 
-                  <div className="flex flex-col gap-3 font-sans text-xs tracking-[0.05em] text-foreground/80 mb-8 border-y border-foreground/10 py-6">
-                    <div>
-                      <span className="font-bold mr-2 uppercase tracking-[0.1em]">Weight:</span> {quickViewProduct.gsm}
-                    </div>
-                    <div>
-                      <span className="font-bold mr-2 uppercase tracking-[0.1em]">Material:</span> {quickViewProduct.material}
-                    </div>
-                    <div>
-                      <span className="font-bold mr-2 uppercase tracking-[0.1em]">Silhouette:</span> {quickViewProduct.fit}
-                    </div>
-                  </div>
+              <div className="font-serif text-xl font-bold text-foreground mb-4">
+                {formatPrice(quickViewProduct.price)}
+              </div>
 
-                  {/* Size Selector */}
-                  <div className="mb-8">
-                    <label className="block font-sans text-xs font-bold uppercase tracking-[0.2em] text-foreground/60 mb-3">
-                      SELECT SIZE:
-                    </label>
-                    <div className="flex gap-2 flex-wrap">
-                      {quickViewProduct.sizes.map((s) => (
-                        <button
-                          key={s}
-                          className={`w-12 h-12 flex items-center justify-center border font-sans text-sm transition-all ${quickViewSize === s ? 'bg-foreground text-background border-foreground' : 'bg-transparent text-foreground border-foreground/20 hover:border-foreground'}`}
-                          onClick={() => setQuickViewSize(s)}
-                        >
-                          {s}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+              <p className="font-sans text-xs sm:text-sm text-foreground/70 leading-relaxed mb-6">
+                {quickViewProduct.description}
+              </p>
+
+              {/* Fabric Specs Grid */}
+              <div className="grid grid-cols-3 gap-2 bg-foreground/[0.03] border border-foreground/10 p-3.5 mb-6 text-center font-sans text-[0.7rem]">
+                <div>
+                  <span className="text-foreground/50 uppercase tracking-widest block font-semibold mb-0.5">Weight</span>
+                  <strong className="text-foreground">{quickViewProduct.gsm || '240 GSM'}</strong>
                 </div>
+                <div className="border-x border-foreground/10 px-2">
+                  <span className="text-foreground/50 uppercase tracking-widest block font-semibold mb-0.5">Material</span>
+                  <strong className="text-foreground truncate block">{quickViewProduct.material || 'Organic Cotton'}</strong>
+                </div>
+                <div>
+                  <span className="text-foreground/50 uppercase tracking-widest block font-semibold mb-0.5">Silhouette</span>
+                  <strong className="text-foreground">{quickViewProduct.fit || 'Drop Shoulder'}</strong>
+                </div>
+              </div>
 
-                <button
-                  disabled={quickViewProduct.stock <= 0}
-                  className={`w-full bg-foreground text-background font-sans text-xs uppercase tracking-[0.2em] py-4 border border-foreground hover:bg-transparent hover:text-foreground transition-all duration-[700ms] ${quickViewProduct.stock <= 0 ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
-                  onClick={() => {
-                    if (quickViewProduct.stock <= 0) return;
-                    handleAddToCart(quickViewProduct, quickViewSize, quickViewColor);
-                    setQuickViewProduct(null);
-                  }}
-                >
-                  {quickViewProduct.stock <= 0 ? 'Sold Out' : `Add ${quickViewSize} to Bag — ${formatPrice(quickViewProduct.price)}`}
-                </button>
+              {/* Size Selector */}
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2.5">
+                  <label className="font-sans text-xs font-bold uppercase tracking-[0.18em] text-foreground/80">
+                    Select Size: <span className="text-foreground font-black">{quickViewSize}</span>
+                  </label>
+                  <span className="text-[0.65rem] uppercase tracking-wider text-foreground/50 font-sans">
+                    True to Oversized Drape
+                  </span>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {quickViewProduct.sizes.map((s) => {
+                    const isSelected = quickViewSize === s;
+                    return (
+                      <button
+                        key={s}
+                        className={`w-11 h-11 flex items-center justify-center border font-sans text-xs font-bold transition-all cursor-pointer ${
+                          isSelected 
+                            ? 'bg-foreground text-background border-foreground shadow-md' 
+                            : 'bg-white text-foreground border-foreground/20 hover:border-foreground'
+                        }`}
+                        onClick={() => setQuickViewSize(s)}
+                      >
+                        {s}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </motion.div>
-        </div>
-      )}
-    </>
+
+            {/* CTA Button */}
+            <button
+              disabled={quickViewProduct.stock <= 0}
+              className={`w-full bg-foreground text-background font-sans text-xs uppercase tracking-[0.2em] font-bold py-4.5 border border-foreground hover:bg-neutral-800 transition-all duration-300 flex items-center justify-center gap-2 shadow-lg cursor-pointer ${
+                quickViewProduct.stock <= 0 ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''
+              }`}
+              onClick={() => {
+                if (quickViewProduct.stock <= 0) return;
+                handleAddToCart(quickViewProduct, quickViewSize, quickViewColor);
+                setQuickViewProduct(null);
+              }}
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>
+                {quickViewProduct.stock <= 0 
+                  ? 'Sold Out' 
+                  : `Add Size ${quickViewSize} to Bag &bull; ${formatPrice(quickViewProduct.price)}`}
+              </span>
+            </button>
+
+          </div>
+        </motion.div>
+      </div>
+    </AnimatePresence>
   );
 }

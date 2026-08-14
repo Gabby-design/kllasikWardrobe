@@ -7,7 +7,13 @@ export function CategoryFilter() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
 
-  const categories = ['All', 'Essential', 'Signature', 'Executive'];
+  const categories = [
+    { label: 'All Collections', value: 'All' },
+    { label: 'Essential (₦30,000)', value: 'Essential' },
+    { label: 'Signature (₦35,000)', value: 'Signature' },
+    { label: 'Executive (₦40,000)', value: 'Executive' },
+  ];
+  
   const currentCategory = searchParams.get('category') || 'All';
 
   const handleCategoryClick = (category) => {
@@ -19,27 +25,25 @@ export function CategoryFilter() {
       params.set('category', category);
     }
     
-    // Crucial: reset page to 1 whenever category changes
     params.set('page', '1');
-    
     router.push(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
+    <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-12">
       {categories.map((cat) => {
-        const isActive = currentCategory === cat;
+        const isActive = currentCategory === cat.value;
         return (
           <button
-            key={cat}
-            onClick={() => handleCategoryClick(cat)}
-            className={`px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 border ${
+            key={cat.value}
+            onClick={() => handleCategoryClick(cat.value)}
+            className={`font-sans text-xs uppercase tracking-[0.16em] px-5 py-2.5 transition-all duration-300 cursor-pointer ${
               isActive
-                ? 'bg-foreground text-background border-foreground'
-                : 'bg-transparent text-foreground/70 border-border/50 hover:border-foreground/30 hover:text-foreground'
+                ? 'bg-foreground text-background font-bold shadow-md'
+                : 'bg-white text-foreground/70 border border-foreground/15 hover:border-foreground hover:text-foreground'
             }`}
           >
-            {cat}
+            {cat.label}
           </button>
         );
       })}

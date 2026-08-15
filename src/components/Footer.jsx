@@ -78,7 +78,7 @@ export function Footer() {
           </p>
 
           <a 
-            href="https://wa.me/2348000000000" 
+            href={process.env.NEXT_PUBLIC_WHATSAPP_PHONE ? `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_PHONE}` : "https://wa.me/2347075039738"} 
             target="_blank" 
             rel="noreferrer" 
             className="inline-flex items-center gap-2.5 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-sans text-xs font-bold uppercase tracking-[0.15em] px-4 py-3 transition-all self-start"

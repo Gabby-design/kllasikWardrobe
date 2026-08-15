@@ -28,12 +28,14 @@ import {
   Plus,
   Minus,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  MessageCircle
 } from 'lucide-react';
+import { getWhatsAppOrderLink } from '../../src/utils/whatsapp';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, cartSubtotal, customerForm, setCustomerForm, updateCartQty, clearCart } = useCartStore();
+  const { cart, cartSubtotal, customerForm, setCustomerForm, updateCartQty, clearCart, setLastOrder } = useCartStore();
   const [loading, setLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -44,7 +46,7 @@ export default function CheckoutPage() {
   const bankDetails = {
     bankName: process.env.NEXT_PUBLIC_BANK_NAME || 'OPay / Paycom',
     accountName: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'KLASIK WARDROBE',
-    accountNumber: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '8030000000',
+    accountNumber: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '7075039738',
   };
 
   useEffect(() => {
@@ -89,6 +91,24 @@ export default function CheckoutPage() {
         toast.error(result?.error || 'Failed to place order.');
         setLoading(false);
         return;
+      }
+
+      // Record full order details for WhatsApp pre-fill and success page
+      const generatedOrderId = result.orderId || `KLASIK-${Date.now().toString().slice(-6)}`;
+      const orderRecord = {
+        orderId: generatedOrderId,
+        items: [...cart],
+        customer: { ...payloadForm },
+        totalAmount,
+        subtotal,
+        shippingCost,
+        isFreeShipping,
+        bankDetails,
+        createdAt: new Date().toISOString()
+      };
+
+      if (setLastOrder) {
+        setLastOrder(orderRecord);
       }
       
       toast.success('Order placed successfully!');
@@ -647,7 +667,7 @@ export default function CheckoutPage() {
               <div className="text-center font-sans text-xs text-foreground/60 pt-2">
                 Questions or special inquiries?{' '}
                 <a 
-                  href="https://wa.me/2348000000000" 
+                  href={process.env.NEXT_PUBLIC_WHATSAPP_PHONE ? `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_PHONE}` : "https://wa.me/2347075039738"} 
                   target="_blank" 
                   rel="noreferrer" 
                   className="font-semibold text-foreground underline underline-offset-4 hover:opacity-70 transition-opacity"

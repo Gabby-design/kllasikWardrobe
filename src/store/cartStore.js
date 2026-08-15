@@ -16,11 +16,13 @@ export const useCartStore = create(
         city: 'Lagos',
         paymentMethod: 'PAY_ON_DELIVERY',
       },
+      lastOrder: null,
 
       setIsCartOpen: (isOpen) => set({ isCartOpen: isOpen }),
       setIsCheckoutOpen: (isOpen) => set({ isCheckoutOpen: isOpen }),
       setCheckoutStep: (step) => set({ checkoutStep: step }),
       setCustomerForm: (form) => set({ customerForm: form }),
+      setLastOrder: (order) => set({ lastOrder: order }),
 
       addToCart: (product, size = 'L', color = null) => {
         const chosenColor = color || (product.colors && product.colors[0]?.name) || 'Standard';

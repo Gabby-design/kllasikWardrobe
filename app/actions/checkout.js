@@ -1,7 +1,7 @@
 'use server';
 
 import { createAdminClient } from '../../utils/supabase/admin.js';
-import { sendBuyerReceipt, sendOwnerNotification } from '../../lib/brevo.js';
+import { sendOwnerOrderNotification, sendCustomerReceipt, DEFAULT_OWNER_EMAIL } from '../../lib/email.js';
 
 export async function submitManualOrder(cart, customerForm, totalAmount) {
   console.log('--- NEW CHECKOUT INITIATED ---');
@@ -24,7 +24,8 @@ export async function submitManualOrder(cart, customerForm, totalAmount) {
       email: customerForm.email,
       phone: customerForm.phone || '',
       address: customerForm.address || '',
-      city: customerForm.city || 'Other'
+      city: customerForm.city || 'Lagos',
+      notes: customerForm.notes || ''
     };
 
     const orderPayload = {
@@ -72,32 +73,46 @@ export async function submitManualOrder(cart, customerForm, totalAmount) {
       }
     }
 
-    console.log('4. Triggering Brevo Emails...');
-    const amountInNaira = (totalAmount || 0).toLocaleString();
-    const productsSummary = cart.map(item => {
-      return `<p>- ${item.title} - ${item.size} (${item.color}) (Qty: ${item.quantity})</p>`;
-    }).join('');
+    console.log('4. Dispatching Email Notifications...');
+    const subtotal = cart.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
+    const shippingCost = totalAmount > 70000 ? 0 : 4500;
 
     try {
       await Promise.allSettled([
-        sendBuyerReceipt({
-          buyerEmail: customerForm.email,
-          buyerName: customerForm.name,
-          orderDetails: productsSummary,
-          totalAmount: amountInNaira
+        sendOwnerOrderNotification({
+          orderId: orderId || `KLASIK-${Date.now().toString().slice(-6)}`,
+          items: cart,
+          customer: {
+            name: customerForm.name,
+            email: customerForm.email,
+            phone: customerForm.phone,
+            address: customerForm.address,
+            city: customerForm.city || 'Lagos',
+            notes: customerForm.notes
+          },
+          totalAmount: totalAmount,
+          subtotal: subtotal,
+          shippingCost: shippingCost,
+          ownerEmail: process.env.OWNER_EMAIL || DEFAULT_OWNER_EMAIL
         }),
-        sendOwnerNotification({
-          ownerEmail: process.env.OWNER_EMAIL || process.env.BREVO_SENDER_EMAIL || 'hello@klasic.com',
-          buyerEmail: customerForm.email,
-          buyerName: customerForm.name,
-          orderDetails: productsSummary,
-          totalAmount: amountInNaira,
-          shippingAddress: JSON.stringify(shippingAddress)
+        sendCustomerReceipt({
+          orderId: orderId || `KLASIK-${Date.now().toString().slice(-6)}`,
+          items: cart,
+          customer: {
+            name: customerForm.name,
+            email: customerForm.email,
+            phone: customerForm.phone,
+            address: customerForm.address,
+            city: customerForm.city || 'Lagos'
+          },
+          totalAmount: totalAmount,
+          subtotal: subtotal,
+          shippingCost: shippingCost
         })
       ]);
-      console.log('✅ Brevo Emails processed');
+      console.log('✅ Order notification emails dispatched to owner & customer');
     } catch (emailError) {
-      console.error('⚠️ BREVO EMAIL ERROR:', emailError);
+      console.error('⚠️ Email notification error:', emailError);
     }
 
     console.log('--- CHECKOUT COMPLETE ---');

@@ -1,18 +1,24 @@
 import { NextResponse } from 'next/server';
-import { Resend } from 'resend';
+import { sendEmail, DEFAULT_OWNER_EMAIL } from '../../../lib/email';
 
 export async function POST(req) {
-  const resend = new Resend(process.env.RESEND_API_KEY || 're_123');
   try {
-    const { name, price } = await req.json();
+    const { name, price, size, color, customerName, customerPhone, address, city } = await req.json();
 
-    // Send the email in the background
-    resend.emails.send({
-      from: 'onboarding@resend.dev',
-      to: 'gabrieltolulope50@gmail.com',
-      subject: 'New T-Shirt Order!',
-      html: `<p>Someone ordered for this t-shirt: <strong>${name}</strong>, and this is the price: <strong>${price}</strong>.</p>`
-    }).catch(console.error);
+    await sendEmail({
+      to: process.env.OWNER_EMAIL || DEFAULT_OWNER_EMAIL,
+      subject: `🚨 New Order: ${name} (₦${Number(price || 0).toLocaleString()})`,
+      htmlContent: `
+        <div style="font-family: sans-serif; padding: 20px; color: #121212;">
+          <h2>👑 Klasik Wardrobe - New Order Alert</h2>
+          <p><strong>Item:</strong> ${name} ${size ? `(${size})` : ''} ${color ? `[${color}]` : ''}</p>
+          <p><strong>Price:</strong> ₦${Number(price || 0).toLocaleString()}</p>
+          ${customerName ? `<p><strong>Customer:</strong> ${customerName}</p>` : ''}
+          ${customerPhone ? `<p><strong>Phone:</strong> ${customerPhone}</p>` : ''}
+          ${address ? `<p><strong>Delivery Address:</strong> ${address}, ${city || 'Lagos'}</p>` : ''}
+        </div>
+      `
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

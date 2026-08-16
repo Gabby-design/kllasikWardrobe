@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../utils/supabase/admin';
-import { sendBuyerReceipt, sendOwnerNotification } from '../../../../lib/brevo';
+import { sendOwnerOrderNotification, sendCustomerReceipt, DEFAULT_OWNER_EMAIL } from '../../../../lib/email';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -63,31 +63,45 @@ export async function GET(request) {
       }
     }
 
-    // 3. Send Confirmation Emails via Brevo
-    const productsSummary = cart.map(item => {
-      return `<p>- ${item.title} - ${item.size} (${item.color}) (Qty: ${item.quantity})</p>`;
-    }).join('');
-
+    // 3. Send Confirmation Emails
     try {
-      await Promise.all([
-        sendBuyerReceipt({
-          buyerEmail: customerEmail,
-          buyerName: customer.first_name || '',
-          orderDetails: productsSummary,
-          totalAmount: amountInNaira
+      const parsedAddress = typeof metadata?.shippingAddress === 'string' 
+        ? JSON.parse(metadata.shippingAddress) 
+        : (metadata?.shippingAddress || {});
+
+      await Promise.allSettled([
+        sendOwnerOrderNotification({
+          orderId: reference,
+          items: cart,
+          customer: {
+            name: `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || parsedAddress.name || 'Paystack Customer',
+            email: customerEmail,
+            phone: customer.phone || parsedAddress.phone || '',
+            address: parsedAddress.address || '',
+            city: parsedAddress.city || 'Lagos'
+          },
+          totalAmount: amount / 100,
+          subtotal: amount / 100,
+          shippingCost: 0,
+          ownerEmail: process.env.OWNER_EMAIL || DEFAULT_OWNER_EMAIL
         }),
-        sendOwnerNotification({
-          ownerEmail: process.env.OWNER_EMAIL,
-          buyerEmail: customerEmail,
-          buyerName: customer.first_name || '',
-          orderDetails: productsSummary,
-          totalAmount: amountInNaira,
-          shippingAddress: metadata?.shippingAddress || 'N/A' // fallback if not collected
+        sendCustomerReceipt({
+          orderId: reference,
+          items: cart,
+          customer: {
+            name: customer.first_name || parsedAddress.name || 'Valued Customer',
+            email: customerEmail,
+            phone: customer.phone || parsedAddress.phone || '',
+            address: parsedAddress.address || '',
+            city: parsedAddress.city || 'Lagos'
+          },
+          totalAmount: amount / 100,
+          subtotal: amount / 100,
+          shippingCost: 0
         })
       ]);
     } catch (emailError) {
       console.error('Failed to send confirmation emails:', emailError);
-      // Do not crash the redirect, email failure shouldn't prevent success page
     }
 
     // 4. Redirect to success

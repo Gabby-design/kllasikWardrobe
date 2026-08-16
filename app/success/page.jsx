@@ -34,8 +34,8 @@ export default function SuccessPage() {
     clearCart();
   }, [clearCart]);
 
-  const orderData = lastOrder || {
-    orderId: `KLASIK-${Date.now().toString().slice(-6)}`,
+  const orderData = isMounted && lastOrder ? lastOrder : {
+    orderId: 'KLASIK-RECEIPT',
     items: [],
     customer: { name: 'Customer', city: 'Lagos' },
     totalAmount: 0,
@@ -45,9 +45,9 @@ export default function SuccessPage() {
     bankDetails: {
       bankName: 'OPay / Paycom',
       accountName: 'KLASIK WARDROBE',
-      accountNumber: '8030000000'
+      accountNumber: '7075039738'
     },
-    createdAt: new Date().toISOString()
+    createdAt: ''
   };
 
   const whatsAppUrl = getWhatsAppOrderLink(orderData);
@@ -298,7 +298,7 @@ export default function SuccessPage() {
                 <div className="flex justify-between items-center pt-1">
                   <span className="text-white/50 uppercase text-[0.65rem]">Account Number</span>
                   <span className="font-mono text-lg font-bold text-amber-300 tracking-wider">
-                    {orderData.bankDetails?.accountNumber || '8030000000'}
+                    {orderData.bankDetails?.accountNumber || '7075039738'}
                   </span>
                 </div>
               </div>

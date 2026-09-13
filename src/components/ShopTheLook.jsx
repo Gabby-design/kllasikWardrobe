@@ -70,6 +70,7 @@ export function ShopTheLook() {
             <img 
               src="https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1200&auto=format&fit=crop" 
               alt="Klasik Streetwear Editorial Look" 
+              referrerPolicy="no-referrer"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
             />
             
@@ -111,6 +112,7 @@ export function ShopTheLook() {
                 <img 
                   src={item.image} 
                   alt={item.title} 
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                 />
               </div>

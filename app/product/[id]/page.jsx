@@ -13,13 +13,14 @@ export default async function ProductPage({ params }) {
 
   try {
     const supabase = await createClient();
-    const { data: product, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('id', id)
-      .single();
+    if (supabase) {
+      const { data: product, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-    if (product) {
+      if (product) {
       formattedProduct = {
         id: product.id,
         title: product.name,
@@ -92,7 +93,12 @@ export default async function ProductPage({ params }) {
               <div className="grid grid-cols-3 gap-3">
                 {formattedProduct.gallery.filter(Boolean).map((imgUrl, i) => (
                   <div key={i} className="aspect-[3/4] bg-foreground/5 border border-foreground/10 overflow-hidden">
-                    <img src={imgUrl} alt={`View ${i + 1}`} className="w-full h-full object-cover" />
+                    <img 
+                      src={imgUrl} 
+                      alt={`View ${i + 1}`} 
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover" 
+                    />
                   </div>
                 ))}
               </div>

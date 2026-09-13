@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { createClient } from '../../utils/supabase/client';
+import { createClient, isSupabaseConfigured } from '../../utils/supabase/client';
 import { useCartStore } from '../../src/store/cartStore';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -17,7 +17,6 @@ import { Sparkles, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 function CatalogContent() {
-  const supabase = createClient();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -34,43 +33,63 @@ function CatalogContent() {
 
   useEffect(() => {
     async function fetchProducts() {
+      if (!isSupabaseConfigured) {
+        let filteredStatic = PRODUCTS;
+        if (selectedCategory !== 'ALL' && selectedCategory !== 'All') {
+          filteredStatic = PRODUCTS.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
+        }
+        setDbProducts(filteredStatic);
+        setTotalPages(Math.max(1, Math.ceil(filteredStatic.length / itemsPerPage)));
+        setIsLoading(false);
+        return;
+      }
+
+      const supabase = createClient();
+      if (!supabase) return;
+
       setIsLoading(true);
       try {
-        const from = (currentPage - 1) * itemsPerPage;
-        const to = from + itemsPerPage - 1;
-
-        let query = supabase
+        const { data, error } = await supabase
           .from('products')
-          .select('*', { count: 'exact' })
+          .select('*')
           .order('created_at', { ascending: false });
-          
-        if (selectedCategory !== 'ALL' && selectedCategory !== 'All') {
-          query = query.eq('category', selectedCategory);
+        
+        if (error) {
+          console.warn('Supabase query error:', error.message);
         }
 
-        const { data, error, count } = await query.range(from, to);
-        
         if (data && data.length > 0) {
-          const formattedProducts = data.map(p => ({
+          let formattedProducts = data.map(p => ({
             id: p.id,
             name: p.name,
             title: p.name,
             price: p.price,
             description: p.description,
+            stock: p.stock !== undefined ? p.stock : 10,
             image: p.image_url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
-            fallbackImage: p.image_url,
+            fallbackImage: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
             gallery: [p.image_url],
-            category: p.category || 'Essential',
-            gsm: p.gsm || '240 GSM',
+            brand: p.brand || 'Klasik Wardrobe',
+            category: p.category || (p.price >= 40000 ? 'Executive' : p.price >= 30000 ? 'Signature' : 'Essential'),
+            gsm: p.gsm || (p.price >= 40000 ? '300 GSM Silk Infusion' : p.price >= 30000 ? '280 GSM French Terry' : '240 GSM Organic Cotton'),
             material: p.material || '100% Combed Cotton',
-            fit: p.fit || 'Drop Shoulder',
+            fit: p.fit || 'Drop Shoulder Oversized',
             sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-            colors: [{ name: 'Standard', hex: '#1a1a1a' }]
+            colors: [{ name: p.color || 'Standard', hex: '#1a1a1a' }]
           }));
-          setDbProducts(formattedProducts);
-          setTotalPages(count ? Math.ceil(count / itemsPerPage) : 1);
+
+          if (selectedCategory !== 'ALL' && selectedCategory !== 'All') {
+            formattedProducts = formattedProducts.filter(p => 
+              p.category.toLowerCase() === selectedCategory.toLowerCase()
+            );
+          }
+
+          setTotalPages(Math.max(1, Math.ceil(formattedProducts.length / itemsPerPage)));
+          const from = (currentPage - 1) * itemsPerPage;
+          const to = from + itemsPerPage;
+          setDbProducts(formattedProducts.slice(from, to));
         } else {
-          // Fallback to rich catalog data
+          // Fallback to rich catalog data if no products in database
           let filteredStatic = PRODUCTS;
           if (selectedCategory !== 'ALL' && selectedCategory !== 'All') {
             filteredStatic = PRODUCTS.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
@@ -79,6 +98,7 @@ function CatalogContent() {
           setTotalPages(Math.max(1, Math.ceil(filteredStatic.length / itemsPerPage)));
         }
       } catch (err) {
+        console.error('Catalog fetch error:', err);
         setDbProducts(PRODUCTS);
       } finally {
         setIsLoading(false);

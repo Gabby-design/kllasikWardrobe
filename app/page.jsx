@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createClient } from '../utils/supabase/client';
+import { createClient, isSupabaseConfigured } from '../utils/supabase/client';
 import { useCartStore } from '../src/store/cartStore';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -17,11 +17,14 @@ import Link from 'next/link';
 import { Sparkles, ShieldCheck, Feather, Layers, Star, ArrowRight } from 'lucide-react';
 
 function App() {
-  const supabase = createClient();
   const [dbProducts, setDbProducts] = useState(PRODUCTS);
 
   useEffect(() => {
     async function fetchProducts() {
+      if (!isSupabaseConfigured) return;
+      const supabase = createClient();
+      if (!supabase) return;
+
       const { data, error } = await supabase
         .from('products')
         .select('*')
@@ -31,7 +34,6 @@ function App() {
         console.warn('Supabase fetch products notice:', error.message);
       }
       
-      if (data && data.length > 0) {
         const formattedProducts = data.map(p => ({
           id: p.id,
           name: p.name,
@@ -40,11 +42,12 @@ function App() {
           description: p.description,
           stock: p.stock !== undefined ? p.stock : 10,
           image: p.image_url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
-          fallbackImage: p.image_url,
+          fallbackImage: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
           gallery: [p.image_url],
-          category: p.category || 'Essential',
+          brand: p.brand || 'Klasik Wardrobe',
+          category: p.category || (p.price >= 40000 ? 'Executive' : p.price >= 30000 ? 'Signature' : 'Essential'),
           sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-          colors: [{ name: 'Standard', hex: '#1a1a1a' }]
+          colors: [{ name: p.color || 'Standard', hex: '#1a1a1a' }]
         }));
         setDbProducts(formattedProducts);
       }
@@ -155,7 +158,7 @@ function App() {
             href="/catalog" 
             className="inline-flex items-center gap-3 bg-foreground text-background font-sans text-xs uppercase tracking-[0.2em] font-bold px-10 py-5 hover:bg-neutral-800 transition-all duration-300 shadow-lg group"
           >
-            <span>Explore All 9 Heavyweight Pieces</span>
+            <span>Explore Full Collection</span>
             <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>

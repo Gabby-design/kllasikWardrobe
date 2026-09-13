@@ -13,7 +13,7 @@ import { Analytics } from '@vercel/analytics/react';
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" data-scroll-behavior="smooth">
       <head>
 
         <link rel="preconnect" href="https://fonts.googleapis.com" />

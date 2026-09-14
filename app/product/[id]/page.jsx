@@ -33,10 +33,11 @@ export default async function ProductPage({ params }) {
         gallery: [product.image_url],
         category: product.category || 'Essential',
         sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-        colors: [{ name: 'Standard', hex: '#1a1a1a' }]
+        colors: [{ name: product.color || 'Standard', hex: '#1a1a1a' }]
       };
     }
-  } catch (err) {
+  }
+} catch (err) {
     // ignore
   }
 

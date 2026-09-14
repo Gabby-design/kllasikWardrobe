@@ -34,6 +34,7 @@ function App() {
         console.warn('Supabase fetch products notice:', error.message);
       }
       
+      if (data && data.length > 0) {
         const formattedProducts = data.map(p => ({
           id: p.id,
           name: p.name,

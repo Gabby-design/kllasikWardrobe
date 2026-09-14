@@ -33,7 +33,9 @@ export async function submitManualOrder(cart, customerForm, totalAmount) {
       total_amount: totalAmount,
       payment_status: 'Pending Transfer',
       delivery_status: 'Processing',
-      shipping_address: JSON.stringify(shippingAddress)
+      shipping_address: JSON.stringify(shippingAddress),
+      customer_name: customerForm.name || 'Guest',
+      customer_email: customerForm.email
     };
 
     console.log('3. Inserting into Supabase...');

@@ -19,6 +19,12 @@ export function QuickViewModal({
 
   useEffect(() => {
     setQuantity(1);
+    if (quickViewProduct) {
+      const available = quickViewProduct.available_sizes || quickViewProduct.sizes || ['M', 'L', 'XL'];
+      if (!available.includes(quickViewSize)) {
+        setQuickViewSize(available[0] || 'M');
+      }
+    }
   }, [quickViewProduct]);
 
   // Lock body scroll when modal is open so 100% of gestures scroll the modal
@@ -165,8 +171,23 @@ export function QuickViewModal({
                   </span>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                  {(quickViewProduct.sizes || ['S', 'M', 'L', 'XL', 'XXL']).map((s) => {
-                    const isSelected = quickViewSize === s;
+                  {['S', 'M', 'L', 'XL', 'XXL'].map((s) => {
+                    const availableSizes = quickViewProduct.available_sizes || quickViewProduct.sizes || ['S', 'M', 'L', 'XL', 'XXL'];
+                    const isAvailable = availableSizes.includes(s);
+                    const isSelected = quickViewSize === s && isAvailable;
+
+                    if (!isAvailable) {
+                      return (
+                        <span
+                          key={s}
+                          title={`${s} (Unavailable)`}
+                          className="w-9 h-9 sm:w-10 sm:h-10 rounded-[12px] flex items-center justify-center font-sans text-xs font-semibold bg-gray-100 text-gray-300 border border-black/[0.04] line-through cursor-not-allowed select-none opacity-40 pointer-events-none"
+                        >
+                          {s}
+                        </span>
+                      );
+                    }
+
                     return (
                       <button
                         key={s}

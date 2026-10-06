@@ -82,7 +82,7 @@ export const PRODUCTS = [
     gsm: '240 GSM Heavy Cotton',
     material: '100% Combed Cotton',
     fit: 'Relaxed Streetwear Fit',
-    sizes: ['S', 'M', 'L', 'XL'],
+    sizes: ['M'],
     colors: [
       { name: 'Sky Blue', hex: '#7dd3fc' },
     ],

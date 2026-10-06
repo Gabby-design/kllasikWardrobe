@@ -49,7 +49,14 @@ export default function HomePage() {
     fetchProducts();
   }, []);
 
-  const getSelectedSize = (productId) => selectedCardSizes[productId] || 'L';
+  const getSelectedSize = (productId) => {
+    if (selectedCardSizes[productId]) return selectedCardSizes[productId];
+    const prod = dbProducts.find((p) => p.id === productId);
+    if (prod && Array.isArray(prod.sizes) && prod.sizes.length > 0) {
+      return prod.sizes.includes('L') ? 'L' : prod.sizes[0];
+    }
+    return 'L';
+  };
 
   const handleSelectCardSize = (productId, size) => {
     setSelectedCardSizes((prev) => ({ ...prev, [productId]: size }));
@@ -155,8 +162,8 @@ export default function HomePage() {
             Explore 240–300 GSM organic cotton and mulberry silk essentials engineered with intentional drop-shoulder silhouettes.
           </p>
 
-          {/* Pill Search Bar */}
-          <div className="mt-4 max-w-md mx-auto">
+          {/* Search Bar: Mobile only (Desktop uses the single search bar in the Navbar) */}
+          <div className="mt-4 max-w-md mx-auto sm:hidden">
             <div className="relative flex items-center bg-white rounded-full border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)] px-4 py-2.5 transition-all focus-within:ring-2 focus-within:ring-[#7C3AED]/20 focus-within:border-[#EDE9FE]">
               <Search className="w-4 h-4 text-gray-400 mr-2.5 flex-shrink-0" />
               <input

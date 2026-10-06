@@ -167,7 +167,11 @@ export function ProductGrid({
           <div className="grid grid-cols-2 gap-3.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
             {filteredProducts.map((product) => {
               const currentImage = getCardImage ? getCardImage(product) : product.image;
-              const currentSize = getSelectedSize ? getSelectedSize(product.id) : (product.sizes?.[1] || 'L');
+              const availableSizes = Array.isArray(product.sizes) && product.sizes.length > 0 ? product.sizes : ['M', 'L', 'XL'];
+              const savedSize = getSelectedSize ? getSelectedSize(product.id) : null;
+              const currentSize = savedSize && availableSizes.includes(savedSize)
+                ? savedSize
+                : (availableSizes.includes('L') ? 'L' : availableSizes[0]);
               const currentColor = getSelectedColor ? getSelectedColor(product) : product.colors?.[0]?.name;
               const isFavorited = Boolean(wishlist[product.id]);
               const tagText = product.tag || (product.category === 'Executive' ? 'Exclusive' : 'New Arrival');
@@ -255,10 +259,25 @@ export function ProductGrid({
                     {/* Size Chips & Colour Swatches Row */}
                     <div className="flex items-center justify-between gap-1 mb-2.5">
                       
-                      {/* Size Chips (M, L, XL, XXL) as 12px rounded squares */}
+                      {/* Size Chips: S, M, L, XL, XXL with unavailable sizes greyed out */}
                       <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5">
-                        {(product.sizes || ['M', 'L', 'XL', 'XXL']).slice(0, 4).map((size) => {
-                          const isSelected = currentSize === size;
+                        {['S', 'M', 'L', 'XL', 'XXL'].map((size) => {
+                          const isAvailable = availableSizes.includes(size);
+                          const isSelected = currentSize === size && isAvailable;
+
+                          if (!isAvailable) {
+                            return (
+                              <span
+                                key={size}
+                                title={`${size} (Unavailable)`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-6 h-6 sm:w-7 sm:h-7 rounded-[12px] flex items-center justify-center font-sans text-[10px] sm:text-[11px] font-medium bg-gray-100 text-gray-300 border border-black/[0.04] line-through cursor-not-allowed select-none opacity-40 shrink-0"
+                              >
+                                {size}
+                              </span>
+                            );
+                          }
+
                           return (
                             <button
                               key={size}
@@ -267,7 +286,7 @@ export function ProductGrid({
                                 e.stopPropagation();
                                 if (handleSelectCardSize) handleSelectCardSize(product.id, size);
                               }}
-                              className={`w-6 h-6 sm:w-7 sm:h-7 rounded-[12px] flex items-center justify-center font-sans text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer ${
+                              className={`w-6 h-6 sm:w-7 sm:h-7 rounded-[12px] flex items-center justify-center font-sans text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
                                 isSelected
                                   ? 'bg-[#7C3AED] text-white shadow-xs'
                                   : 'bg-[#EDEDEF] text-gray-700 hover:bg-gray-200'

@@ -1,16 +1,28 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCartStore } from '../../../src/store/cartStore';
 import toast from 'react-hot-toast';
 import { ShoppingBag, Plus, Minus } from 'lucide-react';
 
 export default function AddToCartSection({ product }) {
-  const [selectedSize, setSelectedSize] = useState('L');
+  const ALL_SIZES = ['S', 'M', 'L', 'XL', 'XXL'];
+  const availableSizes = Array.isArray(product.sizes) && product.sizes.length > 0 
+    ? product.sizes 
+    : ['S', 'M', 'L', 'XL', 'XXL'];
+
+  const [selectedSize, setSelectedSize] = useState(() => {
+    return availableSizes.includes('L') ? 'L' : (availableSizes[0] || 'M');
+  });
   const [quantity, setQuantity] = useState(1);
   const { addToCart, setIsCartOpen } = useCartStore();
 
-  const sizes = product.sizes || ['S', 'M', 'L', 'XL', 'XXL'];
+  useEffect(() => {
+    if (!availableSizes.includes(selectedSize)) {
+      setSelectedSize(availableSizes[0] || 'M');
+    }
+  }, [product]);
+
   const totalPrice = (product.price || 0) * quantity;
   const formatPrice = (val) => `₦${Number(val || 0).toLocaleString('en-US')}`;
 
@@ -36,20 +48,37 @@ export default function AddToCartSection({ product }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {sizes.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setSelectedSize(s)}
-              className={`w-10 h-10 rounded-[12px] font-sans text-xs font-bold transition-all cursor-pointer ${
-                selectedSize === s
-                  ? 'bg-[#7C3AED] text-white shadow-xs'
-                  : 'bg-[#EDEDEF] text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {s}
-            </button>
-          ))}
+          {ALL_SIZES.map((s) => {
+            const isAvailable = availableSizes.includes(s);
+            const isSelected = selectedSize === s && isAvailable;
+
+            if (!isAvailable) {
+              return (
+                <span
+                  key={s}
+                  title={`${s} (Unavailable)`}
+                  className="w-10 h-10 rounded-[12px] font-sans text-xs font-semibold bg-gray-100 text-gray-300 border border-black/[0.04] line-through cursor-not-allowed select-none opacity-40 flex items-center justify-center pointer-events-none"
+                >
+                  {s}
+                </span>
+              );
+            }
+
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSelectedSize(s)}
+                className={`w-10 h-10 rounded-[12px] font-sans text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                  isSelected
+                    ? 'bg-[#7C3AED] text-white shadow-xs'
+                    : 'bg-[#EDEDEF] text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {s}
+              </button>
+            );
+          })}
         </div>
       </div>
 

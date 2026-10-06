@@ -698,7 +698,7 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-gray-500">
                   <span>Express Delivery</span>
                   {isFreeShipping ? (
-                    <span className="text-emerald-600 font-bold">FREE (Over ₦70k)</span>
+                    <span className="text-emerald-600 font-bold">FREE (Over ₦200k)</span>
                   ) : (
                     <span className="font-bold text-[#111111]">₦2,500</span>
                   )}

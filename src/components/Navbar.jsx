@@ -3,22 +3,22 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { KlasikLogo } from './KlasikLogo';
 import { useCartStore } from '../store/cartStore';
-import { usePathname } from 'next/navigation';
-import { Search, ShoppingBag, Sparkles, Menu, X, Ruler } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Search, ShoppingBag, Sparkles, X, Ruler, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function Navbar({ searchQuery, setSearchQuery, setIsSizeGuideOpen }) {
+export function Navbar({ searchQuery = '', setSearchQuery, setIsSizeGuideOpen }) {
   const { cartItemCount, setIsCartOpen } = useCartStore();
   const [mounted, setMounted] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isPhoneSearchOpen, setIsPhoneSearchOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      setIsScrolled(window.scrollY > 15);
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
@@ -26,180 +26,180 @@ export function Navbar({ searchQuery, setSearchQuery, setIsSizeGuideOpen }) {
 
   const itemCount = mounted ? cartItemCount() : 0;
 
+  const handleFilterClick = () => {
+    if (pathname === '/') {
+      const el = document.getElementById('categories-section') || document.getElementById('catalog');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+    }
+    router.push('/catalog');
+  };
+
   return (
-    <div className="fixed top-0 w-full z-50 flex flex-col transition-all duration-300">
-      {/* Top Announcement Bar */}
-      <div className="bg-[#121212] text-[#F9F8F6] px-4 py-2 text-center text-[10px] sm:text-xs font-sans font-medium tracking-[0.18em] uppercase flex items-center justify-center gap-2">
-        <Sparkles className="w-3 h-3 text-amber-400 hidden sm:inline" />
-        <span>COMPLIMENTARY EXPRESS COURIER ACROSS NIGERIA ON ORDERS OVER ₦70,000</span>
-        <Sparkles className="w-3 h-3 text-amber-400 hidden sm:inline" />
+    <header className="fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300">
+      
+      {/* 1. Slim Announcement Bar with Purple Accent */}
+      <div className="bg-[#7C3AED] text-white px-4 py-1 text-center text-[10px] sm:text-xs font-medium tracking-normal flex items-center justify-center gap-1.5 select-none">
+        <Sparkles className="w-3 h-3 text-purple-200 hidden sm:inline" />
+        <span>Complimentary express delivery across Nigeria on orders over ₦70,000</span>
+        <Sparkles className="w-3 h-3 text-purple-200 hidden sm:inline" />
       </div>
 
-      {/* Main Floating Header */}
-      <header className={`w-full transition-all duration-300 ${
-        isScrolled 
-          ? 'bg-[#F9F8F6]/95 backdrop-blur-md shadow-sm border-b border-foreground/10 py-3' 
-          : 'bg-[#F9F8F6]/90 backdrop-blur-sm border-b border-foreground/5 py-4'
+      {/* 2. Main Sticky White Header with Soft Shadow */}
+      <div className={`w-full bg-white/95 backdrop-blur-md border-b border-black/[0.04] transition-all duration-300 ${
+        isScrolled ? 'shadow-[0_8px_24px_rgba(17,17,17,0.06)] py-2' : 'shadow-[0_4px_20px_rgba(17,17,17,0.04)] py-2.5 sm:py-3'
       }`}>
-        <div className="flex justify-between items-center max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          {/* Brand Logo */}
-          <Link href="/" className="hover:opacity-85 transition-opacity" aria-label="Klasik Wardrobe Home">
-            <KlasikLogo height={isScrolled ? 38 : 44} className="fill-foreground transition-all duration-300" />
-          </Link>
-
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 font-sans text-xs uppercase tracking-[0.18em] font-medium text-foreground">
-            <Link 
-              href="/" 
-              className={`hover:opacity-60 transition-opacity py-1 relative ${
-                pathname === '/' ? 'font-bold border-b-2 border-foreground' : ''
-              }`}
-            >
-              Home
-            </Link>
-            <Link 
-              href="/catalog" 
-              className={`hover:opacity-60 transition-opacity py-1 relative ${
-                pathname === '/catalog' ? 'font-bold border-b-2 border-foreground' : ''
-              }`}
-            >
-              Collection
-            </Link>
-            <button 
-              onClick={() => setIsSizeGuideOpen && setIsSizeGuideOpen(true)}
-              className="hover:opacity-60 transition-opacity flex items-center gap-1.5 cursor-pointer uppercase tracking-[0.18em]"
-            >
-              <Ruler className="w-3.5 h-3.5 opacity-60" />
-              <span>Size Guide</span>
-            </button>
-          </nav>
-
-          {/* Search Box & Actions */}
-          <div className="flex items-center gap-3 sm:gap-5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
             
-            {/* Desktop Search Input */}
-            <div className="hidden lg:flex items-center bg-foreground/[0.03] border border-foreground/15 px-3.5 py-1.5 focus-within:border-foreground focus-within:bg-white transition-all w-60">
-              <Search className="w-3.5 h-3.5 text-foreground/50 mr-2 shrink-0" />
-              <input
-                type="text"
-                className="bg-transparent border-none outline-none text-xs w-full font-sans text-foreground placeholder:text-foreground/40"
-                placeholder="Search heavyweight pieces..."
-                value={searchQuery || ''}
-                onChange={(e) => setSearchQuery && setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button 
-                  onClick={() => setSearchQuery && setSearchQuery('')}
-                  className="text-[10px] text-foreground/40 hover:text-foreground ml-1"
-                >
-                  ✕
-                </button>
-              )}
+            {/* Left: Brand Logo */}
+            <div className="flex items-center flex-shrink-0">
+              <Link href="/" className="hover:opacity-90 transition-opacity flex items-center" aria-label="Klasik Wardrobe Home">
+                <KlasikLogo height={isScrolled ? 30 : 34} className="transition-all duration-300" />
+              </Link>
             </div>
 
-            {/* Mobile Search Toggle */}
-            <button 
-              className="lg:hidden p-2 text-foreground hover:opacity-70 transition-opacity"
-              onClick={() => setIsSearchOpen(!isSearchOpen)}
-              aria-label="Toggle Search"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-
-            {/* Shopping Bag Trigger */}
-            <button 
-              className="flex items-center gap-2 bg-foreground text-background px-3.5 py-2 hover:bg-neutral-800 transition-all font-sans text-xs uppercase tracking-[0.18em] font-semibold group cursor-pointer" 
-              onClick={() => setIsCartOpen(true)}
-              aria-label="View Shopping Bag"
-            >
-              <ShoppingBag className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-              <span className="hidden sm:inline">Bag</span>
-              <span className="bg-background text-foreground text-[10px] font-bold px-1.5 py-0.2 rounded-full min-w-[18px] text-center">
-                {itemCount}
-              </span>
-            </button>
-
-            {/* Mobile Menu Hamburger */}
-            <button
-              className="md:hidden p-2 text-foreground hover:opacity-70 transition-opacity"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label="Toggle Menu"
-            >
-              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-
-          </div>
-        </div>
-
-        {/* Mobile Search Bar Dropdown */}
-        <AnimatePresence>
-          {isSearchOpen && (
-            <motion.div 
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="lg:hidden px-4 pt-3 pb-2 border-t border-foreground/10 bg-background"
-            >
-              <div className="flex items-center bg-white border border-foreground/20 px-3 py-2">
-                <Search className="w-4 h-4 text-foreground/50 mr-2" />
-                <input
-                  type="text"
-                  className="bg-transparent border-none outline-none text-xs w-full font-sans text-foreground"
-                  placeholder="Search pieces, fabrics, GSM..."
-                  value={searchQuery || ''}
-                  onChange={(e) => setSearchQuery && setSearchQuery(e.target.value)}
-                  autoFocus
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Mobile Drawer Menu */}
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="md:hidden border-t border-foreground/10 bg-background px-6 py-6 flex flex-col gap-4 font-sans text-sm uppercase tracking-[0.18em]"
-            >
+            {/* Center: Desktop Pill-shaped Navigation Links */}
+            <nav className="hidden md:flex items-center gap-1.5 bg-[#F7F7F8] p-1 rounded-full border border-black/[0.04]">
               <Link 
                 href="/" 
-                className="py-2 border-b border-foreground/5"
-                onClick={() => setIsMobileMenuOpen(false)}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  pathname === '/' 
+                    ? 'bg-[#EDE9FE] text-[#7C3AED] shadow-xs' 
+                    : 'text-[#111111]/70 hover:text-[#7C3AED]'
+                }`}
               >
                 Home
               </Link>
               <Link 
                 href="/catalog" 
-                className="py-2 border-b border-foreground/5"
-                onClick={() => setIsMobileMenuOpen(false)}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  pathname === '/catalog' 
+                    ? 'bg-[#EDE9FE] text-[#7C3AED] shadow-xs' 
+                    : 'text-[#111111]/70 hover:text-[#7C3AED]'
+                }`}
               >
-                Full Collection
+                Collection
               </Link>
               <button 
-                className="py-2 text-left flex items-center justify-between"
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  setIsSizeGuideOpen && setIsSizeGuideOpen(true);
-                }}
+                type="button"
+                onClick={() => setIsSizeGuideOpen && setIsSizeGuideOpen(true)}
+                className="px-4 py-1.5 rounded-full text-xs font-semibold text-[#111111]/70 hover:text-[#7C3AED] transition-all flex items-center gap-1 cursor-pointer"
               >
+                <Ruler className="w-3.5 h-3.5 opacity-70" />
                 <span>Size Guide</span>
-                <Ruler className="w-4 h-4 opacity-50" />
               </button>
-              <Link 
-                href="/checkout" 
-                className="py-2 text-left font-bold text-amber-700"
-                onClick={() => setIsMobileMenuOpen(false)}
+            </nav>
+
+            {/* Right: Search Bar & Round Bag Button */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              
+              {/* Desktop / Tablet Rounded Pill Search Bar */}
+              <div className="hidden sm:flex items-center bg-[#EDEDEF] hover:bg-[#E5E5E8] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#7C3AED]/20 border border-transparent focus-within:border-[#EDE9FE] rounded-full px-3.5 py-1.5 transition-all w-48 md:w-60 lg:w-72">
+                <Search className="w-3.5 h-3.5 text-gray-400 mr-2 flex-shrink-0" />
+                <input
+                  type="text"
+                  className="w-full bg-transparent border-none outline-none text-xs font-sans text-[#111111] placeholder:text-gray-400"
+                  placeholder="Search essentials..."
+                  value={searchQuery || ''}
+                  onChange={(e) => setSearchQuery && setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button 
+                    type="button"
+                    onClick={() => setSearchQuery && setSearchQuery('')}
+                    className="text-xs text-gray-400 hover:text-gray-600 px-1"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleFilterClick}
+                  className="w-6 h-6 rounded-full bg-white hover:bg-[#EDE9FE] text-[#7C3AED] flex items-center justify-center transition-colors flex-shrink-0 ml-1 cursor-pointer shadow-xs"
+                  title="Filter Categories"
+                  aria-label="Filter Categories"
+                >
+                  <SlidersHorizontal className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* Phone Search Trigger (Toggles expandable search bar) */}
+              <button
+                type="button"
+                className="sm:hidden w-10 h-10 rounded-full bg-[#EDEDEF] hover:bg-[#EDE9FE] text-[#111111] flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+                onClick={() => setIsPhoneSearchOpen(!isPhoneSearchOpen)}
+                aria-label="Toggle Search"
               >
-                Proceed to Checkout
-              </Link>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </header>
-    </div>
+                {isPhoneSearchOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+              </button>
+
+              {/* Round Bag Button with Purple Count Badge */}
+              <button 
+                type="button"
+                className="relative w-10 h-10 rounded-full bg-[#EDEDEF] hover:bg-[#EDE9FE] text-[#111111] hover:text-[#7C3AED] flex items-center justify-center transition-colors active:scale-95 cursor-pointer shadow-xs" 
+                onClick={() => setIsCartOpen(true)}
+                aria-label="View Shopping Bag"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                {itemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#7C3AED] text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-xs">
+                    {itemCount}
+                  </span>
+                )}
+              </button>
+
+            </div>
+
+          </div>
+
+          {/* Expandable Phone Search Bar */}
+          <AnimatePresence>
+            {isPhoneSearchOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="sm:hidden pt-2.5 pb-1 overflow-hidden"
+              >
+                <div className="flex items-center bg-[#EDEDEF] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#7C3AED]/20 border border-transparent focus-within:border-[#EDE9FE] rounded-full px-4 py-2 transition-all">
+                  <Search className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+                  <input
+                    type="text"
+                    autoFocus
+                    className="w-full bg-transparent border-none outline-none text-xs font-sans text-[#111111] placeholder:text-gray-400"
+                    placeholder="Search heavyweight essentials..."
+                    value={searchQuery || ''}
+                    onChange={(e) => setSearchQuery && setSearchQuery(e.target.value)}
+                  />
+                  {searchQuery && (
+                    <button 
+                      type="button"
+                      onClick={() => setSearchQuery && setSearchQuery('')}
+                      className="text-xs text-gray-400 hover:text-gray-600 px-1.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleFilterClick}
+                    className="w-7 h-7 rounded-full bg-white text-[#7C3AED] flex items-center justify-center transition-colors flex-shrink-0 ml-1.5 shadow-xs cursor-pointer"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+        </div>
+      </div>
+
+    </header>
   );
 }

@@ -1,6 +1,8 @@
 "use client";
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingBag, Zap, Eye, Sparkles } from 'lucide-react';
+import { Heart, Plus, ArrowRight, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 
 export function ProductGrid({
   filteredProducts,
@@ -23,307 +25,317 @@ export function ProductGrid({
   handleBuyNow,
   showCategoryFilter = true
 }) {
-  const categories = [
-    { label: 'All Collections', value: 'ALL' },
-    { label: 'Essential (₦30k)', value: 'Essential' },
-    { label: 'Signature (₦35k)', value: 'Signature' },
-    { label: 'Executive (₦40k)', value: 'Executive' },
+  const [wishlist, setWishlist] = useState({});
+
+  const toggleWishlist = (productId, e) => {
+    e.stopPropagation();
+    setWishlist(prev => ({
+      ...prev,
+      [productId]: !prev[productId]
+    }));
+  };
+
+  const categoryCards = [
+    { 
+      label: "Essential", 
+      value: "Essential", 
+      desc: "240 GSM • ₦30k", 
+      image: "/images/media__1786369656046.jpg" 
+    },
+    { 
+      label: "Signature", 
+      value: "Signature", 
+      desc: "260 GSM • ₦35k", 
+      image: "/images/media__1786370258071_2.jpg" 
+    },
+    { 
+      label: "Executive", 
+      value: "Executive", 
+      desc: "300 GSM • ₦40k", 
+      image: "/images/media__1786370258071.jpg" 
+    },
+    { 
+      label: "New Arrival", 
+      value: "ALL", 
+      desc: "Latest Archive", 
+      image: "/images/media__1786369661997.jpg" 
+    },
   ];
 
   return (
-    <>
-      {/* Category Filter Bar */}
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+      
+      {/* 1. Categories Row with "See all" link in purple */}
       {showCategoryFilter && (
-        <section id="catalog" className="scroll-mt-[120px] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-foreground/10">
-            
-            <div>
-              <span className="font-sans text-[0.7rem] uppercase tracking-[0.25em] font-bold text-foreground/50">
-                Curated Heavyweight Drops
-              </span>
-              <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
-                The Collections
-              </h2>
-            </div>
+        <section className="pt-2 pb-8 sm:pb-10" id="categories-section">
+          <div className="flex items-center justify-between mb-4 sm:mb-5">
+            <h2 className="font-sans text-lg sm:text-xl font-bold text-[#111111] tracking-tight">
+              Categories
+            </h2>
+            <Link 
+              href="/catalog" 
+              className="font-sans text-xs sm:text-sm font-semibold text-[#7C3AED] hover:text-[#6D28D9] transition-colors flex items-center gap-1"
+            >
+              <span>See all</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
 
-            {/* Category Filter Pills */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              {categories.map((cat) => {
-                const isActive = selectedCategory === cat.value;
-                return (
-                  <button
-                    key={cat.value}
-                    onClick={() => setSelectedCategory(cat.value)}
-                    className={`font-sans text-xs uppercase tracking-[0.15em] px-4 py-2.5 transition-all duration-300 cursor-pointer ${
-                      isActive 
-                        ? 'bg-foreground text-background font-bold shadow-md' 
-                        : 'bg-white/80 hover:bg-white text-foreground/70 hover:text-foreground border border-foreground/10'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                );
-              })}
-            </div>
+          {/* 3 to 4 Rounded Category Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            {categoryCards.map((cat) => {
+              const isActive = selectedCategory === cat.value;
+              return (
+                <button
+                  key={cat.label}
+                  type="button"
+                  onClick={() => setSelectedCategory && setSelectedCategory(cat.value)}
+                  className={`flex items-center justify-between gap-3 p-3 sm:p-3.5 rounded-[24px] bg-white border transition-all duration-300 cursor-pointer text-left shadow-[0_8px_24px_rgba(17,17,17,0.06)] hover:-translate-y-0.5 ${
+                    isActive
+                      ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/20 bg-[#EDE9FE]/20'
+                      : 'border-black/[0.04] hover:border-[#EDE9FE]'
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <span className="block font-sans text-xs sm:text-sm font-bold text-[#111111] truncate">
+                      {cat.label}
+                    </span>
+                    <span className="block font-sans text-[10px] sm:text-[11px] text-gray-500 truncate mt-0.5">
+                      {cat.desc}
+                    </span>
+                  </div>
 
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-[14px] overflow-hidden bg-[#EDEDEF] flex-shrink-0">
+                    <img 
+                      src={cat.image} 
+                      alt={cat.label}
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </section>
       )}
 
-      {/* Product Grid */}
-      <section className="relative bg-background px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto pb-24">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-16 gap-x-8 lg:gap-x-10 items-stretch">
-          
-          {filteredProducts.length === 0 ? (
-            <div className="col-span-full text-center py-20 px-6 bg-white border border-foreground/10">
-              <div className="flex justify-center mb-3">
-                <Sparkles className="w-8 h-8 text-foreground/30" />
-              </div>
-              <h3 className="font-serif text-2xl text-foreground font-bold mb-2">No matching pieces found</h3>
-              <p className="font-sans text-foreground/60 text-sm max-w-md mx-auto mb-6">
-                We couldn&apos;t find any pieces matching your current filters. Try resetting to view all heavyweight t-shirts.
-              </p>
-              <button
-                className="bg-foreground text-background font-sans text-xs uppercase tracking-[0.2em] font-bold px-6 py-3 hover:bg-neutral-800 transition-colors"
-                onClick={() => {
-                  if (setSelectedPrice) setSelectedPrice('ALL');
-                  if (setSelectedCategory) setSelectedCategory('ALL');
-                  if (setSearchQuery) setSearchQuery('');
-                }}
-              >
-                Reset Filters
-              </button>
+      {/* 2. "New Arrival" Section with "See all" link */}
+      <section id="catalog" className="scroll-mt-24 pt-2">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <div className="flex items-baseline gap-2">
+            <h2 className="font-sans text-lg sm:text-xl font-bold text-[#111111] tracking-tight">
+              New Arrival
+            </h2>
+            <span className="text-xs text-gray-500 font-medium">
+              ({filteredProducts.length} pieces)
+            </span>
+          </div>
+
+          <Link 
+            href="/catalog" 
+            className="font-sans text-xs sm:text-sm font-semibold text-[#7C3AED] hover:text-[#6D28D9] transition-colors flex items-center gap-1"
+          >
+            <span>See all</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        {/* Empty State */}
+        {filteredProducts.length === 0 ? (
+          <div className="text-center py-20 px-6 bg-white rounded-[24px] border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)] my-6">
+            <div className="w-12 h-12 rounded-full bg-[#EDE9FE] text-[#7C3AED] flex items-center justify-center mx-auto mb-4">
+              <Sparkles className="w-6 h-6" />
             </div>
-          ) : (
-            filteredProducts.map((product) => {
-              const currentImage = getCardImage(product);
-              const currentSize = getSelectedSize(product.id);
-              const currentColor = getSelectedColor ? getSelectedColor(product) : product.colors[0]?.name;
+            <h3 className="font-sans text-lg font-bold text-[#111111] mb-2">No matching pieces found</h3>
+            <p className="font-sans text-gray-500 text-xs sm:text-sm max-w-md mx-auto mb-6">
+              We couldn&apos;t find any pieces matching your current filters. Try resetting to view all heavyweight t-shirts.
+            </p>
+            <button
+              type="button"
+              className="px-6 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-semibold rounded-full text-xs sm:text-sm transition-all shadow-sm cursor-pointer"
+              onClick={() => {
+                if (setSelectedPrice) setSelectedPrice('ALL');
+                if (setSelectedCategory) setSelectedCategory('ALL');
+                if (setSearchQuery) setSearchQuery('');
+              }}
+            >
+              Reset Filters
+            </button>
+          </div>
+        ) : (
+          /* Product Grid: 2-column phone (<640px), 3-column tablet (640-1024px), 4-column desktop (>1024px) */
+          <div className="grid grid-cols-2 gap-3.5 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">
+            {filteredProducts.map((product) => {
+              const currentImage = getCardImage ? getCardImage(product) : product.image;
+              const currentSize = getSelectedSize ? getSelectedSize(product.id) : (product.sizes?.[1] || 'L');
+              const currentColor = getSelectedColor ? getSelectedColor(product) : product.colors?.[0]?.name;
+              const isFavorited = Boolean(wishlist[product.id]);
+              const tagText = product.tag || (product.category === 'Executive' ? 'Exclusive' : 'New Arrival');
 
               const handleOpenDetails = () => {
                 if (setQuickViewProduct) {
                   setQuickViewProduct(product);
-                  setQuickViewActiveImg(currentImage || product.image);
-                  setQuickViewSize(currentSize);
-                  setQuickViewColor(currentColor || product.colors?.[0]?.name || '');
+                  if (setQuickViewActiveImg) setQuickViewActiveImg(currentImage || product.image);
+                  if (setQuickViewSize) setQuickViewSize(currentSize);
+                  if (setQuickViewColor) setQuickViewColor(currentColor || product.colors?.[0]?.name || '');
                 }
               };
 
               return (
-                <motion.div
-                  initial="hidden"
-                  whileInView="show"
-                  viewport={{ once: true, margin: "-40px" }}
-                  variants={{
-                    hidden: { opacity: 0, y: 25 },
-                    show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] } }
-                  }}
+                <div
                   key={product.id}
                   onClick={handleOpenDetails}
-                  className="group flex flex-col bg-white border border-foreground/10 shadow-sm hover:shadow-xl hover:border-foreground/30 transition-all duration-500 overflow-hidden cursor-pointer relative"
-                  title="Click anywhere to view full details"
+                  className="bg-white rounded-[24px] p-3 sm:p-3.5 shadow-[0_8px_24px_rgba(17,17,17,0.06)] hover:shadow-[0_12px_32px_rgba(17,17,17,0.1)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between select-none cursor-pointer group"
                 >
                   
-                  {/* Image Showcase Container */}
-                  <div className="relative w-full aspect-[3/4] bg-[#F2EFEB] overflow-hidden">
-                    
-                    {/* Out of Stock Overlay */}
-                    {product.stock <= 0 && (
-                      <div className="absolute inset-0 bg-background/70 z-40 flex items-center justify-center backdrop-blur-[2px]">
-                        <span className="bg-foreground text-background px-4 py-2 font-serif uppercase tracking-[0.2em] font-bold text-xs">
-                          Sold Out
-                        </span>
-                      </div>
-                    )}
-
-                    <motion.img
-                      whileHover={{ scale: 1.05 }}
-                      transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                      src={currentImage}
-                      referrerPolicy="no-referrer"
-                      alt={product.title}
-                      className="w-full h-full object-cover origin-center"
-                    />
-
-                    {/* Price Badge */}
-                    <span className="absolute top-4 right-4 bg-background/95 backdrop-blur-md text-foreground px-3.5 py-1.5 font-serif text-sm font-bold tracking-[0.05em] border border-foreground/10 shadow-sm z-10">
-                      {formatPrice(product.price)}
-                    </span>
-
-                    {/* Tag / Category Badge */}
-                    {product.tag && (
-                      <span className="absolute top-4 left-4 bg-foreground text-background px-2.5 py-1 text-[0.65rem] font-sans uppercase tracking-[0.2em] font-bold shadow-sm z-10">
-                        {product.tag}
+                  {/* Top: Image sits in a grey (#EDEDEF) rounded box with 20px radius, aspect ratio ~4:5 */}
+                  <div>
+                    <div className="relative w-full aspect-[4/5] rounded-[20px] bg-[#EDEDEF] overflow-hidden flex items-center justify-center">
+                      
+                      {/* Top-Left: Small tag pill (New Arrival / Trending / Exclusive) */}
+                      <span className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 bg-[#111111] text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-full shadow-xs z-10 select-none">
+                        {tagText}
                       </span>
-                    )}
 
-                    {/* Multi-angle Thumbnails */}
-                    {product.gallery && product.gallery.filter(Boolean).length > 1 && (
-                      <div className="absolute bottom-4 left-4 flex gap-1.5 z-20">
-                        {product.gallery.filter(Boolean).map((imgUrl, i) => {
-                          const isActive = currentImage === imgUrl;
-                          const labels = ['Front', 'Back', 'Detail'];
+                      {/* Top-Right: Circular white heart (wishlist) button with soft shadow */}
+                      <button
+                        type="button"
+                        aria-label="Save to Wishlist"
+                        onClick={(e) => toggleWishlist(product.id, e)}
+                        className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 w-8 h-8 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] flex items-center justify-center text-gray-400 hover:text-[#7C3AED] active:scale-90 transition-all z-20 cursor-pointer"
+                      >
+                        <Heart 
+                          className={`w-4 h-4 transition-colors ${
+                            isFavorited ? 'fill-[#7C3AED] text-[#7C3AED]' : 'text-gray-400'
+                          }`} 
+                        />
+                      </button>
+
+                      {/* Out of Stock Overlay */}
+                      {product.stock <= 0 && (
+                        <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex items-center justify-center">
+                          <span className="bg-[#111111] text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                            Sold Out
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Product Image: 4:5 aspect ratio, object-fit cover, subtle hover zoom */}
+                      <img
+                        src={currentImage}
+                        alt={product.title}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 select-none"
+                      />
+                    </div>
+
+                    {/* Below the image in this exact order: */}
+                    <div className="mt-3 flex flex-col">
+                      
+                      {/* 1. Small grey category label */}
+                      <span className="font-sans text-[11px] text-gray-400 font-medium leading-none truncate">
+                        {product.category || 'Essential'} Collection
+                      </span>
+
+                      {/* 2. Product name in bold (max 2 lines) */}
+                      <h3 className="font-sans text-xs sm:text-sm font-bold text-[#111111] leading-snug mt-1.5 line-clamp-2 group-hover:text-[#7C3AED] transition-colors">
+                        {product.title}
+                      </h3>
+
+                      {/* 3. One-line GSM/fabric chip or text */}
+                      <span className="font-sans text-[11px] text-gray-500 font-medium mt-1 truncate">
+                        {product.gsm ? product.gsm.replace(' Heavyweight', '') : '240 GSM'} • {product.material ? product.material.replace('100% Combed ', '') : 'Organic Cotton'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Bottom Area: Size Chips, Colors, Price and Round Purple + Button */}
+                  <div className="mt-3 pt-2.5 border-t border-black/[0.04]">
+                    
+                    {/* Size Chips & Colour Swatches Row */}
+                    <div className="flex items-center justify-between gap-1 mb-2.5">
+                      
+                      {/* Size Chips (M, L, XL, XXL) as 12px rounded squares */}
+                      <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5">
+                        {(product.sizes || ['M', 'L', 'XL', 'XXL']).slice(0, 4).map((size) => {
+                          const isSelected = currentSize === size;
                           return (
                             <button
-                              key={i}
+                              key={size}
                               type="button"
-                              className={`w-9 h-11 overflow-hidden border bg-white transition-all cursor-pointer ${
-                                isActive 
-                                  ? 'border-foreground shadow-md opacity-100 scale-105' 
-                                  : 'border-white/50 opacity-70 hover:opacity-100 hover:border-foreground/60'
-                              }`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleSelectCardImage(product.id, imgUrl);
+                                if (handleSelectCardSize) handleSelectCardSize(product.id, size);
                               }}
-                              title={`View ${labels[i] || 'Angle'}`}
+                              className={`w-6 h-6 sm:w-7 sm:h-7 rounded-[12px] flex items-center justify-center font-sans text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[#7C3AED] text-white shadow-xs'
+                                  : 'bg-[#EDEDEF] text-gray-700 hover:bg-gray-200'
+                              }`}
                             >
-                              <img 
-                                src={imgUrl} 
-                                alt={`${labels[i]} preview`} 
-                                referrerPolicy="no-referrer"
-                                className="w-full h-full object-cover"
-                              />
+                              {size}
                             </button>
                           );
                         })}
                       </div>
-                    )}
 
-                    {/* Quick View Button Hover Overlay */}
-                    <div className="absolute inset-0 bg-foreground/20 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center z-30 pointer-events-none">
-                      <div className="bg-background text-foreground font-sans text-xs uppercase tracking-[0.2em] font-bold px-6 py-3 border border-foreground flex items-center gap-2 shadow-lg">
-                        <Eye className="w-4 h-4" />
-                        <span>Specs & Gallery</span>
-                      </div>
+                      {/* Colour Swatches with purple ring when selected */}
+                      {product.colors && product.colors.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {product.colors.map((color) => {
+                            const isSelected = currentColor === color.name;
+                            return (
+                              <button
+                                key={color.name}
+                                type="button"
+                                title={color.name}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (handleSelectCardColor) handleSelectCardColor(product.id, color.name);
+                                }}
+                                className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border border-gray-200 transition-all cursor-pointer ${
+                                  isSelected ? 'ring-2 ring-[#7C3AED] ring-offset-1' : 'opacity-80 hover:opacity-100'
+                                }`}
+                                style={{ backgroundColor: color.hex || '#111111' }}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+
                     </div>
 
-                  </div>
+                    {/* Row with Price in bold on the left and Small Round Purple "+" Add-to-Bag Button on the right */}
+                    <div className="flex items-center justify-between">
+                      <span className="font-sans text-sm sm:text-base font-bold text-[#111111]">
+                        {formatPrice(product.price)}
+                      </span>
 
-                  {/* Card Content & Selectors */}
-                  <div className="p-6 flex flex-col flex-grow justify-between bg-white">
-                    <div>
-                      <div className="flex items-center justify-between text-[0.65rem] font-sans uppercase tracking-[0.2em] text-foreground/60 mb-2">
-                        <span className="font-bold text-foreground/80">{product.category} Collection</span>
-                        <span className="bg-foreground/5 px-2 py-0.5 border border-foreground/10">{product.gsm || '240 GSM'}</span>
-                      </div>
-
-                      <h3 className="font-serif text-lg tracking-tight font-bold text-foreground leading-snug mb-2 group-hover:text-amber-900 transition-colors">
-                        {product.title}
-                      </h3>
-                      
-                      <p className="font-sans text-xs text-foreground/70 mb-5 line-clamp-2 leading-relaxed">
-                        {product.description}
-                      </p>
-
-                      {/* Size & Color Selector Row */}
-                      <div className="flex items-center justify-between mb-6 pt-4 border-t border-foreground/10">
-                        
-                        {/* Sizes */}
-                        <div className="flex flex-col gap-1.5">
-                          <span className="font-sans text-[0.65rem] uppercase tracking-[0.18em] text-foreground/60 font-semibold">
-                            Size: <strong className="text-foreground">{currentSize}</strong>
-                          </span>
-                          <div className="flex gap-1.5">
-                            {product.sizes.map((s) => {
-                              const isSelected = currentSize === s;
-                              return (
-                                <button
-                                  key={s}
-                                  type="button"
-                                  className={`w-7 h-7 flex items-center justify-center border font-sans text-xs font-semibold transition-all cursor-pointer ${
-                                    isSelected 
-                                      ? 'bg-foreground text-background border-foreground font-bold shadow-sm' 
-                                      : 'bg-transparent text-foreground border-foreground/20 hover:border-foreground/60'
-                                  }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleSelectCardSize(product.id, s);
-                                  }}
-                                >
-                                  {s}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Colors */}
-                        <div className="flex flex-col items-end gap-1.5">
-                          <span className="font-sans text-[0.65rem] uppercase tracking-[0.18em] text-foreground/60 font-semibold">
-                            Color
-                          </span>
-                          <div className="flex gap-1.5">
-                            {product.colors.map((c) => {
-                              const isSelectedColor = currentColor === c.name;
-                              return (
-                                <button
-                                  key={c.name}
-                                  type="button"
-                                  className={`w-5 h-5 rounded-full border transition-all cursor-pointer ${
-                                    isSelectedColor 
-                                      ? 'ring-2 ring-foreground ring-offset-1 scale-110' 
-                                      : 'border-foreground/30 hover:scale-105'
-                                  }`}
-                                  style={{ backgroundColor: c.hex }}
-                                  title={c.name}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (handleSelectCardColor) handleSelectCardColor(product.id, c.name);
-                                  }}
-                                />
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="grid grid-cols-2 gap-2.5 mt-auto pt-2">
                       <button
                         type="button"
+                        aria-label="Add to Bag"
                         disabled={product.stock <= 0}
-                        className={`w-full bg-white text-foreground hover:bg-foreground hover:text-background active:scale-[0.98] border border-foreground font-sans text-[0.7rem] uppercase tracking-[0.18em] font-bold py-3.5 px-3 transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
-                          product.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (product.stock <= 0) return;
                           handleAddToCart(product, currentSize, currentColor);
                         }}
+                        className="w-8 h-8 rounded-full bg-[#7C3AED] hover:bg-[#6D28D9] text-white flex items-center justify-center shadow-xs active:scale-95 transition-all cursor-pointer"
                       >
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                        <span>Add to Bag</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={product.stock <= 0}
-                        className={`w-full bg-foreground text-background hover:bg-neutral-800 active:scale-[0.98] border border-foreground font-sans text-[0.7rem] uppercase tracking-[0.18em] font-bold py-3.5 px-3 transition-all duration-300 flex items-center justify-center gap-1.5 shadow-md cursor-pointer ${
-                          product.stock <= 0 ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (product.stock <= 0) return;
-                          handleBuyNow(product);
-                        }}
-                      >
-                        <Zap className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Buy Now</span>
+                        <Plus className="w-4 h-4 stroke-[2.5]" />
                       </button>
                     </div>
 
                   </div>
 
-                </motion.div>
+                </div>
               );
-            })
-          )}
+            })}
+          </div>
+        )}
 
-        </div>
       </section>
-    </>
+
+    </div>
   );
 }

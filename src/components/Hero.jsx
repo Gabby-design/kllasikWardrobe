@@ -1,82 +1,195 @@
-import { useRef } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
-import heroTshirt from '../assets/hero-tshirt-blank.png';
+"use client";
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowUpRight } from 'lucide-react';
+import Link from 'next/link';
 
 export function Hero() {
-  const heroRef = useRef(null);
-  
-  const { scrollY, scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"]
-  });
+  const [activeSlide, setActiveSlide] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const timerRef = useRef(null);
 
-  // Scale mapping for the shirt, starting larger to feel closer
-  const heroScale = useTransform(scrollY, [0, 800], [1.2, 1.5]);
-  
-  // Parallax sway mapping based on section scroll progress
-  const rotateY = useTransform(scrollYProgress, [0, 1], [-20, 20]);
-  const rotateX = useTransform(scrollYProgress, [0, 1], [5, -5]);
+  const slides = [
+    {
+      tag: 'New Drop',
+      headline: 'Defined by details.',
+      subtext: 'Heavyweight 240–300 GSM organic cotton essentials engineered for effortless drape and permanence.',
+      cta: 'Shop Now',
+      href: '/catalog',
+      image: '/images/hero-tee-black.png',
+      alt: 'Klasik Heavyweight Black Tee',
+    },
+    {
+      tag: 'Signature Tier',
+      headline: 'Substance over hype.',
+      subtext: 'Dense 260 GSM custom vintage washes with high-density puff prints and preshrunk double ribbing.',
+      cta: 'Shop Now',
+      href: '/catalog?category=Signature',
+      image: '/images/hero-tee-purple.png',
+      alt: 'Klasik Heavyweight Purple Tee',
+    },
+    {
+      tag: 'Executive Silk',
+      headline: 'The 300 GSM standard.',
+      subtext: 'Tailored luxury cuts infused with Peruvian Pima and mulberry silk threads for a cool handfeel.',
+      cta: 'Shop Now',
+      href: '/catalog?category=Executive',
+      image: '/images/hero-tee-white.png',
+      alt: 'Klasik Heavyweight White Silk-Cotton Tee',
+    }
+  ];
 
-  // Star rotation mapping
-  const starRotate = useTransform(scrollY, [0, 1000], [0, 360]);
+  // Auto-slide every 5 seconds (5000ms)
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setDirection(1);
+      setActiveSlide((prev) => (prev + 1) % slides.length);
+    }, 5000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [activeSlide, slides.length]);
+
+  const resetTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = setInterval(() => {
+        setDirection(1);
+        setActiveSlide((prev) => (prev + 1) % slides.length);
+      }, 5000);
+    }
+  };
+
+  const handleManualSlide = (targetIdx) => {
+    setDirection(targetIdx > activeSlide ? 1 : -1);
+    setActiveSlide(targetIdx);
+    resetTimer();
+  };
+
+  const handleDragEnd = (event, info) => {
+    const swipeThreshold = 50;
+    const { offset, velocity } = info;
+
+    if (offset.x < -swipeThreshold || velocity.x < -400) {
+      // Swiped left -> next slide
+      setDirection(1);
+      setActiveSlide((prev) => (prev + 1) % slides.length);
+      resetTimer();
+    } else if (offset.x > swipeThreshold || velocity.x > 400) {
+      // Swiped right -> prev slide
+      setDirection(-1);
+      setActiveSlide((prev) => (prev - 1 + slides.length) % slides.length);
+      resetTimer();
+    }
+  };
+
+  const current = slides[activeSlide];
 
   return (
-    <section 
-      ref={heroRef} 
-      className="relative w-full h-[90vh] overflow-hidden bg-background flex items-center justify-center pt-16" 
-      style={{ isolation: 'isolate' }}
-    >
-      {/* Subtle Ambient Background Grid */}
-      <div className="absolute inset-0 bg-[radial-gradient(#121212_1px,transparent_1px)] [background-size:32px_32px] opacity-[0.03] pointer-events-none" />
-
-      {/* 3D Perspective Wrapper for T-Shirt */}
-      <div 
-        className="relative w-full max-w-3xl aspect-square flex items-center justify-center z-10"
-        style={{ perspective: '1200px' }}
-      >
-        <motion.img
-          src={heroTshirt.src}
-          alt="Klasik Heavyweight T-Shirt"
-          style={{ 
-            rotateY, 
-            rotateX,
-            scale: heroScale
-          }}
-          className="relative z-10 w-full h-full object-contain pointer-events-none mix-blend-multiply scale-110 drop-shadow-2xl"
-        />
+    <section className="w-full px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 md:pt-32 pb-4 sm:pb-6 select-none">
+      <div className="max-w-7xl mx-auto">
         
-        {/* Static Ultra-Diffused Contact Shadow on the Ground */}
-        <div className="absolute bottom-[5%] left-1/2 -translate-x-1/2 w-3/5 h-16 bg-black/20 blur-3xl rounded-[100%] z-0 pointer-events-none" />
-      </div>
-
-      {/* Rotating 4-Point Star */}
-      <motion.div
-        className="absolute top-1/4 right-8 sm:right-12 md:right-32 z-20 text-foreground pointer-events-none"
-        style={{ rotate: starRotate }}
-      >
-        <svg width="80" height="80" viewBox="0 0 100 100" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-          <path d="M50 0 C50 30 70 50 100 50 C70 50 50 70 50 100 C50 70 30 50 0 50 C30 50 50 30 50 0 Z" />
-        </svg>
-      </motion.div>
-
-      {/* Mix-Blend Text Overlay */}
-      <div className="absolute bottom-12 left-6 md:bottom-20 md:left-20 z-50 text-left text-white mix-blend-difference max-w-2xl pointer-events-none">
-        <motion.h1
-          initial={{ opacity: 0, y: 25 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-          className="font-serif text-[clamp(3rem,7vw,6.5rem)] font-bold tracking-[-0.05em] leading-[0.9] mb-6"
+        {/* Rounded Promo Banner Card with Drag / Swipe support */}
+        <motion.div 
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.12}
+          onDragEnd={handleDragEnd}
+          className="relative rounded-[24px] overflow-hidden bg-gradient-to-r from-[#7C3AED] via-[#8B5CF6] to-[#A78BFA] text-white shadow-[0_8px_24px_rgba(17,17,17,0.06)] min-h-[320px] sm:min-h-[360px] md:min-h-[400px] flex items-center cursor-grab active:cursor-grabbing touch-pan-y"
         >
-          Defined by details.
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 25 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-          className="font-sans text-[0.9rem] tracking-[0.25em] uppercase font-medium"
-        >
-          Elevated essentials crafted from premium heavyweight cotton and silk blends.
-        </motion.p>
+          
+          {/* Subtle Ambient Decorative Circles */}
+          <div className="absolute -top-16 -right-16 w-64 h-64 bg-white/15 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-[#5B21B6]/30 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Banner Inner Grid: Side-by-side on tablet/desktop, cleanly stacked on mobile */}
+          <div className="relative z-10 w-full grid grid-cols-1 md:grid-cols-12 items-center p-6 sm:p-10 md:p-12 lg:p-14 gap-6 sm:gap-8">
+            
+            {/* Left Column: Promo Details */}
+            <div className="md:col-span-7 flex flex-col items-start justify-center max-w-xl pointer-events-auto">
+              
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`content-${activeSlide}`}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  className="flex flex-col items-start"
+                >
+                  {/* Small Black "New Drop" Pill Tag */}
+                  <span className="bg-[#111111] text-white text-[11px] font-semibold px-3 py-1 rounded-full mb-3.5 shadow-xs select-none">
+                    {current.tag}
+                  </span>
+
+                  {/* Headline: Sentence Case, 600-700 Weight, Normal Tracking */}
+                  <h1 className="font-sans text-2xl sm:text-4xl lg:text-5xl font-bold text-white leading-[1.15] tracking-tight mb-2.5 sm:mb-3">
+                    {current.headline}
+                  </h1>
+
+                  {/* Subtext in Normal Case */}
+                  <p className="font-sans text-xs sm:text-sm lg:text-base text-purple-100/95 leading-relaxed font-normal mb-5 sm:mb-6 max-w-md">
+                    {current.subtext}
+                  </p>
+
+                  {/* Black "Shop Now" Pill Button with Circular White Arrow Icon */}
+                  <Link
+                    href={current.href}
+                    className="group inline-flex items-center gap-3 bg-[#111111] hover:bg-black text-white active:scale-95 pl-5 pr-2 py-2 rounded-full font-sans text-xs sm:text-sm font-semibold shadow-md transition-all duration-300"
+                  >
+                    <span>{current.cta}</span>
+                    <span className="w-8 h-8 rounded-full bg-white text-[#111111] flex items-center justify-center transition-transform group-hover:rotate-45 duration-300">
+                      <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
+                    </span>
+                  </Link>
+                </motion.div>
+              </AnimatePresence>
+
+            </div>
+
+            {/* Right Column: T-Shirt Visual (Guaranteed Zero Overlap) */}
+            <div className="md:col-span-5 flex items-center justify-center relative pointer-events-none">
+              <div className="relative w-44 sm:w-60 md:w-72 lg:w-84 aspect-square flex items-center justify-center">
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={`img-${activeSlide}`}
+                    src={current.image}
+                    alt={current.alt}
+                    initial={{ opacity: 0, scale: 0.9, x: direction * 25 }}
+                    animate={{ opacity: 1, scale: 1, x: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, x: direction * -25 }}
+                    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                    className="w-full h-full object-contain filter drop-shadow-[0_16px_28px_rgba(0,0,0,0.3)] select-none"
+                  />
+                </AnimatePresence>
+              </div>
+            </div>
+
+          </div>
+
+        </motion.div>
+
+        {/* Carousel Dots Below Card ONLY - No Next/Prev buttons */}
+        <div className="flex items-center justify-center gap-2 mt-4 sm:mt-5">
+          {slides.map((_, idx) => {
+            const isActive = activeSlide === idx;
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleManualSlide(idx)}
+                aria-label={`Go to slide ${idx + 1}`}
+                className={`transition-all duration-300 cursor-pointer ${
+                  isActive
+                    ? 'w-7 h-2 bg-[#7C3AED] rounded-full'
+                    : 'w-2 h-2 bg-gray-300 hover:bg-gray-400 rounded-full'
+                }`}
+              />
+            );
+          })}
+        </div>
+
       </div>
     </section>
   );

@@ -9,34 +9,26 @@
   }
   
   body {
-    @apply bg-background text-foreground font-sans antialiased m-0 p-0 overflow-x-hidden selection:bg-foreground selection:text-background;
+    @apply bg-[#F7F7F8] text-[#111111] font-sans antialiased m-0 p-0 overflow-x-hidden selection:bg-[#7C3AED] selection:text-white;
   }
 
   ::selection {
-    background-color: #121212;
-    color: #F9F8F6;
+    background-color: #7C3AED;
+    color: #FFFFFF;
   }
 }
 
 @layer utilities {
-  .avant-garde-btn {
-    @apply relative inline-block px-8 py-4 bg-transparent text-foreground font-sans uppercase tracking-[0.2em] font-semibold text-xs border border-foreground rounded-none cursor-pointer text-center transition-all duration-500 ease-avant-garde hover:bg-foreground hover:text-background hover:shadow-lg active:scale-[0.99];
+  .pill-btn-purple {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-sans text-sm font-semibold rounded-full shadow-md hover:shadow-soft-hover active:scale-[0.98] transition-all duration-300;
   }
 
-  .avant-garde-btn-dark {
-    @apply relative inline-block px-8 py-4 bg-foreground text-background font-sans uppercase tracking-[0.2em] font-semibold text-xs border border-foreground rounded-none cursor-pointer text-center transition-all duration-500 ease-avant-garde hover:bg-neutral-800 hover:shadow-xl active:scale-[0.99];
+  .pill-btn-outline {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-white hover:bg-[#F5F3FF] text-[#7C3AED] border border-[#DDD6FE] font-sans text-sm font-semibold rounded-full shadow-sm hover:shadow active:scale-[0.98] transition-all duration-300;
   }
 
-  .glass-card {
-    @apply bg-background/80 backdrop-blur-md border border-foreground/10;
-  }
-
-  .glass-card-dark {
-    @apply bg-[#111111]/90 backdrop-blur-md border border-white/10 text-white;
-  }
-
-  .luxury-border-glow {
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 20px 40px -15px rgba(0, 0, 0, 0.05);
+  .glass-card-soft {
+    @apply bg-white/90 backdrop-blur-md border border-gray-100 shadow-soft-sm rounded-2xl;
   }
 
   .custom-scrollbar::-webkit-scrollbar {
@@ -45,14 +37,15 @@
   }
 
   .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.03);
+    background: rgba(0, 0, 0, 0.02);
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(124, 58, 237, 0.2);
+    border-radius: 9999px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(124, 58, 237, 0.4);
   }
 }

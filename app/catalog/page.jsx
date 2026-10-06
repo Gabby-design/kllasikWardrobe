@@ -2,7 +2,6 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { createClient, isSupabaseConfigured } from '../../utils/supabase/client';
 import { useCartStore } from '../../src/store/cartStore';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -13,8 +12,8 @@ import { CartDrawer } from '../../src/components/CartDrawer';
 import { Navbar } from '../../src/components/Navbar';
 import { ProductGrid } from '../../src/components/ProductGrid';
 import { CategoryFilter } from '../../src/components/CategoryFilter';
-import { Sparkles, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
+import { BottomNav } from '../../src/components/BottomNav';
+import { Sparkles, Search, SlidersHorizontal, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 function CatalogContent() {
   const searchParams = useSearchParams();
@@ -23,7 +22,7 @@ function CatalogContent() {
   
   const pageParam = searchParams.get('page');
   const currentPage = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
-  const itemsPerPage = 6;
+  const itemsPerPage = 8;
 
   const selectedCategory = searchParams.get('category') || 'ALL';
 
@@ -131,45 +130,66 @@ function CatalogContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F9F8F6] text-[#121212]">
+    <div className="min-h-screen bg-[#F7F7F8] text-[#111111] pb-24 md:pb-12">
       <Navbar 
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         setIsSizeGuideOpen={setIsSizeGuideOpen}
       />
 
-      <main className="w-full pt-32 sm:pt-40 pb-20" id="catalog-page">
+      <main className="w-full pt-28 sm:pt-32 md:pt-36" id="catalog-page">
         
-        {/* Editorial Header */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10 text-center">
-          
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-            <span className="font-sans text-[0.7rem] uppercase tracking-[0.25em] font-bold text-foreground/50">
+        {/* Catalog Header */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6 sm:mb-8 text-center">
+          <div className="flex items-center justify-center gap-1.5 mb-2">
+            <Sparkles className="w-3.5 h-3.5 text-[#7C3AED]" />
+            <span className="font-sans text-xs font-semibold text-[#7C3AED]">
               Nigeria&apos;s Heavyweight Archive
             </span>
           </div>
 
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="font-serif text-3xl sm:text-5xl font-bold tracking-tight mb-4 text-foreground"
-          >
+          <h1 className="font-sans text-2xl sm:text-4xl font-bold tracking-tight mb-2 text-[#111111]">
             The Full Collection
-          </motion.h1>
+          </h1>
 
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="font-sans text-xs sm:text-sm text-foreground/70 max-w-xl mx-auto leading-relaxed"
-          >
-            Explore our complete archive of 240–300 GSM organic cotton and silk-blend luxury essentials. Transparent fixed pricing at ₦30,000, ₦35,000, and ₦40,000.
-          </motion.p>
+          <p className="font-sans text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+            Explore our complete archive of 240–300 GSM organic cotton and silk-blend luxury essentials.
+          </p>
+
+          {/* Top: Pill Search Bar + Filter Button */}
+          <div className="mt-5 max-w-md mx-auto">
+            <div className="relative flex items-center bg-white rounded-full border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)] px-4 py-2.5 transition-all focus-within:ring-2 focus-within:ring-[#7C3AED]/20 focus-within:border-[#EDE9FE]">
+              <Search className="w-4 h-4 text-gray-400 mr-2.5 flex-shrink-0" />
+              <input
+                type="text"
+                className="w-full bg-transparent border-none outline-none text-xs sm:text-sm font-sans text-[#111111] placeholder:text-gray-400"
+                placeholder="Search collection..."
+                value={searchQuery || ''}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button 
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-xs text-gray-400 hover:text-gray-600 px-1.5"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                type="button"
+                className="w-8 h-8 rounded-full bg-[#EDE9FE] text-[#7C3AED] hover:bg-[#7C3AED] hover:text-white flex items-center justify-center transition-colors flex-shrink-0 ml-1.5 cursor-pointer shadow-xs"
+                title="Filter Options"
+                aria-label="Filter Options"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </section>
 
-        {/* Category Filter Pills */}
+        {/* Horizontal Scrollable Category Chips */}
         <CategoryFilter />
 
         {/* Product Grid Area */}
@@ -197,19 +217,19 @@ function CatalogContent() {
           />
         </div>
 
-        {/* Luxury Pagination UI */}
+        {/* Modern Rounded Pagination UI */}
         {filteredProducts.length > 0 && (
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-16 flex flex-col items-center justify-center gap-4">
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-12 flex flex-col items-center justify-center gap-3">
             <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
               {/* Previous Page Button */}
               <button
                 onClick={() => handlePageChange(activePage - 1)}
                 disabled={activePage <= 1}
                 aria-label="Previous Page"
-                className={`h-11 px-4 flex items-center gap-2 font-sans text-xs uppercase tracking-[0.16em] font-semibold transition-all duration-200 border ${
+                className={`h-10 px-4 flex items-center gap-2 font-sans text-xs font-semibold rounded-full transition-all duration-200 border ${
                   activePage <= 1
-                    ? 'opacity-30 cursor-not-allowed border-foreground/10 bg-white/40 text-foreground/40'
-                    : 'cursor-pointer bg-white text-foreground border-foreground/20 hover:bg-foreground hover:text-background hover:border-foreground shadow-sm'
+                    ? 'opacity-30 cursor-not-allowed border-black/[0.04] bg-white text-gray-400'
+                    : 'cursor-pointer bg-white text-gray-700 border-black/[0.04] hover:text-[#7C3AED] shadow-[0_4px_16px_rgba(17,17,17,0.04)]'
                 }`}
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -226,10 +246,10 @@ function CatalogContent() {
                       key={pageNum}
                       onClick={() => handlePageChange(pageNum)}
                       aria-label={`Page ${pageNum}`}
-                      className={`w-11 h-11 flex items-center justify-center font-sans text-xs font-bold transition-all duration-200 cursor-pointer ${
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-sans text-xs font-bold transition-all duration-200 cursor-pointer ${
                         isActive 
-                          ? 'bg-foreground text-background border border-foreground shadow-md' 
-                          : 'bg-white text-foreground/80 border border-foreground/15 hover:border-foreground hover:text-foreground'
+                          ? 'bg-[#7C3AED] text-white shadow-sm' 
+                          : 'bg-white text-gray-700 border border-black/[0.04] hover:text-[#7C3AED] shadow-[0_4px_16px_rgba(17,17,17,0.04)]'
                       }`}
                     >
                       {pageNum}
@@ -243,25 +263,30 @@ function CatalogContent() {
                 onClick={() => handlePageChange(activePage + 1)}
                 disabled={activePage >= totalPages}
                 aria-label="Next Page"
-                className={`h-11 px-4 flex items-center gap-2 font-sans text-xs uppercase tracking-[0.16em] font-semibold transition-all duration-200 border ${
+                className={`h-10 px-4 flex items-center gap-2 font-sans text-xs font-semibold rounded-full transition-all duration-200 border ${
                   activePage >= totalPages
-                    ? 'opacity-30 cursor-not-allowed border-foreground/10 bg-white/40 text-foreground/40'
-                    : 'cursor-pointer bg-white text-foreground border-foreground/20 hover:bg-foreground hover:text-background hover:border-foreground shadow-sm'
+                    ? 'opacity-30 cursor-not-allowed border-black/[0.04] bg-white text-gray-400'
+                    : 'cursor-pointer bg-white text-gray-700 border-black/[0.04] hover:text-[#7C3AED] shadow-[0_4px_16px_rgba(17,17,17,0.04)]'
                 }`}
               >
-                <span>Next</span>
+                <span className="hidden sm:inline">Next</span>
+                <span className="sm:hidden">Next</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Pagination Range & Page Details */}
-            <p className="font-sans text-[0.7rem] uppercase tracking-[0.2em] text-foreground/50 text-center">
-              Showing {startIndex + 1}–{Math.min(startIndex + itemsPerPage, filteredProducts.length)} of {filteredProducts.length} pieces &bull; Page {activePage} of {totalPages}
-            </p>
+            <span className="font-sans text-[11px] text-gray-400 font-medium">
+              Showing page {activePage} of {totalPages} ({filteredProducts.length} items total)
+            </span>
           </section>
         )}
+
       </main>
 
+      {/* Floating Bottom Nav for Mobile */}
+      <BottomNav />
+
+      {/* Modals & Slide-out Bag */}
       <QuickViewModal
         quickViewProduct={quickViewProduct}
         setQuickViewProduct={setQuickViewProduct}
@@ -280,20 +305,19 @@ function CatalogContent() {
       />
 
       <CartDrawer />
+
     </div>
   );
 }
 
-function CatalogPage() {
+export default function CatalogPage() {
   return (
     <Suspense fallback={
-      <div className="flex justify-center items-center h-screen bg-[#F9F8F6]">
-        <div className="w-8 h-8 border-2 border-foreground border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen bg-[#F7F7F8] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#7C3AED] border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <CatalogContent />
     </Suspense>
   );
 }
-
-export default CatalogPage;

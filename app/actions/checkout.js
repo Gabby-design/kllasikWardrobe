@@ -71,7 +71,7 @@ export async function submitManualOrder(cart, customerForm, totalAmount) {
 
     console.log('4. Dispatching Email Notifications...');
     const subtotal = cart.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
-    const shippingCost = totalAmount > 70000 ? 0 : 4500;
+    const shippingCost = totalAmount >= 200000 ? 0 : 2500;
 
     try {
       await Promise.allSettled([

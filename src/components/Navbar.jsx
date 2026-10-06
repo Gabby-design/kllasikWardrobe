@@ -43,7 +43,7 @@ export function Navbar({ searchQuery = '', setSearchQuery, setIsSizeGuideOpen })
       {/* 1. Slim Announcement Bar with Purple Accent */}
       <div className="bg-[#7C3AED] text-white px-4 py-1 text-center text-[10px] sm:text-xs font-medium tracking-normal flex items-center justify-center gap-1.5 select-none">
         <Sparkles className="w-3 h-3 text-purple-200 hidden sm:inline" />
-        <span>Complimentary express delivery across Nigeria on orders over ₦70,000</span>
+        <span>Complimentary express delivery across Nigeria on orders over ₦200,000</span>
         <Sparkles className="w-3 h-3 text-purple-200 hidden sm:inline" />
       </div>
 

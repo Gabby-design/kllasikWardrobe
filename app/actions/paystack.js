@@ -14,7 +14,7 @@ export async function checkoutAction(cart, customerForm) {
 
     // 2. Calculate amount in Kobo
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const hasFreeShipping = subtotal >= 70000;
+    const hasFreeShipping = subtotal >= 200000;
     const shippingCost = hasFreeShipping ? 0 : 2500;
     const totalAmount = subtotal + shippingCost;
     const amountInKobo = totalAmount * 100;

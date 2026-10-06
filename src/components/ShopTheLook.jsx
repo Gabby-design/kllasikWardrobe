@@ -208,7 +208,7 @@ export function ShopTheLook() {
 
           {/* Guarantee Note */}
           <div className="p-3.5 bg-[#EDE9FE]/50 border border-[#EDE9FE] rounded-[20px] font-sans text-xs text-[#7C3AED] flex items-center justify-between">
-            <span>Complimentary Express Courier on orders over ₦70,000</span>
+            <span>Complimentary Express Courier on orders over ₦200,000</span>
             <span className="font-bold">Free Delivery</span>
           </div>
 

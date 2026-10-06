@@ -61,10 +61,10 @@ export default function CheckoutPage() {
   }, [cart, router, isMounted]);
 
   const subtotal = cartSubtotal ? cartSubtotal() : 0;
-  const isFreeShipping = subtotal >= 70000;
+  const isFreeShipping = subtotal >= 200000;
   const shippingCost = isFreeShipping ? 0 : 2500;
   const totalAmount = subtotal + shippingCost;
-  const freeShippingProgress = Math.min(100, (subtotal / 70000) * 100);
+  const freeShippingProgress = Math.min(100, (subtotal / 200000) * 100);
 
   const formatPrice = (amount) => `₦${Number(amount || 0).toLocaleString()}`;
 
@@ -95,7 +95,8 @@ export default function CheckoutPage() {
       subtotal,
       shippingCost,
       isFreeShipping,
-      bankDetails
+      bankDetails,
+      orderMethod: 'whatsapp'
     };
 
     if (setLastOrder) {
@@ -105,6 +106,8 @@ export default function CheckoutPage() {
     const waLink = getWhatsAppOrderLink(orderData, whatsappPhone);
     window.open(waLink, '_blank');
     toast.success('Opening WhatsApp with your order details...');
+    if (clearCart) clearCart();
+    router.push('/success?method=whatsapp');
   };
 
   // Option 2: Website Order Form Submission
@@ -191,10 +194,10 @@ export default function CheckoutPage() {
               <Truck className="w-4 h-4 text-[#7C3AED]" />
               {isFreeShipping 
                 ? 'COMPLIMENTARY EXPRESS DELIVERY unlocked across Nigeria!' 
-                : `Add ${formatPrice(70000 - subtotal)} more for FREE Express Courier (Orders ₦70,000+)`}
+                : `Add ${formatPrice(200000 - subtotal)} more for FREE Express Courier (Orders ₦200,000+)`}
             </span>
             <span className="font-bold text-[#7C3AED]">
-              {isFreeShipping ? '100% UNLOCKED' : `${Math.round(freeShippingProgress)}% OF ₦70,000`}
+              {isFreeShipping ? '100% UNLOCKED' : `${Math.round(freeShippingProgress)}% OF ₦200,000`}
             </span>
           </div>
           <div className="h-2 w-full bg-[#EDEDEF] rounded-full overflow-hidden">

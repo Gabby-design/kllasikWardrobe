@@ -167,7 +167,7 @@ export default async function ProductPage({ params }) {
             <div className="mt-8 pt-5 border-t border-black/[0.04] flex flex-col gap-2.5 font-sans text-xs text-gray-500">
               <div className="flex items-center gap-2">
                 <Truck className="w-4 h-4 text-[#7C3AED] shrink-0" />
-                <span>Complimentary Express Courier on orders over ₦70,000</span>
+                <span>Complimentary Express Courier on orders over ₦200,000</span>
               </div>
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#7C3AED] shrink-0" />

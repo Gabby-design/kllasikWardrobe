@@ -83,11 +83,13 @@ export default function SuccessPage() {
           </span>
 
           <h1 className="font-sans text-2xl sm:text-4xl font-bold mb-2 tracking-tight text-[#111111]">
-            Thank You For Your Order
+            {orderData.orderMethod === 'whatsapp' ? 'Thank You For Ordering via WhatsApp' : 'Thank You For Your Order'}
           </h1>
 
           <p className="font-sans text-xs sm:text-sm text-gray-500 max-w-xl mx-auto leading-relaxed mb-6">
-            Your order has been registered. Send a quick WhatsApp confirmation to our team with your transfer proof for instant priority packaging & dispatch.
+            {orderData.orderMethod === 'whatsapp'
+              ? 'Your order details, item sizes, and payment sum are prepared for the store owner. You can chat directly via WhatsApp below anytime.'
+              : 'Your order has been registered in our system. Send a quick WhatsApp confirmation to our team with your transfer proof for instant priority packaging & dispatch.'}
           </p>
 
           {/* Primary WhatsApp Action Buttons */}

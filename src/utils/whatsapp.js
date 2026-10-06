@@ -30,37 +30,37 @@ export function formatWhatsAppOrderMessage({
     minute: '2-digit'
   });
 
-  const message = `👑 *KLASIK WARDROBE — ORDER NOTIFICATION*
-━━━━━━━━━━━━━━━━━━━━━━
-📋 *Order Ref:* ${orderRef}
-📅 *Date:* ${dateStr}
+  const message = `*KLASIK WARDROBE — ORDER NOTIFICATION*
+----------------------------------------
+*Order Ref:* ${orderRef}
+*Date:* ${dateStr}
 
-👤 *CUSTOMER DETAILS*
-• *Name:* ${customer.name || 'Valued Customer'}
-• *Phone:* ${customer.phone || 'Not Provided'}
-• *Email:* ${customer.email || 'Not Provided'}
+*CUSTOMER DETAILS*
+• Name: ${customer.name || 'Valued Customer'}
+• Phone: ${customer.phone || 'Not Provided'}
+• Email: ${customer.email || 'Not Provided'}
 
-📍 *DELIVERY ADDRESS*
-• *Address:* ${customer.address || 'Address not specified'}
-• *City / Region:* ${customer.city || 'Lagos'}
-• *Delivery Service:* Express Courier (${customer.city === 'Lagos' ? '24–48h' : '2–4 Days'})
-${customer.notes ? `• *Special Notes:* ${customer.notes}\n` : ''}
-📦 *PURCHASED PRODUCTS (${items.reduce((s, i) => s + (i.quantity || 1), 0)} items)*
+*DELIVERY ADDRESS*
+• Address: ${customer.address || 'Address not specified'}
+• City / Region: ${customer.city || 'Lagos'}
+• Delivery Service: Express Courier (${customer.city === 'Lagos' ? '24–48h' : '2–4 Days'})
+${customer.notes ? `• Special Notes: ${customer.notes}\n` : ''}
+*PURCHASED PRODUCTS (${items.reduce((s, i) => s + (i.quantity || 1), 0)} items)*
 ${itemsText}
 
-💰 *PAYMENT BREAKDOWN*
-• *Items Subtotal:* ₦${Number(subtotal || totalAmount).toLocaleString()}
-• *Delivery Fee:* ${isFreeShipping || shippingCost === 0 ? 'FREE (Over ₦70,000)' : `₦${Number(shippingCost).toLocaleString()}`}
-• *Luxury Dust Box:* COMPLIMENTARY
-• *TOTAL DUE / PAID:* *₦${Number(totalAmount).toLocaleString()}*
+*PAYMENT BREAKDOWN*
+• Items Subtotal: ₦${Number(subtotal || totalAmount).toLocaleString()}
+• Delivery Fee: ${isFreeShipping || shippingCost === 0 ? 'FREE (Over ₦200,000)' : `₦${Number(shippingCost).toLocaleString()}`}
+• Luxury Dust Box: COMPLIMENTARY
+• TOTAL DUE / PAID: *₦${Number(totalAmount).toLocaleString()}*
 
-🏦 *BANK TRANSFERRED TO*
-• *Bank:* ${bankDetails.bankName || 'OPay / Paycom'}
-• *Account Name:* ${bankDetails.accountName || 'KLASIK WARDROBE'}
-• *Account Number:* ${bankDetails.accountNumber || '7075039738'}
+*BANK TRANSFERRED TO*
+• Bank: ${bankDetails.bankName || 'OPay / Paycom'}
+• Account Name: ${bankDetails.accountName || 'KLASIK WARDROBE'}
+• Account Number: ${bankDetails.accountNumber || '7075039738'}
 
-━━━━━━━━━━━━━━━━━━━━━━
-✅ *I have made the bank transfer for this order. Please confirm payment and proceed with packaging & dispatch.*`;
+----------------------------------------
+*Payment Status:* I have made the bank transfer for this order. Please confirm payment and proceed with packaging and dispatch.`;
 
   return message;
 }

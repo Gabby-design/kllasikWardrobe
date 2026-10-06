@@ -20,8 +20,8 @@ export function CartDrawer() {
   }, [isCartOpen]);
 
   const subtotal = cartSubtotal ? cartSubtotal() : 0;
-  const isFreeShipping = subtotal >= 70000;
-  const shippingProgress = Math.min(100, (subtotal / 70000) * 100);
+  const isFreeShipping = subtotal >= 200000;
+  const shippingProgress = Math.min(100, (subtotal / 200000) * 100);
   const formatPrice = (amount) => `₦${Number(amount || 0).toLocaleString('en-US')}`;
 
   const handleCheckout = () => {
@@ -69,7 +69,7 @@ export function CartDrawer() {
                   <Truck className="w-3.5 h-3.5 text-[#7C3AED]" />
                   {isFreeShipping
                     ? 'Complimentary Express Delivery Unlocked'
-                    : `Add ${formatPrice(70000 - subtotal)} for Free Express Delivery`}
+                    : `Add ${formatPrice(200000 - subtotal)} for Free Express Delivery`}
                 </span>
                 <span className="font-bold text-[#7C3AED]">
                   {isFreeShipping ? 'FREE' : `${Math.round(shippingProgress)}%`}

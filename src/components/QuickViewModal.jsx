@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, X, CheckCircle, Plus, Minus } from 'lucide-react';
+import { ShoppingBag, X, CheckCircle, Plus, Minus, ArrowUpRight } from 'lucide-react';
+import Link from 'next/link';
 
 export function QuickViewModal({
   quickViewProduct,
@@ -20,6 +21,17 @@ export function QuickViewModal({
     setQuantity(1);
   }, [quickViewProduct]);
 
+  // Lock body scroll when modal is open so 100% of gestures scroll the modal
+  useEffect(() => {
+    if (quickViewProduct) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [quickViewProduct]);
+
   if (!quickViewProduct) return null;
 
   const currentImage = quickViewActiveImg || quickViewProduct.image;
@@ -33,36 +45,38 @@ export function QuickViewModal({
   return (
     <AnimatePresence>
       <div 
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 sm:p-6" 
+        className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-y-contain flex flex-col justify-start sm:justify-center items-center p-3 sm:p-6 py-6 sm:py-10" 
         onClick={() => setQuickViewProduct(null)}
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-4xl bg-white rounded-[24px] border border-black/[0.04] shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[92vh] md:max-h-[85vh]"
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          className="relative w-full max-w-4xl bg-white rounded-[24px] border border-black/[0.04] shadow-2xl flex flex-col md:flex-row my-auto shrink-0 touch-pan-y"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close Button */}
           <button 
-            className="absolute top-4 right-4 z-20 w-9 h-9 flex items-center justify-center rounded-full bg-white/95 text-gray-500 hover:text-[#111111] shadow-sm border border-black/[0.04] transition-all cursor-pointer" 
+            className="absolute top-3.5 right-3.5 z-30 w-9 h-9 flex items-center justify-center rounded-full bg-white/95 text-gray-600 hover:text-[#111111] shadow-md border border-black/[0.06] transition-all cursor-pointer active:scale-95" 
             onClick={() => setQuickViewProduct(null)}
             aria-label="Close modal"
           >
             <X className="w-4 h-4" />
           </button>
 
-          {/* Left Column: Large Rounded Image with Carousel Dots */}
-          <div className="w-full md:w-1/2 relative bg-[#EDEDEF] p-5 sm:p-7 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-black/[0.04]">
+          {/* Top/Left Column: Large Image with Carousel Dots (Fully scrollable with content) */}
+          <div className="w-full md:w-1/2 relative bg-[#EDEDEF] p-5 sm:p-7 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-black/[0.04] flex-shrink-0 touch-pan-y">
             
             {/* Main Image Box: 20px radius */}
-            <div className="relative w-full max-w-xs aspect-[4/5] rounded-[20px] overflow-hidden bg-white shadow-soft flex items-center justify-center p-2">
+            <div className="relative w-full max-w-xs aspect-[4/5] rounded-[20px] overflow-hidden bg-white shadow-soft flex items-center justify-center p-2 touch-pan-y">
               <img
                 src={currentImage}
                 referrerPolicy="no-referrer"
                 alt={quickViewProduct.title}
-                className="w-full h-full object-cover rounded-[18px]"
+                className="w-full h-full object-cover rounded-[18px] pointer-events-none select-none"
+                draggable={false}
               />
 
               {quickViewProduct.tag && (
@@ -95,28 +109,38 @@ export function QuickViewModal({
             )}
           </div>
 
-          {/* Right Column: Garment Specs, Brand Row, Stepper & Add to Bag */}
-          <div className="w-full md:w-1/2 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto pb-24 md:pb-8">
+          {/* Details Column: Garment Specs, Size Chips, Stepper & Add to Bag */}
+          <div className="w-full md:w-1/2 p-5 sm:p-8 flex flex-col justify-between">
             <div>
               
-              {/* Small Grey Category Label */}
-              <span className="font-sans text-xs text-gray-400 font-medium block mb-1">
-                {quickViewProduct.category || 'Essential'} Collection
-              </span>
+              {/* Category Label & View Full Page Link */}
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-sans text-xs text-gray-400 font-medium">
+                  {quickViewProduct.category || 'Essential'} Tier
+                </span>
+                <Link
+                  href={`/product/${quickViewProduct.id}`}
+                  onClick={() => setQuickViewProduct(null)}
+                  className="font-sans text-xs font-semibold text-[#7C3AED] hover:underline flex items-center gap-0.5"
+                >
+                  <span>Full page</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
 
               {/* Bold Product Title */}
               <h2 className="font-sans text-xl sm:text-2xl font-bold text-[#111111] leading-tight mb-2">
                 {quickViewProduct.title}
               </h2>
 
-              {/* Brand Row: "Klasik Wardrobe" with verified tick and a "Following" pill */}
-              <div className="flex items-center gap-2 mb-4">
+              {/* Brand Row: "Klasik Wardrobe" with verified tick */}
+              <div className="flex items-center gap-2 mb-3">
                 <span className="font-sans text-xs sm:text-sm font-semibold text-[#111111]">
                   Klasik Wardrobe
                 </span>
                 <CheckCircle className="w-4 h-4 fill-[#7C3AED] text-white" />
                 <span className="bg-[#111111] text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-full select-none">
-                  Following
+                  Heavyweight
                 </span>
               </div>
 
@@ -189,8 +213,8 @@ export function QuickViewModal({
 
             </div>
 
-            {/* Desktop Add to Cart Button */}
-            <div className="hidden md:block">
+            {/* Add to Cart Button (In-flow, scrolls naturally with the card) */}
+            <div className="pt-2">
               <button
                 type="button"
                 disabled={quickViewProduct.stock <= 0}
@@ -212,32 +236,15 @@ export function QuickViewModal({
                     : `Add to Cart • ${formatPrice(totalPrice)}`}
                 </span>
               </button>
+              <button
+                type="button"
+                onClick={() => setQuickViewProduct(null)}
+                className="w-full mt-2.5 py-2 text-center font-sans text-xs font-semibold text-gray-500 hover:text-[#111111] transition-colors cursor-pointer"
+              >
+                Continue Browsing
+              </button>
             </div>
 
-          </div>
-
-          {/* On Phone: Sticky Floating Bottom Bar (white pill, soft shadow) */}
-          <div className="md:hidden fixed bottom-4 left-4 right-4 z-50 bg-white/95 backdrop-blur-md rounded-full shadow-[0_8px_30px_rgba(17,17,17,0.15)] border border-black/[0.04] p-2 px-4 flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[10px] text-gray-400 font-medium leading-none">Total price</span>
-              <span className="text-sm font-bold text-[#111111] mt-0.5">{formatPrice(totalPrice)}</span>
-            </div>
-
-            <button
-              type="button"
-              disabled={quickViewProduct.stock <= 0}
-              className="bg-[#7C3AED] hover:bg-[#6D28D9] text-white px-5 py-2.5 rounded-full font-sans text-xs font-bold flex items-center gap-2 shadow-md active:scale-95 transition-all cursor-pointer"
-              onClick={() => {
-                if (quickViewProduct.stock <= 0) return;
-                for (let i = 0; i < quantity; i++) {
-                  handleAddToCart(quickViewProduct, quickViewSize, quickViewColor);
-                }
-                setQuickViewProduct(null);
-              }}
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span>Add to Cart</span>
-            </button>
           </div>
 
         </motion.div>

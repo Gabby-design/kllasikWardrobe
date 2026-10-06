@@ -66,17 +66,7 @@ export function Navbar({ searchQuery = '', setSearchQuery, setIsSizeGuideOpen })
               <Link 
                 href="/" 
                 className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                  pathname === '/' 
-                    ? 'bg-[#EDE9FE] text-[#7C3AED] shadow-xs' 
-                    : 'text-[#111111]/70 hover:text-[#7C3AED]'
-                }`}
-              >
-                Home
-              </Link>
-              <Link 
-                href="/catalog" 
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                  pathname === '/catalog' 
+                  pathname === '/' || pathname === '/catalog'
                     ? 'bg-[#EDE9FE] text-[#7C3AED] shadow-xs' 
                     : 'text-[#111111]/70 hover:text-[#7C3AED]'
                 }`}

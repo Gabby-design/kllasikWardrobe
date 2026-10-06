@@ -77,12 +77,13 @@ export default async function ProductPage({ params }) {
           
           {/* Left Column: Large Rounded Image Showcase (6 Cols) */}
           <div className="lg:col-span-6 flex flex-col items-center">
-            <div className="w-full bg-[#EDEDEF] aspect-[4/5] rounded-[24px] overflow-hidden p-3 sm:p-4 shadow-[0_8px_24px_rgba(17,17,17,0.06)] relative group flex items-center justify-center">
+            <div className="w-full bg-[#EDEDEF] aspect-[4/5] rounded-[24px] overflow-hidden p-3 sm:p-4 shadow-[0_8px_24px_rgba(17,17,17,0.06)] relative group flex items-center justify-center touch-pan-y">
               <img 
                 src={formattedProduct.image} 
                 alt={formattedProduct.title} 
                 referrerPolicy="no-referrer"
-                className="w-full h-full object-cover rounded-[20px]"
+                className="w-full h-full object-cover rounded-[20px] pointer-events-none select-none"
+                draggable={false}
               />
 
               {formattedProduct.tag && (

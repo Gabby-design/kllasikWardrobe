@@ -185,7 +185,7 @@ export function ProductGrid({
                 <div
                   key={product.id}
                   onClick={handleOpenDetails}
-                  className="bg-white rounded-[24px] p-3 sm:p-3.5 shadow-[0_8px_24px_rgba(17,17,17,0.06)] hover:shadow-[0_12px_32px_rgba(17,17,17,0.1)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between select-none cursor-pointer group"
+                  className="bg-white rounded-[24px] p-3 sm:p-3.5 shadow-[0_8px_24px_rgba(17,17,17,0.06)] hover:shadow-[0_12px_32px_rgba(17,17,17,0.1)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between cursor-pointer group touch-pan-y"
                 >
                   
                   {/* Top: Image sits in a grey (#EDEDEF) rounded box with 20px radius, aspect ratio ~4:5 */}
@@ -225,7 +225,7 @@ export function ProductGrid({
                         src={currentImage}
                         alt={product.title}
                         referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 select-none"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 pointer-events-none select-none"
                       />
                     </div>
 

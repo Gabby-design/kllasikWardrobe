@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '../store/cartStore';
 import { useRouter } from 'next/navigation';
@@ -7,6 +8,16 @@ import { ShoppingBag, X, Plus, Minus, ArrowRight, Truck, ShieldCheck } from 'luc
 export function CartDrawer() {
   const { cart, isCartOpen, setIsCartOpen, updateCartQty, cartSubtotal, cartItemCount } = useCartStore();
   const router = useRouter();
+
+  useEffect(() => {
+    if (isCartOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isCartOpen]);
 
   const subtotal = cartSubtotal ? cartSubtotal() : 0;
   const isFreeShipping = subtotal >= 70000;

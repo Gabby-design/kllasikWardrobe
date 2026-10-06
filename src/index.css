@@ -6,10 +6,13 @@
   html {
     scroll-behavior: smooth;
     color-scheme: light;
+    -webkit-overflow-scrolling: touch;
   }
   
   body {
     @apply bg-[#F7F7F8] text-[#111111] font-sans antialiased m-0 p-0 overflow-x-hidden selection:bg-[#7C3AED] selection:text-white;
+    -webkit-overflow-scrolling: touch;
+    touch-action: manipulation;
   }
 
   ::selection {

@@ -10,15 +10,14 @@ export function BottomNav() {
   const count = cartItemCount();
 
   const navItems = [
-    { label: 'Home', href: '/', icon: Home },
-    { label: 'Collection', href: '/catalog', icon: Layers },
-    { label: 'Wishlist', href: '#catalog', icon: Heart, isWishlist: true },
+    { label: 'Collection', href: '/', icon: Layers },
+    { label: 'Wishlist', href: '#catalog-products-section', icon: Heart, isWishlist: true },
     { label: 'Bag', href: '#cart', icon: ShoppingBag, isCart: true, badge: count },
   ];
 
   const handleWishlistClick = (e) => {
     e.preventDefault();
-    const el = document.getElementById('catalog');
+    const el = document.getElementById('catalog-products-section') || document.getElementById('catalog-main') || document.getElementById('catalog');
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }

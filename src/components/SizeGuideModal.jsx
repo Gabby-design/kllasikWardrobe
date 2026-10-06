@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Ruler, X, CheckCircle2 } from 'lucide-react';
 
@@ -6,20 +7,31 @@ export function SizeGuideModal({
   isSizeGuideOpen,
   setIsSizeGuideOpen
 }) {
+  useEffect(() => {
+    if (isSizeGuideOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isSizeGuideOpen]);
+
   if (!isSizeGuideOpen) return null;
 
   return (
     <AnimatePresence>
       <div 
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 sm:p-6" 
+        className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto overscroll-y-contain flex flex-col justify-start sm:justify-center items-center py-6 sm:py-10" 
         onClick={() => setIsSizeGuideOpen(false)}
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.96, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 15 }}
-          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-2xl bg-[#F7F7F8] rounded-[24px] border border-black/[0.04] shadow-2xl p-6 sm:p-8 overflow-y-auto max-h-[90vh] custom-scrollbar"
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          className="relative w-full max-w-2xl bg-[#F7F7F8] rounded-[24px] border border-black/[0.04] shadow-2xl p-6 sm:p-8 shrink-0 my-auto touch-pan-y"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Close Button */}

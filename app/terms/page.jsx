@@ -1,5 +1,4 @@
 import { Navbar } from '../../src/components/Navbar';
-import { Footer } from '../../src/components/Footer';
 import Link from 'next/link';
 import { ArrowLeft, FileText, Sparkles, CreditCard, Truck, RefreshCw, ShieldCheck, MessageCircle, Mail } from 'lucide-react';
 
@@ -157,8 +156,6 @@ export default function TermsPage() {
         </div>
 
       </main>
-
-      <Footer />
     </div>
   );
 }

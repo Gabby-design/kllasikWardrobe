@@ -1,5 +1,4 @@
 import { Navbar } from '../../src/components/Navbar';
-import { Footer } from '../../src/components/Footer';
 import Link from 'next/link';
 import { ArrowLeft, ShieldCheck, Lock, Database, Eye, Bell, MessageCircle, Mail } from 'lucide-react';
 
@@ -150,8 +149,6 @@ export default function PrivacyPolicyPage() {
         </div>
 
       </main>
-
-      <Footer />
     </div>
   );
 }

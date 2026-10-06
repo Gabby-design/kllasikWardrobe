@@ -1,5 +1,4 @@
 import { Navbar } from '../../src/components/Navbar';
-import { Footer } from '../../src/components/Footer';
 import Link from 'next/link';
 import { ArrowLeft, RefreshCw, CheckCircle2, ShieldCheck, MessageCircle, Mail, Package, AlertCircle } from 'lucide-react';
 
@@ -166,8 +165,6 @@ export default function RefundPolicyPage() {
         </div>
 
       </main>
-
-      <Footer />
     </div>
   );
 }

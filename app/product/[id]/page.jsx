@@ -29,8 +29,8 @@ export default async function ProductPage({ params }) {
         gsm: product.gsm || '240 GSM Heavyweight',
         material: product.material || '100% Combed Organic Cotton',
         fit: product.fit || 'Oversized Drop-Shoulder',
-        image: product.image_url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
-        gallery: [product.image_url],
+        image: product.image_url || '/images/media__1786369656046.jpg',
+        gallery: product.image_url ? [product.image_url] : ['/images/media__1786369656046.jpg'],
         category: product.category || 'Essential',
         sizes: ['S', 'M', 'L', 'XL', 'XXL'],
         colors: [{ name: product.color || 'Standard', hex: '#1a1a1a' }]

@@ -13,7 +13,7 @@ import { CartDrawer } from '../../src/components/CartDrawer';
 import { Navbar } from '../../src/components/Navbar';
 import { ProductGrid } from '../../src/components/ProductGrid';
 import { CategoryFilter } from '../../src/components/CategoryFilter';
-import { Sparkles, ArrowLeft } from 'lucide-react';
+import { Sparkles, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
 function CatalogContent() {
@@ -22,90 +22,35 @@ function CatalogContent() {
   const pathname = usePathname();
   
   const pageParam = searchParams.get('page');
-  const currentPage = pageParam ? parseInt(pageParam, 10) : 1;
-  const itemsPerPage = 9;
+  const currentPage = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
+  const itemsPerPage = 6;
 
   const selectedCategory = searchParams.get('category') || 'ALL';
 
-  const [dbProducts, setDbProducts] = useState(PRODUCTS);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
+  const [allProducts, setAllProducts] = useState(PRODUCTS);
 
   useEffect(() => {
     async function fetchProducts() {
-      if (!isSupabaseConfigured) {
-        let filteredStatic = PRODUCTS;
-        if (selectedCategory !== 'ALL' && selectedCategory !== 'All') {
-          filteredStatic = PRODUCTS.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
-        }
-        setDbProducts(filteredStatic);
-        setTotalPages(Math.max(1, Math.ceil(filteredStatic.length / itemsPerPage)));
-        setIsLoading(false);
-        return;
-      }
-
-      const supabase = createClient();
-      if (!supabase) return;
-
-      setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        if (error) {
-          console.warn('Supabase query error:', error.message);
-        }
+        const queryUrl = selectedCategory !== 'ALL' && selectedCategory !== 'All'
+          ? `/api/products?category=${encodeURIComponent(selectedCategory)}`
+          : '/api/products';
 
-        if (data && data.length > 0) {
-          let formattedProducts = data.map(p => ({
-            id: p.id,
-            name: p.name,
-            title: p.name,
-            price: p.price,
-            description: p.description,
-            stock: p.stock !== undefined ? p.stock : 10,
-            image: p.image_url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
-            fallbackImage: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
-            gallery: [p.image_url],
-            brand: p.brand || 'Klasik Wardrobe',
-            category: p.category || (p.price >= 40000 ? 'Executive' : p.price >= 30000 ? 'Signature' : 'Essential'),
-            gsm: p.gsm || (p.price >= 40000 ? '300 GSM Silk Infusion' : p.price >= 30000 ? '280 GSM French Terry' : '240 GSM Organic Cotton'),
-            material: p.material || '100% Combed Cotton',
-            fit: p.fit || 'Drop Shoulder Oversized',
-            sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-            colors: [{ name: p.color || 'Standard', hex: '#1a1a1a' }]
-          }));
-
-          if (selectedCategory !== 'ALL' && selectedCategory !== 'All') {
-            formattedProducts = formattedProducts.filter(p => 
-              p.category.toLowerCase() === selectedCategory.toLowerCase()
-            );
+        const res = await fetch(queryUrl);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.products && data.products.length > 0) {
+            setAllProducts(data.products);
+            return;
           }
-
-          setTotalPages(Math.max(1, Math.ceil(formattedProducts.length / itemsPerPage)));
-          const from = (currentPage - 1) * itemsPerPage;
-          const to = from + itemsPerPage;
-          setDbProducts(formattedProducts.slice(from, to));
-        } else {
-          // Fallback to rich catalog data if no products in database
-          let filteredStatic = PRODUCTS;
-          if (selectedCategory !== 'ALL' && selectedCategory !== 'All') {
-            filteredStatic = PRODUCTS.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
-          }
-          setDbProducts(filteredStatic);
-          setTotalPages(Math.max(1, Math.ceil(filteredStatic.length / itemsPerPage)));
         }
       } catch (err) {
-        console.error('Catalog fetch error:', err);
-        setDbProducts(PRODUCTS);
-      } finally {
-        setIsLoading(false);
+        console.warn('Catalog fetch notice (using verified catalog):', err);
       }
+      setAllProducts(PRODUCTS);
     }
     fetchProducts();
-  }, [currentPage, itemsPerPage, selectedCategory]);
+  }, [selectedCategory]);
 
   const [selectedPrice, setSelectedPrice] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -138,7 +83,7 @@ function CatalogContent() {
     setCardActiveImages((prev) => ({ ...prev, [productId]: imgUrl }));
   };
 
-  const formatPrice = (amount) => `₦${Number(amount || 0).toLocaleString()}`;
+  const formatPrice = (amount) => `₦${Number(amount || 0).toLocaleString('en-US')}`;
 
   const handleAddToCart = (product, size = 'L', color = null) => {
     addToCart(product, size, color);
@@ -152,7 +97,7 @@ function CatalogContent() {
     setIsCartOpen(true); 
   };
 
-  const filteredProducts = dbProducts.filter((p) => {
+  const filteredProducts = allProducts.filter((p) => {
     const matchesPrice = selectedPrice === 'ALL' || p.price === Number(selectedPrice);
     const matchesCategory = 
       selectedCategory === 'ALL' || 
@@ -168,10 +113,21 @@ function CatalogContent() {
     return matchesPrice && matchesCategory && matchesSearch;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
+  const activePage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (activePage - 1) * itemsPerPage;
+  const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+
   const handlePageChange = (newPage) => {
+    if (newPage < 1 || newPage > totalPages || newPage === activePage) return;
     const params = new URLSearchParams(searchParams);
     params.set('page', newPage.toString());
-    router.push(`${pathname}?${params.toString()}`, { scroll: true });
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    
+    const gridSection = document.getElementById('catalog-products-section') || document.getElementById('catalog-page');
+    if (gridSection) {
+      gridSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   return (
@@ -217,13 +173,9 @@ function CatalogContent() {
         <CategoryFilter />
 
         {/* Product Grid Area */}
-        {isLoading ? (
-          <div className="flex justify-center items-center py-24 min-h-[40vh]">
-            <div className="w-8 h-8 border-2 border-foreground border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : (
+        <div id="catalog-products-section">
           <ProductGrid
-            filteredProducts={filteredProducts}
+            filteredProducts={paginatedProducts}
             selectedCategory={selectedCategory}
             setSelectedCategory={() => {}}
             showCategoryFilter={false}
@@ -243,29 +195,69 @@ function CatalogContent() {
             handleAddToCart={handleAddToCart}
             handleBuyNow={handleBuyNow}
           />
-        )}
+        </div>
 
-        {/* Pagination UI */}
-        {totalPages > 1 && (
-          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex justify-center items-center">
-            <div className="flex items-center gap-2">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-                const isActive = pageNum === currentPage;
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => handlePageChange(pageNum)}
-                    className={`w-10 h-10 flex items-center justify-center font-sans text-xs font-bold transition-all cursor-pointer ${
-                      isActive 
-                        ? 'bg-foreground text-background border border-foreground shadow-md' 
-                        : 'bg-white text-foreground border border-foreground/15 hover:border-foreground'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
+        {/* Luxury Pagination UI */}
+        {filteredProducts.length > 0 && (
+          <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-16 flex flex-col items-center justify-center gap-4">
+            <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
+              {/* Previous Page Button */}
+              <button
+                onClick={() => handlePageChange(activePage - 1)}
+                disabled={activePage <= 1}
+                aria-label="Previous Page"
+                className={`h-11 px-4 flex items-center gap-2 font-sans text-xs uppercase tracking-[0.16em] font-semibold transition-all duration-200 border ${
+                  activePage <= 1
+                    ? 'opacity-30 cursor-not-allowed border-foreground/10 bg-white/40 text-foreground/40'
+                    : 'cursor-pointer bg-white text-foreground border-foreground/20 hover:bg-foreground hover:text-background hover:border-foreground shadow-sm'
+                }`}
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Previous</span>
+                <span className="sm:hidden">Prev</span>
+              </button>
+
+              {/* Numbered Page Buttons */}
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                  const isActive = pageNum === activePage;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      aria-label={`Page ${pageNum}`}
+                      className={`w-11 h-11 flex items-center justify-center font-sans text-xs font-bold transition-all duration-200 cursor-pointer ${
+                        isActive 
+                          ? 'bg-foreground text-background border border-foreground shadow-md' 
+                          : 'bg-white text-foreground/80 border border-foreground/15 hover:border-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Next Page Button */}
+              <button
+                onClick={() => handlePageChange(activePage + 1)}
+                disabled={activePage >= totalPages}
+                aria-label="Next Page"
+                className={`h-11 px-4 flex items-center gap-2 font-sans text-xs uppercase tracking-[0.16em] font-semibold transition-all duration-200 border ${
+                  activePage >= totalPages
+                    ? 'opacity-30 cursor-not-allowed border-foreground/10 bg-white/40 text-foreground/40'
+                    : 'cursor-pointer bg-white text-foreground border-foreground/20 hover:bg-foreground hover:text-background hover:border-foreground shadow-sm'
+                }`}
+              >
+                <span>Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
+
+            {/* Pagination Range & Page Details */}
+            <p className="font-sans text-[0.7rem] uppercase tracking-[0.2em] text-foreground/50 text-center">
+              Showing {startIndex + 1}–{Math.min(startIndex + itemsPerPage, filteredProducts.length)} of {filteredProducts.length} pieces &bull; Page {activePage} of {totalPages}
+            </p>
           </section>
         )}
       </main>

@@ -7,10 +7,10 @@ export async function POST(req) {
 
     await sendEmail({
       to: process.env.OWNER_EMAIL || DEFAULT_OWNER_EMAIL,
-      subject: `🚨 New Order: ${name} (₦${Number(price || 0).toLocaleString()})`,
+      subject: `[ALERT] New Order: ${name} (₦${Number(price || 0).toLocaleString()})`,
       htmlContent: `
         <div style="font-family: sans-serif; padding: 20px; color: #121212;">
-          <h2>👑 Klasik Wardrobe - New Order Alert</h2>
+          <h2>Klasik Wardrobe - New Order Alert</h2>
           <p><strong>Item:</strong> ${name} ${size ? `(${size})` : ''} ${color ? `[${color}]` : ''}</p>
           <p><strong>Price:</strong> ₦${Number(price || 0).toLocaleString()}</p>
           ${customerName ? `<p><strong>Customer:</strong> ${customerName}</p>` : ''}

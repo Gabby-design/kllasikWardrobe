@@ -76,7 +76,9 @@ export function ProductGrid({
           
           {filteredProducts.length === 0 ? (
             <div className="col-span-full text-center py-20 px-6 bg-white border border-foreground/10">
-              <div className="text-4xl mb-3">🏷️</div>
+              <div className="flex justify-center mb-3">
+                <Sparkles className="w-8 h-8 text-foreground/30" />
+              </div>
               <h3 className="font-serif text-2xl text-foreground font-bold mb-2">No matching pieces found</h3>
               <p className="font-sans text-foreground/60 text-sm max-w-md mx-auto mb-6">
                 We couldn&apos;t find any pieces matching your current filters. Try resetting to view all heavyweight t-shirts.

@@ -11,19 +11,19 @@ export function ShopTheLook() {
   const lookItems = [
     {
       id: 'kwt-01',
-      title: 'Essential 240 GSM Noir',
+      title: 'Klassic Never Heavyweight Noir',
       price: 30000,
-      image: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?q=80&w=600&auto=format&fit=crop',
+      image: '/images/media__1786369656046.jpg',
       gsm: '240 GSM Combed Cotton',
       fit: 'Oversized Drop-Shoulder'
     },
     {
-      id: 'kwt-03',
-      title: 'Executive Cotton-Silk',
-      price: 40000,
-      image: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?q=80&w=600&auto=format&fit=crop',
-      gsm: '280 GSM Mulberry Silk Blend',
-      fit: 'Tailored Luxury Fit'
+      id: 'kwt-02',
+      title: 'Mindset Over Everything Noir',
+      price: 35000,
+      image: '/images/media__1786370258071_2.jpg',
+      gsm: '260 GSM Heavy Organic Cotton',
+      fit: 'Structured Boxy Fit'
     }
   ];
 
@@ -68,7 +68,7 @@ export function ShopTheLook() {
         >
           <div className="relative aspect-[4/5] sm:aspect-[3/4] overflow-hidden bg-foreground/5 shadow-2xl border border-foreground/10">
             <img 
-              src="https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=1200&auto=format&fit=crop" 
+              src="/images/media__1786369656046.jpg" 
               alt="Klasik Streetwear Editorial Look" 
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 

@@ -21,37 +21,19 @@ function App() {
 
   useEffect(() => {
     async function fetchProducts() {
-      if (!isSupabaseConfigured) return;
-      const supabase = createClient();
-      if (!supabase) return;
-
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.warn('Supabase fetch products notice:', error.message);
+      try {
+        const res = await fetch('/api/products');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.products && data.products.length > 0) {
+            setDbProducts(data.products);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Backend API products notice (using default catalog):', err.message);
       }
-      
-      if (data && data.length > 0) {
-        const formattedProducts = data.map(p => ({
-          id: p.id,
-          name: p.name,
-          title: p.name,
-          price: p.price,
-          description: p.description,
-          stock: p.stock !== undefined ? p.stock : 10,
-          image: p.image_url || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
-          fallbackImage: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?q=80&w=800&auto=format&fit=crop',
-          gallery: [p.image_url],
-          brand: p.brand || 'Klasik Wardrobe',
-          category: p.category || (p.price >= 40000 ? 'Executive' : p.price >= 30000 ? 'Signature' : 'Essential'),
-          sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-          colors: [{ name: p.color || 'Standard', hex: '#1a1a1a' }]
-        }));
-        setDbProducts(formattedProducts);
-      }
+      setDbProducts(PRODUCTS);
     }
     fetchProducts();
   }, []);
@@ -89,7 +71,7 @@ function App() {
   };
 
   const formatPrice = (amount) => {
-    return `₦${Number(amount || 0).toLocaleString()}`;
+    return `₦${Number(amount || 0).toLocaleString('en-US')}`;
   };
 
   const handleAddToCart = (product, size = 'L', color = null) => {

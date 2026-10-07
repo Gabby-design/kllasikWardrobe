@@ -84,6 +84,8 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
 
   // Preset Image Options for quick selection
   const presetImages = [
+    { name: 'Blue Striped Shirt Front', url: '/images/stripe-shirt-blue-front.jpg' },
+    { name: 'Blue Striped Fabric Detail', url: '/images/stripe-shirt-blue-detail.jpg' },
     { name: 'Wonderland Crochet Shirt', url: '/images/wonderland-shirt-front.jpg' },
     { name: 'Wonderland Texture Detail', url: '/images/wonderland-shirt-detail.jpg' },
     { name: 'Raw Indigo Jeans', url: '/images/jeans-raw-indigo.jpg' },

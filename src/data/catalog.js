@@ -21,6 +21,8 @@ export const PRODUCTS = [
     gallery: [
       '/images/media__1786369656046.jpg',
       '/images/media__1786369661997.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-black.png',
     ],
   },
   {
@@ -44,6 +46,8 @@ export const PRODUCTS = [
     gallery: [
       '/images/media__1786370258071_2.jpg',
       '/images/media__1786370258071_3.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-black.png',
     ],
   },
   {
@@ -68,6 +72,8 @@ export const PRODUCTS = [
     gallery: [
       '/images/media__1786369606088.jpg',
       '/images/media__1786370258071_1.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-purple.png',
     ],
   },
   {
@@ -90,6 +96,9 @@ export const PRODUCTS = [
     fallbackImage: '/images/media__1786369626673.jpg',
     gallery: [
       '/images/media__1786369626673.jpg',
+      '/images/media__1786369661997.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-white.png',
     ],
   },
   {
@@ -112,6 +121,9 @@ export const PRODUCTS = [
     fallbackImage: '/images/media__1786369649479.jpg',
     gallery: [
       '/images/media__1786369649479.jpg',
+      '/images/media__1786370258071.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-white.png',
     ],
   },
   {
@@ -134,6 +146,9 @@ export const PRODUCTS = [
     fallbackImage: '/images/media__1786370258071.jpg',
     gallery: [
       '/images/media__1786370258071.jpg',
+      '/images/media__1786369649479.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-white.png',
     ],
   },
   {
@@ -158,6 +173,8 @@ export const PRODUCTS = [
     gallery: [
       '/images/media__1786370258071_1.jpg',
       '/images/media__1786369606088.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-black.png',
     ],
   },
   {
@@ -181,6 +198,8 @@ export const PRODUCTS = [
     gallery: [
       '/images/media__1786370258071_2.jpg',
       '/images/media__1786370258071_3.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-black.png',
     ],
   },
   {
@@ -204,6 +223,8 @@ export const PRODUCTS = [
     gallery: [
       '/images/media__1786369656046.jpg',
       '/images/media__1786369661997.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-black.png',
     ],
   },
   {
@@ -227,6 +248,8 @@ export const PRODUCTS = [
     gallery: [
       '/images/media__1786369661997.jpg',
       '/images/media__1786369656046.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-black.png',
     ],
   },
   {
@@ -250,6 +273,8 @@ export const PRODUCTS = [
     gallery: [
       '/images/media__1786369606088.jpg',
       '/images/media__1786370258071_1.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-purple.png',
     ],
   },
   {
@@ -273,6 +298,8 @@ export const PRODUCTS = [
     gallery: [
       '/images/media__1786370258071_3.jpg',
       '/images/media__1786370258071_2.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-black.png',
     ],
   },
   {
@@ -295,6 +322,9 @@ export const PRODUCTS = [
     fallbackImage: '/images/media__1786369626673.jpg',
     gallery: [
       '/images/media__1786369626673.jpg',
+      '/images/media__1786369661997.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-white.png',
     ],
   },
   {
@@ -317,6 +347,9 @@ export const PRODUCTS = [
     fallbackImage: '/images/media__1786369649479.jpg',
     gallery: [
       '/images/media__1786369649479.jpg',
+      '/images/media__1786370258071.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-white.png',
     ],
   },
   {
@@ -339,6 +372,9 @@ export const PRODUCTS = [
     fallbackImage: '/images/media__1786370258071.jpg',
     gallery: [
       '/images/media__1786370258071.jpg',
+      '/images/media__1786369649479.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-white.png',
     ],
   },
   {
@@ -362,6 +398,8 @@ export const PRODUCTS = [
     gallery: [
       '/images/media__1786370258071_1.jpg',
       '/images/media__1786369606088.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-purple.png',
     ],
   },
   {
@@ -385,6 +423,8 @@ export const PRODUCTS = [
     gallery: [
       '/images/media__1786370258071_2.jpg',
       '/images/media__1786370258071_3.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-black.png',
     ],
   },
   {
@@ -408,6 +448,8 @@ export const PRODUCTS = [
     gallery: [
       '/images/media__1786369656046.jpg',
       '/images/media__1786369661997.jpg',
+      '/images/detail-cotton-rib.jpg',
+      '/images/hero-tee-black.png',
     ],
   },
 
@@ -432,6 +474,9 @@ export const PRODUCTS = [
     fallbackImage: '/images/jeans-raw-indigo.jpg',
     gallery: [
       '/images/jeans-raw-indigo.jpg',
+      '/images/detail-denim-selvedge.jpg',
+      '/images/jeans-washed-black.jpg',
+      '/images/media__1786369656046.jpg',
     ],
   },
   {
@@ -454,6 +499,9 @@ export const PRODUCTS = [
     fallbackImage: '/images/jeans-washed-black.jpg',
     gallery: [
       '/images/jeans-washed-black.jpg',
+      '/images/detail-denim-selvedge.jpg',
+      '/images/jeans-raw-indigo.jpg',
+      '/images/hero-tee-black.png',
     ],
   },
 
@@ -478,6 +526,9 @@ export const PRODUCTS = [
     fallbackImage: '/images/short-jeans-jorts.jpg',
     gallery: [
       '/images/short-jeans-jorts.jpg',
+      '/images/detail-jorts-frayed.jpg',
+      '/images/detail-denim-selvedge.jpg',
+      '/images/media__1786369626673.jpg',
     ],
   },
 
@@ -502,6 +553,9 @@ export const PRODUCTS = [
     fallbackImage: '/images/beach-pants-linen.jpg',
     gallery: [
       '/images/beach-pants-linen.jpg',
+      '/images/detail-linen-waistband.jpg',
+      '/images/hero-tee-white.png',
+      '/images/media__1786370258071.jpg',
     ],
   },
 ];

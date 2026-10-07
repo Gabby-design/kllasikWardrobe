@@ -38,10 +38,10 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   const [uploadingImage, setUploadingImage] = useState(false);
 
   // Form State
-  const [tierPreset, setTierPreset] = useState('Essential');
+  const [categoryPreset, setCategoryPreset] = useState('T-Shirts');
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState(30000);
-  const [category, setCategory] = useState('Essential');
+  const [category, setCategory] = useState('T-Shirts');
   const [tag, setTag] = useState('New Drop');
   const [gsm, setGsm] = useState('240 GSM Heavyweight');
   const [material, setMaterial] = useState('100% Combed Organic Cotton');
@@ -55,9 +55,11 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
 
   // Preset Image Options for quick selection
   const presetImages = [
+    { name: 'Raw Indigo Jeans', url: '/images/jeans-raw-indigo.jpg' },
+    { name: 'Washed Black Jeans', url: '/images/jeans-washed-black.jpg' },
+    { name: 'Vintage Denim Jorts', url: '/images/short-jeans-jorts.jpg' },
+    { name: 'Linen Beach Pants', url: '/images/beach-pants-linen.jpg' },
     { name: 'Noir Black Tee', url: '/images/hero-tee-black.png' },
-    { name: 'Royal Purple Tee', url: '/images/hero-tee-purple.png' },
-    { name: 'Silk White Tee', url: '/images/hero-tee-white.png' },
     { name: 'Never Noir Graphic', url: '/images/media__1786369656046.jpg' },
     { name: 'Mindset Vintage Boxy', url: '/images/media__1786370258071_2.jpg' },
     { name: 'Dark Cat Silhouette', url: '/images/media__1786369649479.jpg' },
@@ -65,27 +67,42 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
 
   const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
 
-  // Handle tier preset selection
-  const handleTierSelect = (tier) => {
-    setTierPreset(tier);
-    if (tier === 'Essential') {
+  // Handle category preset selection
+  const handleCategorySelect = (cat) => {
+    setCategoryPreset(cat);
+    setCategory(cat);
+    if (cat === 'T-Shirts') {
       setPrice(30000);
-      setCategory('Essential');
-      setTag('Essential Tier');
+      setTag('Heavyweight Tee');
       setGsm('240 GSM Heavyweight');
       setMaterial('100% Combed Organic Cotton');
-    } else if (tier === 'Signature') {
-      setPrice(35000);
-      setCategory('Signature');
-      setTag('Signature Drop');
-      setGsm('260 GSM Vintage Wash');
-      setMaterial('Custom Washed Heavy Cotton');
-    } else if (tier === 'Executive') {
-      setPrice(40000);
-      setCategory('Executive');
-      setTag('Luxury Tier');
-      setGsm('280 GSM Silk-Cotton Blend');
-      setMaterial('80% Organic Cotton, 20% Mulberry Silk');
+      setFit('Oversized Drop-Shoulder');
+      setImage('/images/hero-tee-black.png');
+      setDescription('Crafted from 240 GSM combed organic cotton. Features clean minimalist cut with intentional dropped shoulder drape.');
+    } else if (cat === 'Jeans') {
+      setPrice(65000);
+      setTag('Luxury Denim');
+      setGsm('14.5oz Heavyweight Denim');
+      setMaterial('100% Shuttle-Loom Selvedge Cotton');
+      setFit('Relaxed Straight Leg');
+      setImage('/images/jeans-raw-indigo.jpg');
+      setDescription('Crafted from 14.5oz Japanese shuttle-loom selvedge denim. Features relaxed straight drape and antique brass hardware.');
+    } else if (cat === 'Short Jeans') {
+      setPrice(45000);
+      setTag('Vintage Jorts');
+      setGsm('13oz Heavyweight Denim');
+      setMaterial('100% Vintage Washed Cotton');
+      setFit('Baggy Knee-Length Jorts');
+      setImage('/images/short-jeans-jorts.jpg');
+      setDescription('13oz heavyweight vintage washed denim shorts with signature raw frayed hem, relaxed baggy streetwear silhouette.');
+    } else if (cat === 'Beach Pants') {
+      setPrice(50000);
+      setTag('Pure Linen');
+      setGsm('240 GSM Pure Flax Linen');
+      setMaterial('100% Breathable European Linen');
+      setFit('Relaxed Wide-Leg Flow');
+      setImage('/images/beach-pants-linen.jpg');
+      setDescription('Tailored from 240 GSM pure European flax linen with elasticated drawstring waistband and breathable flowy silhouette.');
     }
   };
 
@@ -119,7 +136,11 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       const data = await res.json();
       if (data.success && data.url) {
         setImage(data.url);
-        toast.success('Image uploaded successfully!');
+        if (data.storage === 'supabase') {
+          toast.success('Image stored in Supabase backend!');
+        } else {
+          toast.success('Image uploaded successfully!');
+        }
       } else {
         toast.error(data.error || 'Failed to upload image');
       }
@@ -339,52 +360,66 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
 
             <form onSubmit={handleSubmitProduct} className="space-y-6">
               
-              {/* Pricing Tier Presets */}
+              {/* Product Category Quick Presets */}
               <div>
                 <label className="text-xs font-bold text-gray-700 block mb-2">
-                  Select Pricing Tier Preset *
+                  Select Product Category Preset *
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   <button
                     type="button"
-                    onClick={() => handleTierSelect('Essential')}
+                    onClick={() => handleCategorySelect('T-Shirts')}
                     className={`p-3 rounded-[16px] border text-left transition-all cursor-pointer ${
-                      tierPreset === 'Essential'
+                      categoryPreset === 'T-Shirts'
                         ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs'
                         : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
                     }`}
                   >
-                    <span className="text-[11px] font-bold text-gray-500 block">ESSENTIAL</span>
+                    <span className="text-[10px] font-bold text-gray-500 block uppercase">T-Shirts</span>
                     <strong className="text-sm font-bold text-[#7C3AED] block">₦30,000</strong>
                     <span className="text-[10px] text-gray-400">240 GSM Cotton</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleTierSelect('Signature')}
+                    onClick={() => handleCategorySelect('Jeans')}
                     className={`p-3 rounded-[16px] border text-left transition-all cursor-pointer ${
-                      tierPreset === 'Signature'
+                      categoryPreset === 'Jeans'
                         ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs'
                         : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
                     }`}
                   >
-                    <span className="text-[11px] font-bold text-gray-500 block">SIGNATURE</span>
-                    <strong className="text-sm font-bold text-[#7C3AED] block">₦35,000</strong>
-                    <span className="text-[10px] text-gray-400">260 GSM Wash</span>
+                    <span className="text-[10px] font-bold text-gray-500 block uppercase">Jeans</span>
+                    <strong className="text-sm font-bold text-[#7C3AED] block">₦65,000</strong>
+                    <span className="text-[10px] text-gray-400">14.5oz Selvedge</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleTierSelect('Executive')}
+                    onClick={() => handleCategorySelect('Short Jeans')}
                     className={`p-3 rounded-[16px] border text-left transition-all cursor-pointer ${
-                      tierPreset === 'Executive'
+                      categoryPreset === 'Short Jeans'
                         ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs'
                         : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
                     }`}
                   >
-                    <span className="text-[11px] font-bold text-gray-500 block">EXECUTIVE</span>
-                    <strong className="text-sm font-bold text-[#7C3AED] block">₦40,000</strong>
-                    <span className="text-[10px] text-gray-400">280 GSM Silk-Cotton</span>
+                    <span className="text-[10px] font-bold text-gray-500 block uppercase">Short Jeans</span>
+                    <strong className="text-sm font-bold text-[#7C3AED] block">₦45,000</strong>
+                    <span className="text-[10px] text-gray-400">13oz Jorts</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCategorySelect('Beach Pants')}
+                    className={`p-3 rounded-[16px] border text-left transition-all cursor-pointer ${
+                      categoryPreset === 'Beach Pants'
+                        ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs'
+                        : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-[10px] font-bold text-gray-500 block uppercase">Beach Pants</span>
+                    <strong className="text-sm font-bold text-[#7C3AED] block">₦50,000</strong>
+                    <span className="text-[10px] text-gray-400">240 GSM Linen</span>
                   </button>
                 </div>
               </div>
@@ -430,9 +465,10 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-2.5 text-xs text-[#111111] outline-none transition-all cursor-pointer"
                   >
-                    <option value="Essential">Essential Tier (₦30,000)</option>
-                    <option value="Signature">Signature Tier (₦35,000)</option>
-                    <option value="Executive">Executive Tier (₦40,000)</option>
+                    <option value="T-Shirts">T-Shirts (Heavyweight Cotton)</option>
+                    <option value="Jeans">Jeans (Luxury Denim)</option>
+                    <option value="Short Jeans">Short Jeans (Vintage Denim Jorts)</option>
+                    <option value="Beach Pants">Beach Pants (Pure Linen)</option>
                   </select>
                 </div>
 
@@ -699,7 +735,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
 
                 <div className="space-y-1.5 px-1">
                   <div className="flex items-center justify-between text-[11px] text-gray-400 font-medium">
-                    <span>{category} Tier</span>
+                    <span>{category}</span>
                     <span>{gsm}</span>
                   </div>
 
@@ -800,7 +836,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
 
                   <div className="space-y-1 mb-3">
                     <span className="text-[10px] font-bold text-gray-400 block uppercase">
-                      {prod.category} Tier &bull; {prod.gsm || '240 GSM'}
+                      {prod.category} &bull; {prod.gsm || '240 GSM'}
                     </span>
                     <h4 className="font-bold text-xs sm:text-sm text-[#111111] line-clamp-1">
                       {prod.title}

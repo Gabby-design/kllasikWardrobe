@@ -1,6 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import fs from 'fs';
+import path from 'path';
 import { getAllProducts, saveCustomProduct, removeCustomProduct, getCustomProducts } from '../../src/data/productsManager';
 import { createAdminClient } from '../../utils/supabase/admin';
 
@@ -16,7 +18,7 @@ export async function createProductAction(productData) {
       id,
       title: productData.title.trim(),
       price: Number(productData.price),
-      category: productData.category || 'Essential',
+      category: productData.category || 'T-Shirts',
       tag: productData.tag || 'New Drop',
       rating: 5.0,
       reviews: 1,
@@ -43,17 +45,45 @@ export async function createProductAction(productData) {
       return { success: false, error: res.error };
     }
 
-    // Background sync to Supabase if available
+    // Background sync to Supabase backend (Storage + Database)
     try {
       const supabase = createAdminClient();
       if (supabase) {
-        await supabase.from('products').insert({
+        let supabaseImageUrl = newProduct.image;
+
+        // If image is a local path and file exists, upload to Supabase storage 'products' bucket
+        if (newProduct.image && newProduct.image.startsWith('/images/')) {
+          try {
+            const relPath = newProduct.image.replace(/^\//, '');
+            const localFilePath = path.join(process.cwd(), 'public', relPath);
+            if (fs.existsSync(localFilePath)) {
+              const fileBuf = fs.readFileSync(localFilePath);
+              const fileName = path.basename(localFilePath);
+              const { data: storageData, error: storageErr } = await supabase.storage
+                .from('products')
+                .upload(fileName, fileBuf, { contentType: 'image/jpeg', upsert: true });
+
+              if (!storageErr && storageData) {
+                const { data: pUrlData } = supabase.storage
+                  .from('products')
+                  .getPublicUrl(fileName);
+                if (pUrlData?.publicUrl) {
+                  supabaseImageUrl = pUrlData.publicUrl;
+                }
+              }
+            }
+          } catch (storageEx) {
+            console.warn('Supabase storage upload notice:', storageEx.message);
+          }
+        }
+
+        await supabase.from('products').upsert({
           id: newProduct.id,
           name: newProduct.title,
           price: newProduct.price,
           category: newProduct.category,
           description: newProduct.description,
-          image_url: newProduct.image,
+          image_url: supabaseImageUrl,
           stock: newProduct.stock
         });
       }

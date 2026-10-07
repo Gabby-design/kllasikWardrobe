@@ -31,6 +31,14 @@ export default function HomePage() {
   const [quickViewActiveImg, setQuickViewActiveImg] = useState(null);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const cat = urlParams.get('category');
+      if (cat) {
+        setSelectedCategory(cat);
+      }
+    }
+
     async function fetchProducts() {
       try {
         const res = await fetch('/api/products');
@@ -114,9 +122,10 @@ export default function HomePage() {
 
   const categories = [
     { label: 'All Pieces', value: 'ALL' },
-    { label: 'Essential (₦30k)', value: 'Essential' },
-    { label: 'Signature (₦35k)', value: 'Signature' },
-    { label: 'Executive (₦40k)', value: 'Executive' },
+    { label: 'T-Shirts', value: 'T-Shirts' },
+    { label: 'Jeans', value: 'Jeans' },
+    { label: 'Short Jeans', value: 'Short Jeans' },
+    { label: 'Beach Pants', value: 'Beach Pants' },
   ];
 
   const handleCategorySelect = (val) => {
@@ -159,7 +168,7 @@ export default function HomePage() {
           </h1>
 
           <p className="font-sans text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
-            Explore 240–300 GSM organic cotton and mulberry silk essentials engineered with intentional drop-shoulder silhouettes.
+            Explore heavyweight organic cotton tees, selvedge denim jeans, summer jorts, and luxury linen beach pants.
           </p>
 
           {/* Search Bar: Mobile only (Desktop uses the single search bar in the Navbar) */}

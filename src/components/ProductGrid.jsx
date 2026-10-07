@@ -37,28 +37,28 @@ export function ProductGrid({
 
   const categoryCards = [
     { 
-      label: "Essential", 
-      value: "Essential", 
-      desc: "240 GSM • ₦30k", 
+      label: "T-Shirts", 
+      value: "T-Shirts", 
+      desc: "Heavyweight Cotton", 
       image: "/images/media__1786369656046.jpg" 
     },
     { 
-      label: "Signature", 
-      value: "Signature", 
-      desc: "260 GSM • ₦35k", 
-      image: "/images/media__1786370258071_2.jpg" 
+      label: "Jeans", 
+      value: "Jeans", 
+      desc: "Raw & Washed Denim", 
+      image: "/images/jeans-raw-indigo.jpg" 
     },
     { 
-      label: "Executive", 
-      value: "Executive", 
-      desc: "300 GSM • ₦40k", 
-      image: "/images/media__1786370258071.jpg" 
+      label: "Short Jeans", 
+      value: "Short Jeans", 
+      desc: "Denim Cutoff Jorts", 
+      image: "/images/short-jeans-jorts.jpg" 
     },
     { 
-      label: "New Arrival", 
-      value: "ALL", 
-      desc: "Latest Archive", 
-      image: "/images/media__1786369661997.jpg" 
+      label: "Beach Pants", 
+      value: "Beach Pants", 
+      desc: "Relaxed Linen Pants", 
+      image: "/images/beach-pants-linen.jpg" 
     },
   ];
 
@@ -238,7 +238,7 @@ export function ProductGrid({
                       
                       {/* 1. Small grey category label */}
                       <span className="font-sans text-[11px] text-gray-400 font-medium leading-none truncate">
-                        {product.category || 'Essential'} Collection
+                        {product.category || 'T-Shirts'}
                       </span>
 
                       {/* 2. Product name in bold (max 2 lines) */}

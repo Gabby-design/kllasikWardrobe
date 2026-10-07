@@ -40,7 +40,7 @@ export async function GET(request) {
             fallbackImage: p.image_url || '/images/media__1786369656046.jpg',
             gallery: p.image_url ? [p.image_url] : ['/images/media__1786369656046.jpg'],
             brand: p.brand || 'Klasik Wardrobe',
-            category: p.category || 'Essential',
+            category: p.category || 'T-Shirts',
             gsm: p.gsm || '240 GSM Heavyweight',
             material: p.material || '100% Combed Organic Cotton',
             fit: p.fit || 'Oversized Drop-Shoulder',
@@ -90,7 +90,7 @@ export async function POST(request) {
       id: body.id || `kwt-${Date.now().toString().slice(-4)}`,
       title: body.title,
       price: Number(body.price),
-      category: body.category || 'Essential',
+      category: body.category || 'T-Shirts',
       tag: body.tag || 'New Drop',
       rating: body.rating || 5.0,
       reviews: body.reviews || 1,
@@ -109,11 +109,11 @@ export async function POST(request) {
 
     const res = saveCustomProduct(newProduct);
 
-    // Also attempt Supabase insert in background if active
+    // Also attempt Supabase upsert in background if active
     try {
       const supabase = createAdminClient();
       if (supabase) {
-        await supabase.from('products').insert({
+        await supabase.from('products').upsert({
           id: newProduct.id,
           name: newProduct.title,
           price: newProduct.price,

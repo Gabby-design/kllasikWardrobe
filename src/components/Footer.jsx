@@ -33,14 +33,17 @@ export function Footer() {
             Collections
           </h4>
           <div className="flex flex-col gap-2 font-sans text-xs text-gray-400">
-            <Link href="/catalog?category=Essential" className="hover:text-purple-300 transition-colors">
-              Essential Tier • ₦30,000
+            <Link href="/catalog?category=T-Shirts" className="hover:text-purple-300 transition-colors">
+              Heavyweight T-Shirts
             </Link>
-            <Link href="/catalog?category=Signature" className="hover:text-purple-300 transition-colors">
-              Signature Tier • ₦35,000
+            <Link href="/catalog?category=Jeans" className="hover:text-purple-300 transition-colors">
+              Luxury Denim Jeans
             </Link>
-            <Link href="/catalog?category=Executive" className="hover:text-purple-300 transition-colors">
-              Executive Tier • ₦40,000
+            <Link href="/catalog?category=Short+Jeans" className="hover:text-purple-300 transition-colors">
+              Short Jeans &amp; Jorts
+            </Link>
+            <Link href="/catalog?category=Beach+Pants" className="hover:text-purple-300 transition-colors">
+              Pure Linen Beach Pants
             </Link>
             <Link href="/catalog" className="hover:text-purple-300 transition-colors font-semibold text-gray-300">
               Full Archive Drop

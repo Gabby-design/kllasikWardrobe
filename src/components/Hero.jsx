@@ -11,31 +11,31 @@ export function Hero() {
 
   const slides = [
     {
-      tag: 'New Drop',
+      tag: 'Heavyweight T-Shirts',
       headline: 'Defined by details.',
       subtext: 'Heavyweight 240–300 GSM organic cotton essentials engineered for effortless drape and permanence.',
-      cta: 'Shop Now',
-      href: '/catalog',
+      cta: 'Shop T-Shirts',
+      href: '/catalog?category=T-Shirts',
       image: '/images/hero-tee-black.png',
       alt: 'Klasik Heavyweight Black Tee',
     },
     {
-      tag: 'Signature Tier',
+      tag: 'Luxury Denim & Jorts',
       headline: 'Substance over hype.',
-      subtext: 'Dense 260 GSM custom vintage washes with high-density puff prints and preshrunk double ribbing.',
-      cta: 'Shop Now',
-      href: '/catalog?category=Signature',
-      image: '/images/hero-tee-purple.png',
-      alt: 'Klasik Heavyweight Purple Tee',
+      subtext: '14.5oz shuttle-loom Japanese selvedge denim and vintage cutoff jorts tailored for a clean streetwear silhouette.',
+      cta: 'Explore Denim',
+      href: '/catalog?category=Jeans',
+      image: '/images/jeans-raw-indigo.jpg',
+      alt: 'Klasik Raw Indigo Selvedge Denim',
     },
     {
-      tag: 'Executive Silk',
-      headline: 'The 300 GSM standard.',
-      subtext: 'Tailored luxury cuts infused with Peruvian Pima and mulberry silk threads for a cool handfeel.',
-      cta: 'Shop Now',
-      href: '/catalog?category=Executive',
-      image: '/images/hero-tee-white.png',
-      alt: 'Klasik Heavyweight White Silk-Cotton Tee',
+      tag: 'Pure European Linen',
+      headline: 'Effortless coastal drape.',
+      subtext: '240 GSM breathable European flax linen beach pants with braided drawstring waist and wide-leg flow.',
+      cta: 'Shop Beach Pants',
+      href: '/catalog?category=Beach+Pants',
+      image: '/images/beach-pants-linen.jpg',
+      alt: 'Klasik Pure Linen Beach Pants',
     }
   ];
 

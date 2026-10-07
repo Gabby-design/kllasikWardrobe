@@ -17,7 +17,7 @@ export function Hero() {
       cta: 'Shop T-Shirts',
       href: '/catalog?category=T-Shirts',
       image: '/images/hero-tee-black.png',
-      alt: 'Klasik Heavyweight Black Tee',
+      alt: 'Kllasik Heavyweight Black Tee',
     },
     {
       tag: 'Luxury Denim & Jorts',
@@ -26,7 +26,7 @@ export function Hero() {
       cta: 'Explore Denim',
       href: '/catalog?category=Jeans',
       image: '/images/jeans-raw-indigo.jpg',
-      alt: 'Klasik Raw Indigo Selvedge Denim',
+      alt: 'Kllasik Raw Indigo Selvedge Denim',
     },
     {
       tag: 'Pure European Linen',
@@ -35,7 +35,7 @@ export function Hero() {
       cta: 'Shop Beach Pants',
       href: '/catalog?category=Beach+Pants',
       image: '/images/beach-pants-linen.jpg',
-      alt: 'Klasik Pure Linen Beach Pants',
+      alt: 'Kllasik Pure Linen Beach Pants',
     }
   ];
 

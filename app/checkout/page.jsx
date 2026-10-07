@@ -38,13 +38,13 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [checkoutMode, setCheckoutMode] = useState('whatsapp'); // 'whatsapp' | 'website'
+  const [checkoutMode, setCheckoutMode] = useState(null); // null | 'whatsapp' | 'website'
   const [orderNotes, setOrderNotes] = useState('');
 
   // Verified Bank details
   const bankDetails = {
     bankName: process.env.NEXT_PUBLIC_BANK_NAME || 'OPay / Paycom',
-    accountName: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'KLASIK WARDROBE',
+    accountName: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'KLLASIK WARDROBE',
     accountNumber: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '7075039738',
   };
 
@@ -77,17 +77,31 @@ export default function CheckoutPage() {
     }
   };
 
-  // Option 1: Direct WhatsApp Checkout
+  // Option 1: Direct WhatsApp Checkout with complete customer & delivery details
   const handleWhatsAppCheckout = () => {
-    const generatedOrderId = `KLASIK-${Date.now().toString().slice(-6)}`;
+    if (!customerForm.name || !customerForm.name.trim()) {
+      toast.error('Please enter your full name in delivery details above.');
+      const nameInput = document.getElementById('customer-name-input');
+      if (nameInput) nameInput.focus();
+      return;
+    }
+
+    if (!customerForm.address || !customerForm.address.trim()) {
+      toast.error('Please enter your delivery address / landmark above.');
+      const addressInput = document.getElementById('customer-address-input');
+      if (addressInput) addressInput.focus();
+      return;
+    }
+
+    const generatedOrderId = `KLLASIK-${Date.now().toString().slice(-6)}`;
     const orderData = {
       orderId: generatedOrderId,
       items: [...cart],
       customer: {
-        name: customerForm.name || 'Valued Customer',
-        phone: customerForm.phone || '',
-        email: customerForm.email || '',
-        address: customerForm.address || '',
+        name: customerForm.name.trim(),
+        phone: customerForm.phone ? customerForm.phone.trim() : '',
+        email: customerForm.email ? customerForm.email.trim() : '',
+        address: customerForm.address.trim(),
         city: customerForm.city || 'Lagos',
         notes: orderNotes
       },
@@ -105,7 +119,7 @@ export default function CheckoutPage() {
 
     const waLink = getWhatsAppOrderLink(orderData, whatsappPhone);
     window.open(waLink, '_blank');
-    toast.success('Opening WhatsApp with your order details...');
+    toast.success('Opening WhatsApp with your complete order details...');
     if (clearCart) clearCart();
     router.push('/success?method=whatsapp');
   };
@@ -113,11 +127,29 @@ export default function CheckoutPage() {
   // Option 2: Website Order Form Submission
   const handleWebsiteSubmit = async (e) => {
     e.preventDefault();
+
+    if (!customerForm.name || !customerForm.name.trim()) {
+      toast.error('Please enter your full name in delivery details above.');
+      const nameInput = document.getElementById('customer-name-input');
+      if (nameInput) nameInput.focus();
+      return;
+    }
+
+    if (!customerForm.address || !customerForm.address.trim()) {
+      toast.error('Please enter your delivery address / landmark above.');
+      const addressInput = document.getElementById('customer-address-input');
+      if (addressInput) addressInput.focus();
+      return;
+    }
+
     setLoading(true);
 
     try {
       const payloadForm = {
         ...customerForm,
+        name: customerForm.name.trim(),
+        address: customerForm.address.trim(),
+        city: customerForm.city || 'Lagos',
         notes: orderNotes
       };
       
@@ -128,7 +160,7 @@ export default function CheckoutPage() {
         return;
       }
 
-      const generatedOrderId = result.orderId || `KLASIK-${Date.now().toString().slice(-6)}`;
+      const generatedOrderId = result.orderId || `KLLASIK-${Date.now().toString().slice(-6)}`;
       const orderRecord = {
         orderId: generatedOrderId,
         items: [...cart],
@@ -215,44 +247,163 @@ export default function CheckoutPage() {
           {/* Left Column: Two Checkout Options (7 Cols) */}
           <div className="lg:col-span-7 flex flex-col gap-6">
             
-            {/* Mode Selection Tabs (Option 1 vs Option 2) */}
+            {/* Step 1: Customer Details & Delivery Destination (Always Upfront) */}
+            <div className="bg-white rounded-[24px] p-6 sm:p-8 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)]">
+              <div className="flex items-center justify-between pb-4 mb-5 border-b border-black/[0.04]">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-[#7C3AED]" />
+                  <h3 className="font-bold text-base sm:text-lg text-[#111111]">
+                    1. Delivery & Contact Details
+                  </h3>
+                </div>
+                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  Required
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    id="customer-name-input"
+                    type="text"
+                    required
+                    placeholder="e.g. Tunde Adeyemi"
+                    value={customerForm.name || ''}
+                    onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
+                    className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-3 text-xs text-[#111111] outline-none transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Phone Number (WhatsApp) *
+                    </label>
+                    <input
+                      id="customer-phone-input"
+                      type="tel"
+                      required
+                      placeholder="0801 234 5678"
+                      value={customerForm.phone || ''}
+                      onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
+                      className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-3 text-xs text-[#111111] outline-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Email Address (Optional)
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="tunde@example.com"
+                      value={customerForm.email || ''}
+                      onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
+                      className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-3 text-xs text-[#111111] outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">
+                    Delivery Address & Landmark (Where to Deliver) *
+                  </label>
+                  <input
+                    id="customer-address-input"
+                    type="text"
+                    required
+                    placeholder="House / Flat No, Street, Landmark, Area"
+                    value={customerForm.address || ''}
+                    onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })}
+                    className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-3 text-xs text-[#111111] outline-none transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Destination City / State *
+                    </label>
+                    <select
+                      value={customerForm.city || 'Lagos'}
+                      onChange={(e) => setCustomerForm({ ...customerForm, city: e.target.value })}
+                      className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-3 text-xs text-[#111111] outline-none transition-all cursor-pointer"
+                    >
+                      <option value="Lagos">Lagos State (24-48h Express)</option>
+                      <option value="Abuja">Abuja FCT (2-3 Business Days)</option>
+                      <option value="Port Harcourt">Port Harcourt (2-4 Business Days)</option>
+                      <option value="Ibadan">Ibadan (1-2 Business Days)</option>
+                      <option value="Other">Other States (2-4 Business Days)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-gray-700 block mb-1">
+                      Delivery Instructions (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Call before arrival"
+                      value={orderNotes}
+                      onChange={(e) => setOrderNotes(e.target.value)}
+                      className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-3 text-xs text-[#111111] outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2: Payment Method Selection */}
             <div className="bg-white rounded-[24px] p-5 sm:p-6 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)]">
               <div className="mb-4">
                 <span className="text-[11px] font-bold text-[#7C3AED] uppercase tracking-wider block mb-1">
-                  Choose Checkout Method
+                  Payment Method
                 </span>
                 <h2 className="text-xl sm:text-2xl font-bold text-[#111111] tracking-tight">
-                  How would you like to place your order?
+                  How would you like to pay for your products?
                 </h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  Choose your preferred option below:
+                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Option 1 Button Card */}
                 <button
                   type="button"
-                  onClick={() => setCheckoutMode('whatsapp')}
-                  className={`p-4 rounded-[20px] border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  onClick={() => {
+                    setCheckoutMode('whatsapp');
+                    handleWhatsAppCheckout();
+                  }}
+                  className={`p-4 rounded-[20px] border-2 text-left transition-all cursor-pointer flex flex-col justify-between group ${
                     checkoutMode === 'whatsapp'
                       ? 'border-[#10B981] bg-[#ECFDF5] shadow-sm'
-                      : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
+                      : 'border-black/[0.06] bg-[#F7F7F8] hover:border-[#10B981]/50 hover:bg-[#F0FDF4]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="w-9 h-9 rounded-full bg-[#10B981] text-white flex items-center justify-center shadow-xs">
                       <MessageCircle className="w-5 h-5" />
                     </div>
-                    {checkoutMode === 'whatsapp' && (
+                    {checkoutMode === 'whatsapp' ? (
                       <span className="bg-[#10B981] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                         Selected
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                        Instant
                       </span>
                     )}
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-[#111111] mb-1">
-                      1. Order via WhatsApp
+                    <h3 className="font-bold text-sm text-[#111111] mb-1 group-hover:text-[#10B981] transition-colors">
+                      1. Order &amp; Pay via WhatsApp
                     </h3>
                     <p className="text-xs text-gray-500 leading-relaxed">
-                      Chat directly with the store owner. Send order details & confirm payment in one tap.
+                      Sends your delivery details, items, stock, and total directly to the owner on WhatsApp.
                     </p>
                   </div>
                 </button>
@@ -261,33 +412,44 @@ export default function CheckoutPage() {
                 <button
                   type="button"
                   onClick={() => setCheckoutMode('website')}
-                  className={`p-4 rounded-[20px] border-2 text-left transition-all cursor-pointer flex flex-col justify-between ${
+                  className={`p-4 rounded-[20px] border-2 text-left transition-all cursor-pointer flex flex-col justify-between group ${
                     checkoutMode === 'website'
                       ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-sm'
-                      : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
+                      : 'border-black/[0.06] bg-[#F7F7F8] hover:border-[#7C3AED]/50 hover:bg-[#FAF5FF]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="w-9 h-9 rounded-full bg-[#7C3AED] text-white flex items-center justify-center shadow-xs">
                       <Building2 className="w-5 h-5" />
                     </div>
-                    {checkoutMode === 'website' && (
+                    {checkoutMode === 'website' ? (
                       <span className="bg-[#7C3AED] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                         Selected
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-[#7C3AED] font-bold bg-[#EDE9FE] px-2 py-0.5 rounded-full">
+                        Direct Transfer
                       </span>
                     )}
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-[#111111] mb-1">
-                      2. Website Order Form
+                    <h3 className="font-bold text-sm text-[#111111] mb-1 group-hover:text-[#7C3AED] transition-colors">
+                      2. Pay via Bank Transfer on Website
                     </h3>
                     <p className="text-xs text-gray-500 leading-relaxed">
-                      Fill out delivery details and send automatic order notification to our system.
+                      View verified bank account, transfer funds, and submit your order details on the site.
                     </p>
                   </div>
                 </button>
               </div>
             </div>
+
+            {/* Default State: When user hasn't picked yet */}
+            {checkoutMode === null && (
+              <div className="bg-[#F7F7F8] border border-dashed border-gray-300 rounded-[20px] p-5 text-center text-xs text-gray-500">
+                Please tap <strong>Order &amp; Pay via WhatsApp</strong> or <strong>Pay via Bank Transfer on Website</strong> above to finish.
+              </div>
+            )}
 
             {/* OPTION 1 CONTENT: DIRECT WHATSAPP CHECKOUT */}
             {checkoutMode === 'whatsapp' && (
@@ -307,7 +469,7 @@ export default function CheckoutPage() {
                       </h3>
                     </div>
                     <span className="text-xs font-bold text-[#7C3AED] bg-[#EDE9FE] px-3 py-1 rounded-full">
-                      Step 1 of 2: Transfer
+                      Total: {formatPrice(totalAmount)}
                     </span>
                   </div>
 
@@ -352,45 +514,6 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {/* Quick Customer Info (Optional for WhatsApp message personalization) */}
-                <div className="bg-white rounded-[24px] p-6 sm:p-8 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)]">
-                  <div className="pb-3 mb-4 border-b border-black/[0.04]">
-                    <h3 className="font-bold text-base text-[#111111]">
-                      Your Information (Included in WhatsApp Message)
-                    </h3>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Enter your name and delivery area so the owner can dispatch quickly:
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-gray-700 block mb-1">
-                        Your Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Tunde"
-                        value={customerForm.name || ''}
-                        onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
-                        className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-2.5 text-xs text-[#111111] outline-none transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-gray-700 block mb-1">
-                        Delivery City / State
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Lagos (Lekki) or Abuja"
-                        value={customerForm.city || ''}
-                        onChange={(e) => setCustomerForm({ ...customerForm, city: e.target.value })}
-                        className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-2.5 text-xs text-[#111111] outline-none transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
-
                 {/* Big WhatsApp CTA Button */}
                 <div className="bg-[#ECFDF5] border border-emerald-200 rounded-[24px] p-6 sm:p-8 text-center flex flex-col items-center">
                   <div className="w-12 h-12 rounded-full bg-[#10B981] text-white flex items-center justify-center mb-3 shadow-md">
@@ -400,7 +523,7 @@ export default function CheckoutPage() {
                     Ready to Confirm on WhatsApp?
                   </h3>
                   <p className="text-xs text-emerald-800 max-w-md mx-auto leading-relaxed mb-5">
-                    Clicking below prepares your complete cart details, item sizes, and payment sum, opening WhatsApp directly with the owner of Klasik Wardrobe.
+                    Clicking below prepares your complete cart details, item sizes, delivery place, and payment sum, opening WhatsApp directly with the owner of Kllasik Wardrobe.
                   </p>
 
                   <button
@@ -409,7 +532,7 @@ export default function CheckoutPage() {
                     className="w-full sm:w-auto min-w-[280px] bg-[#10B981] hover:bg-[#059669] text-white font-sans text-sm font-bold py-4 px-8 rounded-full shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2.5 cursor-pointer"
                   >
                     <MessageCircle className="w-5 h-5 fill-white text-[#10B981]" />
-                    <span>Chat & Send Order on WhatsApp</span>
+                    <span>Send Order on WhatsApp</span>
                   </button>
                 </div>
               </motion.div>
@@ -424,130 +547,13 @@ export default function CheckoutPage() {
                 className="flex flex-col gap-6"
               >
                 <form id="website-order-form" onSubmit={handleWebsiteSubmit} className="flex flex-col gap-6">
-                  
-                  {/* Customer Information Card */}
-                  <div className="bg-white rounded-[24px] p-6 sm:p-8 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)]">
-                    <div className="flex items-center justify-between pb-4 mb-5 border-b border-black/[0.04]">
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4 text-[#7C3AED]" />
-                        <h3 className="font-bold text-base text-[#111111]">1. Customer Details</h3>
-                      </div>
-                      <span className="text-[10px] font-semibold text-gray-400">Required</span>
-                    </div>
-
-                    <div className="flex flex-col gap-4">
-                      <div>
-                        <label className="text-xs font-bold text-gray-700 block mb-1">
-                          Full Name *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Tunde Adeyemi"
-                          value={customerForm.name || ''}
-                          onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
-                          className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-3 text-xs text-[#111111] outline-none transition-all"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-xs font-bold text-gray-700 block mb-1">
-                            Phone Number *
-                          </label>
-                          <input
-                            type="tel"
-                            required
-                            placeholder="0801 234 5678"
-                            value={customerForm.phone || ''}
-                            onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
-                            className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-3 text-xs text-[#111111] outline-none transition-all"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-xs font-bold text-gray-700 block mb-1">
-                            Email Address *
-                          </label>
-                          <input
-                            type="email"
-                            required
-                            placeholder="tunde@example.com"
-                            value={customerForm.email || ''}
-                            onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
-                            className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-3 text-xs text-[#111111] outline-none transition-all"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Delivery Destination Card */}
-                  <div className="bg-white rounded-[24px] p-6 sm:p-8 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)]">
-                    <div className="flex items-center justify-between pb-4 mb-5 border-b border-black/[0.04]">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-[#7C3AED]" />
-                        <h3 className="font-bold text-base text-[#111111]">2. Delivery Address</h3>
-                      </div>
-                      <span className="text-[10px] font-semibold text-gray-400">Nationwide Express</span>
-                    </div>
-
-                    <div className="flex flex-col gap-4">
-                      <div>
-                        <label className="text-xs font-bold text-gray-700 block mb-1">
-                          Street Address & Landmark *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="House / Flat No, Street, Landmark"
-                          value={customerForm.address || ''}
-                          onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })}
-                          className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-3 text-xs text-[#111111] outline-none transition-all"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-xs font-bold text-gray-700 block mb-1">
-                            Destination City / State *
-                          </label>
-                          <select
-                            value={customerForm.city || 'Lagos'}
-                            onChange={(e) => setCustomerForm({ ...customerForm, city: e.target.value })}
-                            className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-3 text-xs text-[#111111] outline-none transition-all cursor-pointer"
-                          >
-                            <option value="Lagos">Lagos State (24-48h Express)</option>
-                            <option value="Abuja">Abuja FCT (2-3 Business Days)</option>
-                            <option value="Port Harcourt">Port Harcourt (2-4 Business Days)</option>
-                            <option value="Ibadan">Ibadan (1-2 Business Days)</option>
-                            <option value="Other">Other States (2-4 Business Days)</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="text-xs font-bold text-gray-700 block mb-1">
-                            Delivery Notes (Optional)
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="e.g. Call before arrival"
-                            value={orderNotes}
-                            onChange={(e) => setOrderNotes(e.target.value)}
-                            className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-3 text-xs text-[#111111] outline-none transition-all"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Bank Transfer Details Box */}
                   <div className="bg-white rounded-[24px] p-6 sm:p-8 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)]">
                     <div className="flex items-center justify-between pb-4 mb-4 border-b border-black/[0.04]">
                       <div className="flex items-center gap-2">
                         <CreditCard className="w-5 h-5 text-[#7C3AED]" />
                         <h3 className="font-bold text-base text-[#111111]">
-                          3. Make Bank Transfer
+                          3. Make Bank Transfer &amp; Submit Order
                         </h3>
                       </div>
                       <span className="text-xs font-bold text-[#7C3AED] bg-[#EDE9FE] px-3 py-1 rounded-full">
@@ -610,7 +616,6 @@ export default function CheckoutPage() {
                       )}
                     </button>
                   </div>
-
                 </form>
               </motion.div>
             )}
@@ -643,7 +648,7 @@ export default function CheckoutPage() {
                           className="w-full h-full object-cover rounded-[10px]" 
                         />
                       ) : (
-                        <div className="font-sans text-[10px] text-gray-400">KLASIK</div>
+                        <div className="font-sans text-[10px] text-gray-400">KLLASIK</div>
                       )}
                     </div>
 

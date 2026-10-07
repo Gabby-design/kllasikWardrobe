@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { ArrowLeft, ShieldCheck, Lock, Database, Eye, Bell, MessageCircle, Mail } from 'lucide-react';
 
 export const metadata = {
-  title: 'Privacy Policy | Klasik Wardrobe',
-  description: 'Learn how Klasik Wardrobe protects your personal and order data with 256-bit SSL security.',
+  title: 'Privacy Policy | Kllasik Wardrobe',
+  description: 'Learn how Kllasik Wardrobe protects your personal and order data with 256-bit SSL security.',
 };
 
 export default function PrivacyPolicyPage() {
@@ -41,7 +41,7 @@ export default function PrivacyPolicyPage() {
               Privacy Policy
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 leading-relaxed max-w-2xl">
-              At Klasik Wardrobe, we respect your confidentiality. This policy outlines how your personal details, order credentials, and delivery information are safely collected, utilized, and safeguarded.
+              At Kllasik Wardrobe, we respect your confidentiality. This policy outlines how your personal details, order credentials, and delivery information are safely collected, utilized, and safeguarded.
             </p>
           </div>
           
@@ -130,7 +130,7 @@ export default function PrivacyPolicyPage() {
                   <span>Chat Concierge</span>
                 </a>
                 <a
-                  href="mailto:concierge@klasic.com"
+                  href="mailto:concierge@kllasik.com"
                   className="inline-flex items-center gap-1.5 bg-white hover:bg-gray-50 text-[#111111] text-xs font-bold px-4 py-2 rounded-full border border-black/[0.06] transition-all"
                 >
                   <Mail className="w-3.5 h-3.5 text-gray-500" />
@@ -141,7 +141,7 @@ export default function PrivacyPolicyPage() {
 
             {/* Last Updated Timestamp */}
             <div className="pt-6 border-t border-black/[0.04] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400">
-              <span>Last updated: {new Date().getFullYear()} &bull; Klasik Wardrobe Nigeria</span>
+              <span>Last updated: {new Date().getFullYear()} &bull; Kllasik Wardrobe Nigeria</span>
               <span>Victoria Island, Lagos, Nigeria</span>
             </div>
 

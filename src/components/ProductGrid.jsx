@@ -305,6 +305,23 @@ export function ProductGrid({
                       <span className="font-sans text-[11px] text-gray-500 font-medium mt-1 truncate">
                         {product.gsm ? product.gsm.replace(' Heavyweight', '') : '240 GSM'} • {product.material ? product.material.replace('100% Combed ', '') : 'Organic Cotton'}
                       </span>
+
+                      {/* 4. Stock Availability Indicator */}
+                      {product.stock === 1 ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-full mt-1.5 w-fit">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          Only 1 remaining
+                        </span>
+                      ) : product.stock !== undefined && product.stock > 1 ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-full mt-1.5 w-fit">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          {product.stock} available
+                        </span>
+                      ) : product.stock === 0 ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-400 bg-gray-100 border border-black/[0.04] px-2 py-0.5 rounded-full mt-1.5 w-fit">
+                          Sold Out
+                        </span>
+                      ) : null}
                     </div>
                   </div>
 

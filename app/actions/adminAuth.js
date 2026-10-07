@@ -3,13 +3,17 @@
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 
-const DEFAULT_PASSPHRASE = 'klasik2026';
+const ALLOWED_PASSPHRASES = ['kllasik2026', 'klasik2026'];
 
 export async function verifyAdminPassword(formData) {
   const password = typeof formData === 'string' ? formData : formData?.get?.('password');
-  const validPassphrase = process.env.ADMIN_PASSPHRASE || DEFAULT_PASSPHRASE;
+  const envPassphrase = process.env.ADMIN_PASSPHRASE;
+  const isMatch = password && (
+    ALLOWED_PASSPHRASES.includes(password.trim()) ||
+    (envPassphrase && password.trim() === envPassphrase.trim())
+  );
   
-  if (password && (password === validPassphrase || password === DEFAULT_PASSPHRASE)) {
+  if (isMatch) {
     const cookieStore = await cookies();
     cookieStore.set('admin_auth', 'true', {
       httpOnly: true,

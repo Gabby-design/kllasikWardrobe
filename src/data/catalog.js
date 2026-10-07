@@ -2,8 +2,9 @@
 export const PRODUCTS = [
   {
     id: 'kwt-01',
-    title: 'Klassic Wonderland Textured Crochet Shirt',
+    title: 'Kllasik Wonderland Textured Crochet Shirt',
     price: 35000,
+    stock: 6,
     category: 'T-Shirts',
     tag: 'New Release',
     rating: 5.0,
@@ -25,8 +26,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-02',
-    title: 'Klassic Mindset Over Everything Heavyweight Tee',
+    title: 'Kllasik Mindset Over Everything Heavyweight Tee',
     price: 35000,
+    stock: 4,
     category: 'T-Shirts',
     tag: 'Limited Drop',
     rating: 5.0,
@@ -50,8 +52,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-03',
-    title: 'Klassic Dark Cat Silhouette Heavyweight Tee',
+    title: 'Kllasik Dark Cat Silhouette Heavyweight Tee',
     price: 40000,
+    stock: 1,
     category: 'T-Shirts',
     tag: 'Luxury Tier',
     rating: 5.0,
@@ -76,8 +79,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-04',
-    title: 'Klassic Whatever Brush-Stroke Sky Blue Tee',
+    title: 'Kllasik Whatever Brush-Stroke Sky Blue Tee',
     price: 30000,
+    stock: 12,
     category: 'T-Shirts',
     tag: 'New Arrival',
     rating: 4.8,
@@ -101,8 +105,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-05',
-    title: 'Klassic Sukuna Graphic Heavyweight Tee',
+    title: 'Kllasik Sukuna Graphic Heavyweight Tee',
     price: 35000,
+    stock: 5,
     category: 'T-Shirts',
     tag: 'Trending',
     rating: 4.9,
@@ -126,8 +131,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-06',
-    title: 'Klassic Life Is Short Minimalist Clock Tee',
+    title: 'Kllasik Life Is Short Minimalist Clock Tee',
     price: 40000,
+    stock: 1,
     category: 'T-Shirts',
     tag: 'Exclusive',
     rating: 5.0,
@@ -151,8 +157,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-07',
-    title: 'Klassic Dark Cat Silhouette Wine Edition',
+    title: 'Kllasik Dark Cat Silhouette Wine Edition',
     price: 30000,
+    stock: 8,
     category: 'T-Shirts',
     tag: 'Trending',
     rating: 4.8,
@@ -177,8 +184,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-08',
-    title: 'Klassic Mindset Noir Signature Edition',
+    title: 'Kllasik Mindset Noir Signature Edition',
     price: 35000,
+    stock: 3,
     category: 'T-Shirts',
     tag: 'Limited Drop',
     rating: 5.0,
@@ -202,8 +210,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-09',
-    title: 'Klassic Never Noir Executive Edition',
+    title: 'Kllasik Never Noir Executive Edition',
     price: 40000,
+    stock: 1,
     category: 'T-Shirts',
     tag: 'Luxury Tier',
     rating: 5.0,
@@ -227,8 +236,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-10',
-    title: 'Klassic Never Minimalist Back-Print Edition',
+    title: 'Kllasik Never Minimalist Back-Print Edition',
     price: 30000,
+    stock: 10,
     category: 'T-Shirts',
     tag: 'Essential Drop',
     rating: 4.8,
@@ -252,8 +262,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-11',
-    title: 'Klassic Dark Cat Royal Cobalt Tee',
+    title: 'Kllasik Dark Cat Royal Cobalt Tee',
     price: 35000,
+    stock: 7,
     category: 'T-Shirts',
     tag: 'Popular',
     rating: 4.9,
@@ -277,8 +288,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-12',
-    title: 'Klassic Mindset Boxy Back-Graphic Tee',
+    title: 'Kllasik Mindset Boxy Back-Graphic Tee',
     price: 40000,
+    stock: 2,
     category: 'T-Shirts',
     tag: 'Executive Drop',
     rating: 5.0,
@@ -302,8 +314,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-13',
-    title: 'Klassic Whatever Relaxed Azure Edition',
+    title: 'Kllasik Whatever Relaxed Azure Edition',
     price: 30000,
+    stock: 9,
     category: 'T-Shirts',
     tag: 'Summer Drop',
     rating: 4.7,
@@ -327,8 +340,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-14',
-    title: 'Klassic Sukuna Manga Contrast Tee',
+    title: 'Kllasik Sukuna Manga Contrast Tee',
     price: 35000,
+    stock: 4,
     category: 'T-Shirts',
     tag: 'Limited Stock',
     rating: 5.0,
@@ -352,8 +366,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-15',
-    title: 'Klassic Life Is Short Silk-Lustre Tee',
+    title: 'Kllasik Life Is Short Silk-Lustre Tee',
     price: 40000,
+    stock: 1,
     category: 'T-Shirts',
     tag: 'Luxury Tier',
     rating: 4.9,
@@ -377,8 +392,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-16',
-    title: 'Klassic Dark Burgundy Velour-Touch Tee',
+    title: 'Kllasik Dark Burgundy Velour-Touch Tee',
     price: 30000,
+    stock: 6,
     category: 'T-Shirts',
     tag: 'Trending',
     rating: 4.8,
@@ -402,8 +418,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-17',
-    title: 'Klassic Mindset Heavy Ribbed Knit Tee',
+    title: 'Kllasik Mindset Heavy Ribbed Knit Tee',
     price: 35000,
+    stock: 1,
     category: 'T-Shirts',
     tag: 'Heavyweight',
     rating: 5.0,
@@ -427,8 +444,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-18',
-    title: 'Klassic Never Royal Drop-Shoulder Tee',
+    title: 'Kllasik Never Royal Drop-Shoulder Tee',
     price: 40000,
+    stock: 5,
     category: 'T-Shirts',
     tag: 'Signature Tier',
     rating: 5.0,
@@ -454,8 +472,9 @@ export const PRODUCTS = [
   // --- JEANS CATEGORY ---
   {
     id: 'kwt-jeans-01',
-    title: 'Klassic Raw Indigo Selvedge Heavyweight Jeans',
+    title: 'Kllasik Raw Indigo Selvedge Heavyweight Jeans',
     price: 40000,
+    stock: 8,
     category: 'Jeans',
     tag: 'Raw Selvedge',
     rating: 5.0,
@@ -479,8 +498,9 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-jeans-02',
-    title: 'Klassic Vintage Washed Black Baggy Jeans',
+    title: 'Kllasik Vintage Washed Black Baggy Jeans',
     price: 35000,
+    stock: 3,
     category: 'Jeans',
     tag: 'Vintage Wash',
     rating: 4.9,
@@ -506,8 +526,9 @@ export const PRODUCTS = [
   // --- SHORT JEANS CATEGORY ---
   {
     id: 'kwt-short-01',
-    title: 'Klassic Vintage Washed Denim Jorts',
+    title: 'Kllasik Vintage Washed Denim Jorts',
     price: 30000,
+    stock: 1,
     category: 'Short Jeans',
     tag: 'Summer Jorts',
     rating: 4.9,
@@ -533,8 +554,9 @@ export const PRODUCTS = [
   // --- BEACH PANTS CATEGORY ---
   {
     id: 'kwt-beach-01',
-    title: 'Klassic Relaxed Ivory Linen Beach Pants',
+    title: 'Kllasik Relaxed Ivory Linen Beach Pants',
     price: 35000,
+    stock: 6,
     category: 'Beach Pants',
     tag: 'Resort Essential',
     rating: 5.0,
@@ -568,7 +590,7 @@ export const REVIEWS = [
   {
     name: 'Chinedu Eze',
     role: 'Creative Director',
-    comment: 'Klassic Wardrobe got the drop-shoulder cut and denim jorts fit spot on. Rare craftsmanship in Nigeria.',
+    comment: 'Kllasik Wardrobe got the drop-shoulder cut and denim jorts fit spot on. Rare craftsmanship in Nigeria.',
     rating: 5,
   },
   {

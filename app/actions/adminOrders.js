@@ -65,7 +65,7 @@ export async function confirmPayment(orderId) {
           <h3 style="margin-top: 20px;">Total Paid: ₦${amountInNaira}</h3>
           
           <p style="margin-top: 40px; font-size: 12px; color: #666;">
-            Klasik Wardrobe<br/>
+            Kllasik Wardrobe<br/>
             Elevating Everyday Essentials.
           </p>
         </div>
@@ -74,7 +74,7 @@ export async function confirmPayment(orderId) {
       try {
         await sendBrevoEmail({
           to: [buyerEmail],
-          subject: 'Payment Confirmed - Your Klasik Wardrobe Order',
+          subject: 'Payment Confirmed - Your Kllasik Wardrobe Order',
           htmlContent
         });
       } catch (emailError) {

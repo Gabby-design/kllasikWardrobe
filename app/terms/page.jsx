@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { ArrowLeft, FileText, Sparkles, CreditCard, Truck, RefreshCw, ShieldCheck, MessageCircle, Mail } from 'lucide-react';
 
 export const metadata = {
-  title: 'Terms of Service | Klasik Wardrobe',
-  description: 'Terms of service, purchasing conditions, and delivery guidelines for Klasik Wardrobe.',
+  title: 'Terms of Service | Kllasik Wardrobe',
+  description: 'Terms of service, purchasing conditions, and delivery guidelines for Kllasik Wardrobe.',
 };
 
 export default function TermsPage() {
@@ -41,7 +41,7 @@ export default function TermsPage() {
               Terms of Service
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 leading-relaxed max-w-2xl">
-              Welcome to Klasik Wardrobe. By accessing our platform, placing orders, and acquiring our luxury heavyweight streetwear pieces, you agree to the conditions detailed below.
+              Welcome to Kllasik Wardrobe. By accessing our platform, placing orders, and acquiring our luxury heavyweight streetwear pieces, you agree to the conditions detailed below.
             </p>
           </div>
           
@@ -59,7 +59,7 @@ export default function TermsPage() {
                 </h2>
               </div>
               <p className="text-xs sm:text-sm text-gray-600 leading-relaxed pl-10 mb-2">
-                Every Klasik garment is constructed from 240–300 GSM combed organic cotton and mulberry silk blends engineered with custom drop-shoulder cuts.
+                Every Kllasik garment is constructed from 240–300 GSM combed organic cotton and mulberry silk blends engineered with custom drop-shoulder cuts.
               </p>
               <p className="text-xs sm:text-sm text-gray-600 leading-relaxed pl-10">
                 Transparent fixed tier pricing is strictly maintained at ₦30,000 (Essential), ₦35,000 (Signature), and ₦40,000 (Executive). No hidden charges or arbitrary markups apply.
@@ -148,7 +148,7 @@ export default function TermsPage() {
 
             {/* Last Updated Timestamp */}
             <div className="pt-6 border-t border-black/[0.04] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400">
-              <span>Last updated: {new Date().getFullYear()} &bull; Klasik Wardrobe Nigeria</span>
+              <span>Last updated: {new Date().getFullYear()} &bull; Kllasik Wardrobe Nigeria</span>
               <span>Victoria Island, Lagos, Nigeria</span>
             </div>
 

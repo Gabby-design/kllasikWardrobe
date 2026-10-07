@@ -14,7 +14,7 @@ export function Footer() {
         
         {/* Brand & Manifesto Column (4 Cols) */}
         <div className="md:col-span-4 flex flex-col items-start">
-          <Link href="/" className="inline-block mb-4 hover:opacity-90 transition-opacity" aria-label="Klasik Wardrobe Home">
+          <Link href="/" className="inline-block mb-4 hover:opacity-90 transition-opacity" aria-label="Kllasik Wardrobe Home">
             <KlasikLogo height={34} className="w-auto" fill="#FFFFFF" />
           </Link>
           <p className="font-sans text-xs sm:text-sm text-gray-400 leading-relaxed max-w-sm mb-4 font-normal">
@@ -69,6 +69,9 @@ export function Footer() {
             <Link href="/checkout" className="hover:text-purple-300 transition-colors">
               Order Checkout
             </Link>
+            <Link href="/admin" className="text-purple-400 hover:text-purple-200 font-semibold transition-colors flex items-center gap-1">
+              <span>Admin Portal</span>
+            </Link>
           </div>
         </div>
 
@@ -92,7 +95,7 @@ export function Footer() {
           </a>
 
           <span className="font-sans text-[11px] text-gray-500 mt-1">
-            Email: <a href="mailto:concierge@klasic.com" className="text-gray-400 hover:text-white transition-colors">concierge@klasic.com</a>
+            Email: <a href="mailto:concierge@kllasik.com" className="text-gray-400 hover:text-white transition-colors">concierge@kllasik.com</a>
           </span>
         </div>
 
@@ -101,7 +104,7 @@ export function Footer() {
       {/* Copyright & Security Stamp */}
       <div className="max-w-7xl mx-auto border-t border-white/[0.08] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 font-sans text-xs text-gray-500">
         <div>
-          &copy; {new Date().getFullYear()} Klasik Wardrobe Nigeria. All rights reserved.
+          &copy; {new Date().getFullYear()} Kllasik Wardrobe Nigeria. All rights reserved.
         </div>
         <div className="flex items-center gap-3 text-[11px]">
           <span className="flex items-center gap-1 text-purple-300">

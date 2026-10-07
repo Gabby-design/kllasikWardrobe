@@ -188,10 +188,10 @@ export function QuickViewModal({
                 {quickViewProduct.title}
               </h2>
 
-              {/* Brand Row: "Klasik Wardrobe" with verified tick */}
-              <div className="flex items-center gap-2 mb-3">
+              {/* Brand Row: "Kllasik Wardrobe" with verified tick */}
+              <div className="flex items-center gap-2 mb-2">
                 <span className="font-sans text-xs sm:text-sm font-semibold text-[#111111]">
-                  Klasik Wardrobe
+                  Kllasik Wardrobe
                 </span>
                 <CheckCircle className="w-4 h-4 fill-[#7C3AED] text-white" />
                 <span className="bg-[#111111] text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-full select-none">
@@ -199,9 +199,28 @@ export function QuickViewModal({
                 </span>
               </div>
 
-              {/* Price */}
-              <div className="text-xl sm:text-2xl font-bold text-[#111111] mb-3">
-                {formatPrice(quickViewProduct.price)}
+              {/* Price & Stock Row */}
+              <div className="flex flex-wrap items-center gap-3 mb-3">
+                <div className="text-xl sm:text-2xl font-bold text-[#111111]">
+                  {formatPrice(quickViewProduct.price)}
+                </div>
+
+                {/* Stock Remaining Badge */}
+                {quickViewProduct.stock === 1 ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span>Only 1 remaining — order soon</span>
+                  </span>
+                ) : quickViewProduct.stock !== undefined && quickViewProduct.stock > 1 ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-3 py-1 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span>{quickViewProduct.stock} available in stock</span>
+                  </span>
+                ) : quickViewProduct.stock === 0 ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-gray-100 border border-black/[0.04] px-3 py-1 rounded-full">
+                    <span>Sold Out</span>
+                  </span>
+                ) : null}
               </div>
 
               {/* Description */}

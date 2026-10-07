@@ -32,7 +32,7 @@ export default function SuccessPage() {
   }, [clearCart]);
 
   const orderData = isMounted && lastOrder ? lastOrder : {
-    orderId: 'KLASIK-RECEIPT',
+    orderId: 'KLLASIK-RECEIPT',
     items: [],
     customer: { name: 'Customer', city: 'Lagos' },
     totalAmount: 0,
@@ -41,7 +41,7 @@ export default function SuccessPage() {
     isFreeShipping: false,
     bankDetails: {
       bankName: 'OPay / Paycom',
-      accountName: 'KLASIK WARDROBE',
+      accountName: 'KLLASIK WARDROBE',
       accountNumber: '7075039738'
     },
     createdAt: ''
@@ -157,7 +157,7 @@ export default function SuccessPage() {
                           />
                         ) : (
                           <div className="text-[10px] text-gray-400 font-bold">
-                            KLASIK
+                            KLLASIK
                           </div>
                         )}
                       </div>
@@ -292,7 +292,7 @@ export default function SuccessPage() {
                 </div>
                 <div className="flex justify-between border-b border-black/[0.04] pb-2">
                   <span className="text-gray-400">Account Name</span>
-                  <span className="font-bold text-[#111111]">{orderData.bankDetails?.accountName || 'KLASIK WARDROBE'}</span>
+                  <span className="font-bold text-[#111111]">{orderData.bankDetails?.accountName || 'KLLASIK WARDROBE'}</span>
                 </div>
                 <div className="flex justify-between items-center pt-1">
                   <span className="text-gray-400">Account No.</span>

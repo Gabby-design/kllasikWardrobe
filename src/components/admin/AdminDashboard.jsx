@@ -721,7 +721,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="text-xs text-gray-400 font-bold">KLASIK</div>
+                    <div className="text-xs text-gray-400 font-bold">KLLASIK</div>
                   )}
 
                   {tag && (
@@ -794,7 +794,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
             <div>
               <h3 className="font-bold text-lg text-[#111111]">Store Products Archive</h3>
               <p className="text-xs text-gray-500">
-                Manage all active collection pieces currently available on Klasik Wardrobe.
+                Manage all active collection pieces currently available on Kllasik Wardrobe.
               </p>
             </div>
 

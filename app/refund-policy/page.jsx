@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { ArrowLeft, RefreshCw, CheckCircle2, ShieldCheck, MessageCircle, Mail, Package, AlertCircle } from 'lucide-react';
 
 export const metadata = {
-  title: 'Return & Exchange Policy | Klasik Wardrobe',
-  description: '7-day hassle-free size exchange and satisfaction guarantee for Klasik Wardrobe luxury streetwear.',
+  title: 'Return & Exchange Policy | Kllasik Wardrobe',
+  description: '7-day hassle-free size exchange and satisfaction guarantee for Kllasik Wardrobe luxury streetwear.',
 };
 
 export default function RefundPolicyPage() {
@@ -41,7 +41,7 @@ export default function RefundPolicyPage() {
               Return & Exchange Policy
             </h1>
             <p className="text-xs sm:text-sm text-gray-500 leading-relaxed max-w-2xl">
-              We engineer each Klasik piece to fit your silhouette flawlessly. If your piece does not meet your expectations or you need a different size, our concierge handles exchanges promptly.
+              We engineer each Kllasik piece to fit your silhouette flawlessly. If your piece does not meet your expectations or you need a different size, our concierge handles exchanges promptly.
             </p>
           </div>
           
@@ -97,8 +97,8 @@ export default function RefundPolicyPage() {
                 Initiating an exchange is straightforward:
               </p>
               <ol className="text-xs sm:text-sm text-gray-600 space-y-2 pl-10 list-decimal list-inside">
-                <li>Message our VIP Concierge directly on WhatsApp or email <strong className="text-[#111111]">concierge@klasic.com</strong>.</li>
-                <li>Provide your Order Reference (e.g., #KLASIK-XXXXXX) and your desired replacement size.</li>
+                <li>Message our VIP Concierge directly on WhatsApp or email <strong className="text-[#111111]">concierge@kllasik.com</strong>.</li>
+                <li>Provide your Order Reference (e.g., #KLLASIK-XXXXXX) and your desired replacement size.</li>
                 <li>Our dispatch team will schedule a courier pickup or swap at your location.</li>
               </ol>
             </div>
@@ -114,7 +114,7 @@ export default function RefundPolicyPage() {
                 </h2>
               </div>
               <p className="text-xs sm:text-sm text-gray-600 leading-relaxed pl-10">
-                In the rare instance of a craftsmanship defect or if the wrong piece/size is delivered, Klasik Wardrobe covers 100% of the return courier fees and expedites an immediate replacement at zero additional cost.
+                In the rare instance of a craftsmanship defect or if the wrong piece/size is delivered, Kllasik Wardrobe covers 100% of the return courier fees and expedites an immediate replacement at zero additional cost.
               </p>
             </div>
 
@@ -157,7 +157,7 @@ export default function RefundPolicyPage() {
 
             {/* Last Updated Timestamp */}
             <div className="pt-6 border-t border-black/[0.04] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400">
-              <span>Last updated: {new Date().getFullYear()} &bull; Klasik Wardrobe Nigeria</span>
+              <span>Last updated: {new Date().getFullYear()} &bull; Kllasik Wardrobe Nigeria</span>
               <span>Victoria Island, Lagos, Nigeria</span>
             </div>
 

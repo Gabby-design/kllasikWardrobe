@@ -56,7 +56,7 @@ export function Navbar({ searchQuery = '', setSearchQuery, setIsSizeGuideOpen })
             
             {/* Left: Brand Logo */}
             <div className="flex items-center flex-shrink-0">
-              <Link href="/" className="hover:opacity-90 transition-opacity flex items-center" aria-label="Klasik Wardrobe Home">
+              <Link href="/" className="hover:opacity-90 transition-opacity flex items-center" aria-label="Kllasik Wardrobe Home">
                 <KlasikLogo height={isScrolled ? 30 : 34} className="transition-all duration-300" />
               </Link>
             </div>

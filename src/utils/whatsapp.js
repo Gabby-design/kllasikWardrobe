@@ -17,11 +17,12 @@ export function formatWhatsAppOrderMessage({
   const itemsText = items && items.length > 0
     ? items.map((item, index) => {
         const itemTotal = Number(item.price || 0) * Number(item.quantity || 1);
-        return `${index + 1}. *${item.title || item.name}*\n   • Size: ${item.size || 'L'} | Color: ${item.color || 'Standard'}\n   • Qty: ${item.quantity || 1} × ₦${Number(item.price || 0).toLocaleString()} = ₦${itemTotal.toLocaleString()}`;
+        const stockInfo = item.stock !== undefined ? ` [Stock remaining: ${item.stock}]` : '';
+        return `${index + 1}. *${item.title || item.name}*\n   • Size: ${item.size || 'L'} | Color: ${item.color || 'Standard'}\n   • Qty: ${item.quantity || 1} pcs${stockInfo}\n   • Price: ₦${Number(item.price || 0).toLocaleString()} each = ₦${itemTotal.toLocaleString()}`;
       }).join('\n\n')
     : '• No items listed';
 
-  const orderRef = orderId ? `#${orderId}` : `#KLASIK-${Date.now().toString().slice(-6)}`;
+  const orderRef = orderId ? `#${orderId}` : `#KLLASIK-${Date.now().toString().slice(-6)}`;
   const dateStr = new Date().toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
@@ -30,7 +31,7 @@ export function formatWhatsAppOrderMessage({
     minute: '2-digit'
   });
 
-  const message = `*KLASIK WARDROBE — ORDER NOTIFICATION*
+  const message = `*KLLASIK WARDROBE — ORDER NOTIFICATION*
 ----------------------------------------
 *Order Ref:* ${orderRef}
 *Date:* ${dateStr}
@@ -54,13 +55,13 @@ ${itemsText}
 • Luxury Dust Box: COMPLIMENTARY
 • TOTAL DUE / PAID: *₦${Number(totalAmount).toLocaleString()}*
 
-*BANK TRANSFERRED TO*
+*BANK DETAILS FOR TRANSFER*
 • Bank: ${bankDetails.bankName || 'OPay / Paycom'}
-• Account Name: ${bankDetails.accountName || 'KLASIK WARDROBE'}
+• Account Name: ${bankDetails.accountName || 'KLLASIK WARDROBE'}
 • Account Number: ${bankDetails.accountNumber || '7075039738'}
 
 ----------------------------------------
-*Payment Status:* I have made the bank transfer for this order. Please confirm payment and proceed with packaging and dispatch.`;
+*Payment Status:* I am ready to pay / have transferred ₦${Number(totalAmount).toLocaleString()}. Please confirm my order and dispatch to my delivery address.`;
 
   return message;
 }

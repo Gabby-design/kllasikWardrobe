@@ -39,7 +39,7 @@ export async function submitManualOrder(cart, customerForm, totalAmount) {
     };
 
     console.log('3. Inserting into Supabase...');
-    let orderId = `KLASIK-${Date.now().toString().slice(-6)}`;
+    let orderId = `KLLASIK-${Date.now().toString().slice(-6)}`;
     const { data, error: dbError } = await supabase
       .from('orders')
       .insert([orderPayload])
@@ -76,7 +76,7 @@ export async function submitManualOrder(cart, customerForm, totalAmount) {
     try {
       await Promise.allSettled([
         sendOwnerOrderNotification({
-          orderId: orderId || `KLASIK-${Date.now().toString().slice(-6)}`,
+          orderId: orderId || `KLLASIK-${Date.now().toString().slice(-6)}`,
           items: cart,
           customer: {
             name: customerForm.name,
@@ -92,7 +92,7 @@ export async function submitManualOrder(cart, customerForm, totalAmount) {
           ownerEmail: process.env.OWNER_EMAIL || DEFAULT_OWNER_EMAIL
         }),
         sendCustomerReceipt({
-          orderId: orderId || `KLASIK-${Date.now().toString().slice(-6)}`,
+          orderId: orderId || `KLLASIK-${Date.now().toString().slice(-6)}`,
           items: cart,
           customer: {
             name: customerForm.name,

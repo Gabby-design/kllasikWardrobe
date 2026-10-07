@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import AddToCartSection from './AddToCartSection';
 import { Navbar } from '../../../src/components/Navbar';
 import { CartDrawer } from '../../../src/components/CartDrawer';
-import { PRODUCTS } from '../../../src/data/catalog';
+import { getAllProducts } from '../../../src/data/productsManager';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle, ShieldCheck, Truck, Package } from 'lucide-react';
 
@@ -42,7 +42,7 @@ export default async function ProductPage({ params }) {
   }
 
   if (!formattedProduct) {
-    const staticMatch = PRODUCTS.find(p => p.id === id);
+    const staticMatch = getAllProducts().find(p => p.id === id);
     if (staticMatch) {
       formattedProduct = staticMatch;
     }

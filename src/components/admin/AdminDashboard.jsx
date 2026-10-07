@@ -84,6 +84,8 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
 
   // Preset Image Options for quick selection
   const presetImages = [
+    { name: 'Terracotta Stripe Polo Front', url: '/images/terracotta-stripe-polo-front.jpg' },
+    { name: 'Terracotta Polo Embroidery Detail', url: '/images/terracotta-stripe-polo-detail.jpg' },
     { name: 'Denim Collar Shirt Front', url: '/images/linen-denim-collar-shirt-front.jpg' },
     { name: 'Denim Collar Detail', url: '/images/linen-denim-collar-shirt-detail.jpg' },
     { name: 'Blue Striped Shirt Front', url: '/images/stripe-shirt-blue-front.jpg' },

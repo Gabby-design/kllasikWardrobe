@@ -14,7 +14,8 @@ function CardImageDisplay({
   onToggleWishlist 
 }) {
   const displayImages = images && images.length > 0 ? images : ['/images/media__1786369656046.jpg'];
-  const primaryImage = displayImages[0];
+  const [activeImgIdx, setActiveImgIdx] = useState(0);
+  const primaryImage = displayImages[activeImgIdx] || displayImages[0];
   const hasMultipleImages = displayImages.length > 1;
 
   return (
@@ -55,7 +56,7 @@ function CardImageDisplay({
         </div>
       )}
 
-      {/* Primary Static Image (Non-slideable in catalog grid) */}
+      {/* Primary Static Image */}
       <div className="w-full h-full relative overflow-hidden">
         <img
           src={primaryImage}
@@ -66,17 +67,26 @@ function CardImageDisplay({
         />
       </div>
 
-      {/* Multiple Images Indicator: 3 dots showing additional views exist inside */}
+      {/* Multiple Images Indicator: exact dots matching actual image count */}
       {hasMultipleImages && (
-        <div className="absolute bottom-2.5 inset-x-0 flex items-center justify-center z-20 pointer-events-none">
-          <div className="flex items-center gap-1.5 bg-black/45 backdrop-blur-[4px] px-2.5 py-1 rounded-full">
-            {[0, 1, 2].slice(0, Math.min(Math.max(displayImages.length, 3), 3)).map((idx) => (
-              <span
+        <div className="absolute bottom-2.5 inset-x-0 flex items-center justify-center z-20">
+          <div 
+            className="flex items-center gap-1.5 bg-black/50 backdrop-blur-[4px] px-2.5 py-1 rounded-full shadow-xs"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {displayImages.map((_, idx) => (
+              <button
+                type="button"
                 key={idx}
-                className={`rounded-full transition-all ${
-                  idx === 0
-                    ? 'w-2 h-2 bg-white'
-                    : 'w-1.5 h-1.5 bg-white/60'
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveImgIdx(idx);
+                }}
+                aria-label={`View photo ${idx + 1}`}
+                className={`rounded-full transition-all cursor-pointer ${
+                  activeImgIdx === idx
+                    ? 'w-2 h-2 bg-white ring-1 ring-white/50'
+                    : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/80'
                 }`}
               />
             ))}

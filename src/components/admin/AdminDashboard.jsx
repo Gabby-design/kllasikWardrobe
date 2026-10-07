@@ -76,6 +76,9 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   const [colorName, setColorName] = useState('Obsidian Black');
   const [colorHex, setColorHex] = useState('#111111');
   const [image, setImage] = useState('/images/hero-tee-black.png');
+  const [gallery, setGallery] = useState(['/images/hero-tee-black.png']);
+  const [urlInput, setUrlInput] = useState('');
+  const [previewActiveIndex, setPreviewActiveIndex] = useState(0);
   const [description, setDescription] = useState('Crafted from 240 GSM combed organic cotton. Features clean minimalist cut with intentional dropped shoulder drape.');
   const [stock, setStock] = useState(15);
 
@@ -104,6 +107,8 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       setMaterial('100% Combed Organic Cotton');
       setFit('Oversized Drop-Shoulder');
       setImage('/images/hero-tee-black.png');
+      setGallery(['/images/hero-tee-black.png']);
+      setPreviewActiveIndex(0);
       setDescription('Crafted from 240 GSM combed organic cotton. Features clean minimalist cut with intentional dropped shoulder drape.');
     } else if (cat === 'Jeans') {
       setPrice(65000);
@@ -112,6 +117,8 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       setMaterial('100% Shuttle-Loom Selvedge Cotton');
       setFit('Relaxed Straight Leg');
       setImage('/images/jeans-raw-indigo.jpg');
+      setGallery(['/images/jeans-raw-indigo.jpg']);
+      setPreviewActiveIndex(0);
       setDescription('Crafted from 14.5oz Japanese shuttle-loom selvedge denim. Features relaxed straight drape and antique brass hardware.');
     } else if (cat === 'Short Jeans') {
       setPrice(45000);
@@ -120,6 +127,8 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       setMaterial('100% Vintage Washed Cotton');
       setFit('Baggy Knee-Length Jorts');
       setImage('/images/short-jeans-jorts.jpg');
+      setGallery(['/images/short-jeans-jorts.jpg']);
+      setPreviewActiveIndex(0);
       setDescription('13oz heavyweight vintage washed denim shorts with signature raw frayed hem, relaxed baggy streetwear silhouette.');
     } else if (cat === 'Beach Pants') {
       setPrice(50000);
@@ -128,6 +137,8 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       setMaterial('100% Breathable European Linen');
       setFit('Relaxed Wide-Leg Flow');
       setImage('/images/beach-pants-linen.jpg');
+      setGallery(['/images/beach-pants-linen.jpg']);
+      setPreviewActiveIndex(0);
       setDescription('Tailored from 240 GSM pure European flax linen with elasticated drawstring waistband and breathable flowy silhouette.');
     }
   };
@@ -145,14 +156,62 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     }
   };
 
-  // Handle image upload from device with resilient client fallback
+  // Reorder or set main image for new product
+  const handleSetPrimaryImage = (idx) => {
+    setGallery((prev) => {
+      const target = prev[idx];
+      const rest = prev.filter((_, i) => i !== idx);
+      const nextGallery = [target, ...rest];
+      setImage(target);
+      setPreviewActiveIndex(0);
+      return nextGallery;
+    });
+    toast.success('Set as primary cover image');
+  };
+
+  const handleRemoveImage = (idx) => {
+    if (gallery.length <= 1) {
+      toast.error('Product must have at least one image');
+      return;
+    }
+    setGallery((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      setImage(next[0]);
+      setPreviewActiveIndex(0);
+      return next;
+    });
+  };
+
+  const handleAddUrlToGallery = () => {
+    if (!urlInput.trim()) return;
+    const clean = urlInput.trim();
+    setGallery((prev) => {
+      const isInitialDefault = prev.length === 1 && prev[0] === '/images/hero-tee-black.png';
+      return isInitialDefault ? [clean] : [...prev, clean];
+    });
+    setImage(clean);
+    setUrlInput('');
+    toast.success('Image URL added to gallery!');
+  };
+
+  const handleSelectPreset = (pUrl) => {
+    setGallery((prev) => {
+      if (prev.includes(pUrl)) return prev;
+      const isInitialDefault = prev.length === 1 && prev[0] === '/images/hero-tee-black.png';
+      return isInitialDefault ? [pUrl] : [...prev, pUrl];
+    });
+    setImage(pUrl);
+    toast.success('Preset added to product photos!');
+  };
+
+  // Handle multi-image upload from device for new product
   const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
     setUploadingImage(true);
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach((f) => formData.append('files', f));
 
     try {
       const res = await fetch('/api/admin/upload', {
@@ -160,25 +219,60 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
         body: formData,
       });
       const data = await res.json();
-      if (data && data.success && data.url) {
-        setImage(data.url);
-        toast.success('Image uploaded successfully!');
+      if (data && data.success && Array.isArray(data.urls) && data.urls.length > 0) {
+        setGallery((prev) => {
+          const isInitialDefault = prev.length === 1 && prev[0] === '/images/hero-tee-black.png';
+          return isInitialDefault ? data.urls : [...prev, ...data.urls];
+        });
+        setImage(data.urls[0]);
+        setPreviewActiveIndex(0);
+        toast.success(
+          data.urls.length > 1
+            ? `${data.urls.length} images uploaded to product!`
+            : 'Image uploaded successfully!'
+        );
       } else {
-        // Resilient client-side FileReader fallback
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          setImage(event.target.result);
-          toast.success('Image loaded directly from device!');
-        };
-        reader.readAsDataURL(file);
+        // Resilient client-side FileReader fallback for multiple files
+        const loadedUrls = [];
+        let done = 0;
+        files.forEach((f) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            loadedUrls.push(ev.target.result);
+            done++;
+            if (done === files.length) {
+              setGallery((prev) => {
+                const isInitialDefault = prev.length === 1 && prev[0] === '/images/hero-tee-black.png';
+                return isInitialDefault ? loadedUrls : [...prev, ...loadedUrls];
+              });
+              setImage(loadedUrls[0]);
+              setPreviewActiveIndex(0);
+              toast.success(`${files.length} image(s) loaded from device!`);
+            }
+          };
+          reader.readAsDataURL(f);
+        });
       }
     } catch {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setImage(event.target.result);
-        toast.success('Image loaded directly from device!');
-      };
-      reader.readAsDataURL(file);
+      const loadedUrls = [];
+      let done = 0;
+      files.forEach((f) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          loadedUrls.push(ev.target.result);
+          done++;
+          if (done === files.length) {
+            setGallery((prev) => {
+              const isInitialDefault = prev.length === 1 && prev[0] === '/images/hero-tee-black.png';
+              return isInitialDefault ? loadedUrls : [...prev, ...loadedUrls];
+            });
+            setImage(loadedUrls[0]);
+            setPreviewActiveIndex(0);
+            toast.success(`${files.length} image(s) loaded from device!`);
+          }
+        };
+        reader.readAsDataURL(f);
+      });
     } finally {
       setUploadingImage(false);
     }
@@ -198,11 +292,11 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     setEditSizes(Array.isArray(product.sizes) && product.sizes.length > 0 ? product.sizes : ['S', 'M', 'L', 'XL', 'XXL']);
     setEditColorName(product.colors?.[0]?.name || 'Standard');
     setEditColorHex(product.colors?.[0]?.hex || '#111111');
-    setEditImage(product.image || '');
     const initialGallery = Array.isArray(product.gallery) && product.gallery.length > 0
       ? product.gallery
       : (product.image ? [product.image] : []);
     setEditGallery(initialGallery);
+    setEditImage(initialGallery[0] || product.image || '');
     setEditDescription(product.description || '');
     setIsEditModalOpen(true);
   };
@@ -220,89 +314,85 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     }
   };
 
-  // Handle edit image upload
-  const handleEditFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadingEditImage(true);
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data && data.success && data.url) {
-        setEditImage(data.url);
-        if (!editGallery.includes(data.url)) {
-          setEditGallery(prev => [data.url, ...prev]);
-        }
-        toast.success('Main image updated!');
-      } else {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const url = event.target.result;
-          setEditImage(url);
-          if (!editGallery.includes(url)) {
-            setEditGallery(prev => [url, ...prev]);
-          }
-          toast.success('Main image loaded from device!');
-        };
-        reader.readAsDataURL(file);
-      }
-    } catch {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const url = event.target.result;
-        setEditImage(url);
-        if (!editGallery.includes(url)) {
-          setEditGallery(prev => [url, ...prev]);
-        }
-        toast.success('Main image loaded from device!');
-      };
-      reader.readAsDataURL(file);
-    } finally {
-      setUploadingEditImage(false);
-    }
-  };
-
-  // Handle adding extra gallery photo
-  const handleEditGalleryUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Handle multi-image upload from device for edited product
+  const handleEditFilesUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
     setUploadingEditGallery(true);
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach((f) => formData.append('files', f));
 
     try {
       const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
       const data = await res.json();
-      if (data && data.success && data.url) {
-        setEditGallery(prev => [...prev, data.url]);
-        toast.success('Gallery photo added!');
+      if (data && data.success && Array.isArray(data.urls) && data.urls.length > 0) {
+        setEditGallery((prev) => [...prev, ...data.urls]);
+        if (!editImage) {
+          setEditImage(data.urls[0]);
+        }
+        toast.success(
+          data.urls.length > 1
+            ? `${data.urls.length} photos added to gallery!`
+            : 'Photo added to gallery!'
+        );
       } else {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          setEditGallery(prev => [...prev, event.target.result]);
-          toast.success('Gallery photo loaded!');
-        };
-        reader.readAsDataURL(file);
+        const loadedUrls = [];
+        let done = 0;
+        files.forEach((f) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            loadedUrls.push(ev.target.result);
+            done++;
+            if (done === files.length) {
+              setEditGallery((prev) => [...prev, ...loadedUrls]);
+              if (!editImage) setEditImage(loadedUrls[0]);
+              toast.success(`${files.length} photo(s) loaded from device!`);
+            }
+          };
+          reader.readAsDataURL(f);
+        });
       }
     } catch {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setEditGallery(prev => [...prev, event.target.result]);
-        toast.success('Gallery photo loaded!');
-      };
-      reader.readAsDataURL(file);
+      const loadedUrls = [];
+      let done = 0;
+      files.forEach((f) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          loadedUrls.push(ev.target.result);
+          done++;
+          if (done === files.length) {
+            setEditGallery((prev) => [...prev, ...loadedUrls]);
+            if (!editImage) setEditImage(loadedUrls[0]);
+            toast.success(`${files.length} photo(s) loaded from device!`);
+          }
+        };
+        reader.readAsDataURL(f);
+      });
     } finally {
       setUploadingEditGallery(false);
     }
   };
 
+  const handleSetEditPrimaryImage = (idx) => {
+    setEditGallery((prev) => {
+      const target = prev[idx];
+      const rest = prev.filter((_, i) => i !== idx);
+      const nextGallery = [target, ...rest];
+      setEditImage(target);
+      return nextGallery;
+    });
+    toast.success('Set as primary cover image');
+  };
+
   const handleRemoveGalleryImage = (idx) => {
-    setEditGallery(prev => prev.filter((_, i) => i !== idx));
+    setEditGallery((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      if (idx === 0 && next.length > 0) {
+        setEditImage(next[0]);
+      }
+      return next;
+    });
   };
 
   // Submit edited product changes
@@ -333,8 +423,8 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       fit: editFit,
       sizes: editSizes,
       colors: [{ name: editColorName || 'Standard', hex: editColorHex || '#111111' }],
-      image: editImage,
-      fallbackImage: editImage,
+      image: editGallery[0] || editImage,
+      fallbackImage: editGallery[1] || editGallery[0] || editImage,
       gallery: editGallery.length > 0 ? editGallery : [editImage],
       description: editDescription,
     };
@@ -386,7 +476,9 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       sizes,
       colorName,
       colorHex,
-      image,
+      image: gallery[0] || image,
+      fallbackImage: gallery[1] || gallery[0] || image,
+      gallery: gallery && gallery.length > 0 ? gallery : [image],
       description,
       stock: Number(stock) || 15,
     };
@@ -399,6 +491,9 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
         // Reset form fields
         setTitle('');
         setDescription('');
+        setGallery(['/images/hero-tee-black.png']);
+        setImage('/images/hero-tee-black.png');
+        setPreviewActiveIndex(0);
         setActiveTab('catalog');
         router.refresh();
       } else {
@@ -813,17 +908,23 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                 </div>
               </div>
 
-              {/* Image Selection & Upload */}
-              <div className="bg-[#F7F7F8] rounded-[20px] p-4 sm:p-5 border border-black/[0.04]">
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-xs font-bold text-[#111111] block">
-                    Product Image *
-                  </label>
-                  <label className="inline-flex items-center gap-1 text-xs font-bold text-[#7C3AED] hover:underline cursor-pointer">
+              {/* Product Photos & Angles Gallery Uploader */}
+              <div className="bg-[#F7F7F8] rounded-[22px] p-4 sm:p-5 border border-black/[0.04] space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-[#111111] block">
+                      Product Photos &amp; Angle Views ({gallery.length}) *
+                    </label>
+                    <span className="text-[11px] text-gray-500">
+                      Upload 1 or more photos from your device (Front view, back view, fabric details).
+                    </span>
+                  </div>
+                  <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all self-start sm:self-auto">
                     <Upload className="w-3.5 h-3.5" />
-                    <span>{uploadingImage ? 'Uploading...' : 'Upload File'}</span>
+                    <span>{uploadingImage ? 'Uploading Photos...' : '+ Upload Photos (1 or Multiple)'}</span>
                     <input
                       type="file"
+                      multiple
                       accept="image/*"
                       onChange={handleFileUpload}
                       className="hidden"
@@ -832,36 +933,106 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                   </label>
                 </div>
 
-                <input
-                  type="text"
-                  placeholder="Paste image URL (e.g. /images/hero-tee-black.png)"
-                  value={image}
-                  onChange={(e) => setImage(e.target.value)}
-                  className="w-full bg-white border border-black/[0.06] rounded-full px-4 py-2.5 text-xs text-[#111111] outline-none mb-3"
-                />
+                {/* Uploaded Gallery Thumbnails Strip */}
+                {gallery.length > 0 && (
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block mb-2">
+                      Current Product Gallery (Click &quot;Set as Cover&quot; to pick the default angle):
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {gallery.map((gImg, idx) => (
+                        <div
+                          key={idx}
+                          className={`relative rounded-[14px] bg-[#EDEDEF] overflow-hidden border p-1 group flex flex-col justify-between aspect-[3/4] ${
+                            idx === 0
+                              ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/30'
+                              : 'border-black/[0.08]'
+                          }`}
+                        >
+                          <img src={gImg} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover rounded-[10px]" />
+                          
+                          {/* Angle Badge */}
+                          <div className="absolute top-2 left-2 z-10">
+                            {idx === 0 ? (
+                              <span className="bg-[#7C3AED] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                Cover Photo
+                              </span>
+                            ) : idx === 1 ? (
+                              <span className="bg-[#111111] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                Angle 2 / Back
+                              </span>
+                            ) : (
+                              <span className="bg-black/70 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                Angle {idx + 1}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Delete Button */}
+                          {gallery.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(idx)}
+                              className="absolute top-2 right-2 bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-90 hover:opacity-100 transition-all cursor-pointer z-10"
+                              title="Remove photo"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+
+                          {/* Set Cover Button (for non-primary images) */}
+                          {idx !== 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleSetPrimaryImage(idx)}
+                              className="absolute bottom-2 left-2 right-2 bg-white/95 hover:bg-white text-[#7C3AED] text-[10px] font-bold py-1 px-2 rounded-full text-center shadow-xs transition-all cursor-pointer z-10"
+                            >
+                              Set as Cover
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Optional URL Adder */}
+                <div className="flex gap-2 pt-1">
+                  <input
+                    type="text"
+                    placeholder="Or paste an image URL to add to gallery..."
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    className="flex-1 bg-white border border-black/[0.06] rounded-full px-4 py-2 text-xs text-[#111111] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddUrlToGallery}
+                    className="bg-[#111111] text-white hover:bg-gray-800 text-xs font-bold px-4 py-2 rounded-full cursor-pointer transition-all shrink-0"
+                  >
+                    + Add URL
+                  </button>
+                </div>
 
                 {/* Preset image buttons */}
-                <div>
+                <div className="pt-2 border-t border-black/[0.04]">
                   <span className="text-[10px] uppercase font-bold text-gray-400 block mb-2">
-                    Or pick from brand archive presets:
+                    Or click archive preset to add as another angle:
                   </span>
-                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
                     {presetImages.map((pImg) => (
                       <button
                         type="button"
                         key={pImg.url}
-                        onClick={() => setImage(pImg.url)}
-                        className={`p-1 rounded-[12px] border text-center transition-all cursor-pointer ${
-                          image === pImg.url
-                            ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/30 bg-white'
-                            : 'border-black/[0.06] bg-white hover:border-gray-300'
-                        }`}
+                        onClick={() => handleSelectPreset(pImg.url)}
+                        className="p-1 rounded-[12px] border text-center transition-all cursor-pointer border-black/[0.06] bg-white hover:border-[#7C3AED] hover:shadow-xs"
+                        title={`Add ${pImg.name} to gallery`}
                       >
-                        <div className="w-full h-12 rounded-[8px] bg-[#EDEDEF] overflow-hidden mb-1 flex items-center justify-center">
+                        <div className="w-full h-10 rounded-[8px] bg-[#EDEDEF] overflow-hidden mb-1 flex items-center justify-center">
                           <img src={pImg.url} alt={pImg.name} className="w-full h-full object-cover" />
                         </div>
-                        <span className="text-[9px] text-gray-600 truncate block font-medium">
-                          {pImg.name}
+                        <span className="text-[8px] text-gray-600 truncate block font-medium">
+                          {pImg.name.split(' ')[0]}
                         </span>
                       </button>
                     ))}
@@ -920,11 +1091,11 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
               {/* Mock Product Card exactly matching home page */}
               <div className="bg-[#EDEDEF]/30 rounded-[20px] p-3 border border-black/[0.04]">
                 <div className="relative aspect-[3/4] rounded-[16px] bg-[#EDEDEF] overflow-hidden mb-3 flex items-center justify-center">
-                  {image ? (
+                  {(gallery[previewActiveIndex] || image) ? (
                     <img 
-                      src={image} 
+                      src={gallery[previewActiveIndex] || image} 
                       alt={title || 'Product Preview'} 
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-all duration-300"
                     />
                   ) : (
                     <div className="text-xs text-gray-400 font-bold">KLASIK</div>
@@ -935,6 +1106,25 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                       <span className="inline-block bg-[#111111] text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wider uppercase">
                         {tag}
                       </span>
+                    </div>
+                  )}
+
+                  {/* Multi-angle indicator dots */}
+                  {gallery.length > 1 && (
+                    <div className="absolute bottom-2.5 inset-x-0 flex items-center justify-center gap-1.5 z-10">
+                      {gallery.map((_, dotIdx) => (
+                        <button
+                          type="button"
+                          key={dotIdx}
+                          onClick={() => setPreviewActiveIndex(dotIdx)}
+                          className={`h-2 rounded-full transition-all cursor-pointer ${
+                            previewActiveIndex === dotIdx
+                              ? 'bg-[#7C3AED] w-4'
+                              : 'bg-white/80 w-2 hover:bg-white'
+                          }`}
+                          aria-label={`View angle ${dotIdx + 1}`}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1431,81 +1621,120 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                 </p>
               </div>
 
-              {/* Primary Image Upload & Preview */}
-              <div className="bg-[#F7F7F8] rounded-[20px] p-4 sm:p-5 border border-black/[0.04]">
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-xs font-bold text-[#111111] block">
-                    Main Product Image *
-                  </label>
-                  <label className="inline-flex items-center gap-1.5 text-xs font-bold text-[#7C3AED] hover:underline cursor-pointer bg-white px-3 py-1.5 rounded-full border border-[#DDD6FE]">
+              {/* Product Photos & Angles Gallery */}
+              <div className="bg-[#F7F7F8] rounded-[22px] p-4 sm:p-5 border border-black/[0.04] space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-[#111111] block">
+                      Product Photos &amp; Angle Views ({editGallery.length}) *
+                    </label>
+                    <span className="text-[11px] text-gray-500">
+                      Upload 1 or multiple photos from your device (front, back, fabric details).
+                    </span>
+                  </div>
+                  <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all self-start sm:self-auto">
                     <Upload className="w-3.5 h-3.5" />
-                    <span>{uploadingEditImage ? 'Uploading...' : 'Upload From Device'}</span>
+                    <span>{uploadingEditGallery ? 'Uploading Photos...' : '+ Upload Photos (1 or Multiple)'}</span>
                     <input
                       type="file"
+                      multiple
                       accept="image/*"
-                      onChange={handleEditFileUpload}
+                      onChange={handleEditFilesUpload}
                       className="hidden"
-                      disabled={uploadingEditImage}
+                      disabled={uploadingEditGallery}
                     />
                   </label>
                 </div>
 
-                <div className="flex items-center gap-4 mb-3">
-                  <div className="w-20 h-24 rounded-[12px] bg-[#EDEDEF] overflow-hidden shrink-0 border border-black/[0.06] flex items-center justify-center">
-                    {editImage ? (
-                      <img src={editImage} alt="Current" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-[10px] text-gray-400 font-bold">No Image</span>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      value={editImage}
-                      onChange={(e) => setEditImage(e.target.value)}
-                      placeholder="Paste image URL or upload above"
-                      className="w-full bg-white border border-black/[0.06] rounded-[12px] px-3.5 py-2.5 text-xs text-[#111111] outline-none"
-                    />
-                    <span className="text-[10px] text-gray-400 block mt-1">
-                      Direct uploads save with automatic device fallback.
+                {/* Gallery Thumbnails Grid */}
+                {editGallery.length > 0 && (
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-gray-400 block mb-2">
+                      Photo Angles (First photo is the default Cover shown on store cards):
                     </span>
-                  </div>
-                </div>
-
-                {/* Additional Gallery Angle Images */}
-                <div className="pt-3 border-t border-black/[0.06]">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[11px] font-bold text-gray-700 block">
-                      Angle Views &amp; Gallery Photos ({editGallery.length})
-                    </span>
-                    <label className="inline-flex items-center gap-1 text-[11px] font-bold text-[#7C3AED] hover:underline cursor-pointer">
-                      <Plus className="w-3 h-3" />
-                      <span>{uploadingEditGallery ? 'Uploading...' : '+ Add Another Angle'}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleEditGalleryUpload}
-                        className="hidden"
-                        disabled={uploadingEditGallery}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {editGallery.map((gImg, idx) => (
-                      <div key={idx} className="relative w-16 h-20 rounded-[10px] bg-[#EDEDEF] overflow-hidden border border-black/[0.08] group">
-                        <img src={gImg} alt={`Angle ${idx + 1}`} className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveGalleryImage(idx)}
-                          className="absolute top-1 right-1 bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
-                          title="Remove photo"
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {editGallery.map((gImg, idx) => (
+                        <div
+                          key={idx}
+                          className={`relative rounded-[14px] bg-[#EDEDEF] overflow-hidden border p-1 group flex flex-col justify-between aspect-[3/4] ${
+                            idx === 0
+                              ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/30'
+                              : 'border-black/[0.08]'
+                          }`}
                         >
-                          <X className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-                    ))}
+                          <img src={gImg} alt={`Angle ${idx + 1}`} className="w-full h-full object-cover rounded-[10px]" />
+                          
+                          {/* Angle Badge */}
+                          <div className="absolute top-2 left-2 z-10">
+                            {idx === 0 ? (
+                              <span className="bg-[#7C3AED] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                Cover Photo
+                              </span>
+                            ) : idx === 1 ? (
+                              <span className="bg-[#111111] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                Angle 2 / Back
+                              </span>
+                            ) : (
+                              <span className="bg-black/70 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                Angle {idx + 1}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Delete Button */}
+                          {editGallery.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveGalleryImage(idx)}
+                              className="absolute top-2 right-2 bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-90 hover:opacity-100 transition-all cursor-pointer z-10"
+                              title="Remove photo"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+
+                          {/* Set as Cover Button */}
+                          {idx !== 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleSetEditPrimaryImage(idx)}
+                              className="absolute bottom-2 left-2 right-2 bg-white/95 hover:bg-white text-[#7C3AED] text-[10px] font-bold py-1 px-2 rounded-full text-center shadow-xs transition-all cursor-pointer z-10"
+                            >
+                              Set as Cover
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
+                )}
+
+                {/* Paste URL directly */}
+                <div className="flex gap-2 pt-1">
+                  <input
+                    type="text"
+                    value={editImage}
+                    onChange={(e) => {
+                      setEditImage(e.target.value);
+                      if (e.target.value && !editGallery.includes(e.target.value)) {
+                        setEditGallery((prev) => [e.target.value, ...prev]);
+                      }
+                    }}
+                    placeholder="Or paste an image URL to add..."
+                    className="flex-1 bg-white border border-black/[0.06] rounded-full px-4 py-2 text-xs text-[#111111] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (editImage && !editGallery.includes(editImage)) {
+                        setEditGallery((prev) => [...prev, editImage]);
+                        toast.success('Added to gallery!');
+                      }
+                    }}
+                    className="bg-[#111111] text-white hover:bg-gray-800 text-xs font-bold px-4 py-2 rounded-full cursor-pointer transition-all shrink-0"
+                  >
+                    + Add URL
+                  </button>
                 </div>
 
               </div>

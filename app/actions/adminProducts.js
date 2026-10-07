@@ -32,9 +32,11 @@ export async function createProductAction(productData) {
       colors: Array.isArray(productData.colors) && productData.colors.length > 0
         ? productData.colors
         : [{ name: productData.colorName || 'Obsidian Black', hex: productData.colorHex || '#111111' }],
-      image: productData.image?.trim() || '/images/media__1786369656046.jpg',
-      fallbackImage: productData.image?.trim() || '/images/media__1786369656046.jpg',
-      gallery: productData.gallery || [productData.image?.trim() || '/images/media__1786369656046.jpg'],
+      image: (Array.isArray(productData.gallery) && productData.gallery[0]) || productData.image?.trim() || '/images/media__1786369656046.jpg',
+      fallbackImage: (Array.isArray(productData.gallery) && productData.gallery[1]) || (Array.isArray(productData.gallery) && productData.gallery[0]) || productData.image?.trim() || '/images/media__1786369656046.jpg',
+      gallery: Array.isArray(productData.gallery) && productData.gallery.length > 0 
+        ? productData.gallery 
+        : [productData.image?.trim() || '/images/media__1786369656046.jpg'],
       stock: productData.stock !== undefined ? Number(productData.stock) : 15,
       isCustom: true,
       createdAt: new Date().toISOString()
@@ -129,8 +131,8 @@ export async function updateProductAction(productData) {
       colors: Array.isArray(productData.colors) && productData.colors.length > 0
         ? productData.colors
         : [{ name: productData.colorName || 'Obsidian Black', hex: productData.colorHex || '#111111' }],
-      image: productData.image?.trim() || '/images/media__1786369656046.jpg',
-      fallbackImage: productData.fallbackImage?.trim() || productData.image?.trim() || '/images/media__1786369656046.jpg',
+      image: (Array.isArray(productData.gallery) && productData.gallery[0]) || productData.image?.trim() || '/images/media__1786369656046.jpg',
+      fallbackImage: (Array.isArray(productData.gallery) && productData.gallery[1]) || (Array.isArray(productData.gallery) && productData.gallery[0]) || productData.fallbackImage?.trim() || productData.image?.trim() || '/images/media__1786369656046.jpg',
       gallery: Array.isArray(productData.gallery) && productData.gallery.length > 0
         ? productData.gallery
         : [productData.image?.trim() || '/images/media__1786369656046.jpg'],

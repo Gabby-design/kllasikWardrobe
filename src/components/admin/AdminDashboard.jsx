@@ -22,10 +22,15 @@ import {
   MessageCircle,
   Clock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Edit3,
+  X,
+  Save,
+  SlidersHorizontal,
+  RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { createProductAction, deleteProductAction } from '../../../app/actions/adminProducts';
+import { createProductAction, deleteProductAction, updateProductAction } from '../../../app/actions/adminProducts';
 import { logoutAdmin } from '../../../app/actions/adminAuth';
 import { KlasikLogo } from '../KlasikLogo';
 
@@ -36,6 +41,27 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   const [orders, setOrders] = useState(initialOrders || []);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Edit Product Modal State
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editPrice, setEditPrice] = useState(30000);
+  const [editCategory, setEditCategory] = useState('T-Shirts');
+  const [editStock, setEditStock] = useState(15);
+  const [editTag, setEditTag] = useState('Luxury Essential');
+  const [editGsm, setEditGsm] = useState('240 GSM Heavyweight');
+  const [editMaterial, setEditMaterial] = useState('100% Combed Organic Cotton');
+  const [editFit, setEditFit] = useState('Oversized Drop-Shoulder');
+  const [editSizes, setEditSizes] = useState(['S', 'M', 'L', 'XL', 'XXL']);
+  const [editColorName, setEditColorName] = useState('Standard');
+  const [editColorHex, setEditColorHex] = useState('#111111');
+  const [editImage, setEditImage] = useState('');
+  const [editGallery, setEditGallery] = useState([]);
+  const [editDescription, setEditDescription] = useState('');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [uploadingEditImage, setUploadingEditImage] = useState(false);
+  const [uploadingEditGallery, setUploadingEditGallery] = useState(false);
 
   // Form State
   const [categoryPreset, setCategoryPreset] = useState('T-Shirts');
@@ -119,7 +145,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     }
   };
 
-  // Handle image upload from device
+  // Handle image upload from device with resilient client fallback
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -134,20 +160,200 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
         body: formData,
       });
       const data = await res.json();
-      if (data.success && data.url) {
+      if (data && data.success && data.url) {
         setImage(data.url);
-        if (data.storage === 'supabase') {
-          toast.success('Image stored in Supabase backend!');
-        } else {
-          toast.success('Image uploaded successfully!');
-        }
+        toast.success('Image uploaded successfully!');
       } else {
-        toast.error(data.error || 'Failed to upload image');
+        // Resilient client-side FileReader fallback
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setImage(event.target.result);
+          toast.success('Image loaded directly from device!');
+        };
+        reader.readAsDataURL(file);
       }
-    } catch (err) {
-      toast.error('Image upload failed: ' + err.message);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImage(event.target.result);
+        toast.success('Image loaded directly from device!');
+      };
+      reader.readAsDataURL(file);
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  // Open Edit Product Modal
+  const handleOpenEdit = (product) => {
+    setEditingProduct(product);
+    setEditTitle(product.title || '');
+    setEditPrice(Number(product.price) || 30000);
+    setEditCategory(product.category || 'T-Shirts');
+    setEditStock(product.stock !== undefined ? Number(product.stock) : 10);
+    setEditTag(product.tag || 'Luxury Essential');
+    setEditGsm(product.gsm || '240 GSM Heavyweight');
+    setEditMaterial(product.material || '100% Combed Organic Cotton');
+    setEditFit(product.fit || 'Oversized Drop-Shoulder');
+    setEditSizes(Array.isArray(product.sizes) && product.sizes.length > 0 ? product.sizes : ['S', 'M', 'L', 'XL', 'XXL']);
+    setEditColorName(product.colors?.[0]?.name || 'Standard');
+    setEditColorHex(product.colors?.[0]?.hex || '#111111');
+    setEditImage(product.image || '');
+    const initialGallery = Array.isArray(product.gallery) && product.gallery.length > 0
+      ? product.gallery
+      : (product.image ? [product.image] : []);
+    setEditGallery(initialGallery);
+    setEditDescription(product.description || '');
+    setIsEditModalOpen(true);
+  };
+
+  // Toggle size availability for edited product
+  const toggleEditSize = (sz) => {
+    if (editSizes.includes(sz)) {
+      if (editSizes.length === 1) {
+        toast.error('Product must have at least one available size');
+        return;
+      }
+      setEditSizes(editSizes.filter(s => s !== sz));
+    } else {
+      setEditSizes([...editSizes, sz]);
+    }
+  };
+
+  // Handle edit image upload
+  const handleEditFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingEditImage(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data && data.success && data.url) {
+        setEditImage(data.url);
+        if (!editGallery.includes(data.url)) {
+          setEditGallery(prev => [data.url, ...prev]);
+        }
+        toast.success('Main image updated!');
+      } else {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const url = event.target.result;
+          setEditImage(url);
+          if (!editGallery.includes(url)) {
+            setEditGallery(prev => [url, ...prev]);
+          }
+          toast.success('Main image loaded from device!');
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const url = event.target.result;
+        setEditImage(url);
+        if (!editGallery.includes(url)) {
+          setEditGallery(prev => [url, ...prev]);
+        }
+        toast.success('Main image loaded from device!');
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploadingEditImage(false);
+    }
+  };
+
+  // Handle adding extra gallery photo
+  const handleEditGalleryUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingEditGallery(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data && data.success && data.url) {
+        setEditGallery(prev => [...prev, data.url]);
+        toast.success('Gallery photo added!');
+      } else {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setEditGallery(prev => [...prev, event.target.result]);
+          toast.success('Gallery photo loaded!');
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setEditGallery(prev => [...prev, event.target.result]);
+        toast.success('Gallery photo loaded!');
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setUploadingEditGallery(false);
+    }
+  };
+
+  const handleRemoveGalleryImage = (idx) => {
+    setEditGallery(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Submit edited product changes
+  const handleSaveEditProduct = async (e) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+    if (!editTitle.trim()) {
+      toast.error('Product title cannot be empty');
+      return;
+    }
+    if (!editPrice || editPrice <= 0) {
+      toast.error('Valid product price required');
+      return;
+    }
+
+    setSavingEdit(true);
+
+    const payload = {
+      ...editingProduct,
+      id: editingProduct.id,
+      title: editTitle.trim(),
+      price: Number(editPrice),
+      category: editCategory,
+      stock: Number(editStock) || 0,
+      tag: editTag,
+      gsm: editGsm,
+      material: editMaterial,
+      fit: editFit,
+      sizes: editSizes,
+      colors: [{ name: editColorName || 'Standard', hex: editColorHex || '#111111' }],
+      image: editImage,
+      fallbackImage: editImage,
+      gallery: editGallery.length > 0 ? editGallery : [editImage],
+      description: editDescription,
+    };
+
+    try {
+      const res = await updateProductAction(payload);
+      if (res.success && res.product) {
+        toast.success(`Updated "${payload.title}" successfully!`);
+        setProducts(prev => prev.map(p => p.id === payload.id ? res.product : p));
+        setIsEditModalOpen(false);
+        setEditingProduct(null);
+        router.refresh();
+      } else {
+        toast.error(res.error || 'Failed to update product');
+      }
+    } catch (err) {
+      toast.error('Error updating product: ' + err.message);
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -433,7 +639,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Klassic Obsidian Heavyweight Boxy Tee"
+                    placeholder="e.g. Klasik Obsidian Heavyweight Boxy Tee"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-2.5 text-xs text-[#111111] outline-none transition-all"
@@ -721,7 +927,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="text-xs text-gray-400 font-bold">KLLASIK</div>
+                    <div className="text-xs text-gray-400 font-bold">KLASIK</div>
                   )}
 
                   {tag && (
@@ -794,7 +1000,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
             <div>
               <h3 className="font-bold text-lg text-[#111111]">Store Products Archive</h3>
               <p className="text-xs text-gray-500">
-                Manage all active collection pieces currently available on Kllasik Wardrobe.
+                Manage all active collection pieces currently available on Klasik Wardrobe.
               </p>
             </div>
 
@@ -835,9 +1041,18 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                   </div>
 
                   <div className="space-y-1 mb-3">
-                    <span className="text-[10px] font-bold text-gray-400 block uppercase">
-                      {prod.category} &bull; {prod.gsm || '240 GSM'}
-                    </span>
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase truncate">
+                        {prod.category} &bull; {prod.gsm || '240 GSM'}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                        (prod.stock !== undefined && prod.stock <= 2)
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-emerald-50 text-emerald-700'
+                      }`}>
+                        Stock: {prod.stock !== undefined ? prod.stock : 15} left
+                      </span>
+                    </div>
                     <h4 className="font-bold text-xs sm:text-sm text-[#111111] line-clamp-1">
                       {prod.title}
                     </h4>
@@ -867,26 +1082,38 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                 </div>
 
                 <div className="pt-3 border-t border-black/[0.04] flex items-center justify-between gap-2">
-                  <Link
-                    href={`/product/${prod.id}`}
-                    target="_blank"
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-600 hover:text-[#7C3AED]"
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(prod)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EDE9FE] text-[#7C3AED] hover:bg-[#DDD6FE] text-xs font-bold transition-all cursor-pointer shadow-xs"
+                    title="Edit garment details, price, sizes, images, stock"
                   >
-                    <span>View Store</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </Link>
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit</span>
+                  </button>
 
-                  {prod.isCustom && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteProduct(prod.id)}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 p-1 cursor-pointer"
-                      title="Remove product"
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/product/${prod.id}`}
+                      target="_blank"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-600 hover:text-[#7C3AED]"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
-                  )}
+                      <span>View</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
+
+                    {prod.isCustom && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteProduct(prod.id)}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 p-1 cursor-pointer"
+                        title="Remove product"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -977,6 +1204,358 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* EDIT PRODUCT MODAL */}
+      {isEditModalOpen && editingProduct && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-white rounded-[28px] border border-black/[0.08] shadow-2xl p-6 sm:p-8 my-8 max-h-[92vh] overflow-y-auto">
+            
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 mb-6 border-b border-black/[0.06]">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#7C3AED] block mb-1">
+                  Product Editor &bull; ID: {editingProduct.id}
+                </span>
+                <h3 className="text-xl sm:text-2xl font-bold text-[#111111] tracking-tight">
+                  Edit Garment Details
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Changes update immediately across homepage, catalog, cart, and direct checkout.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setEditingProduct(null);
+                }}
+                className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-[#111111] transition-all cursor-pointer"
+                aria-label="Close edit modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditProduct} className="space-y-6">
+              
+              {/* Product Title */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1.5">
+                  Product Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] px-4 py-3 text-xs sm:text-sm text-[#111111] outline-none transition-all font-semibold"
+                />
+              </div>
+
+              {/* Price & Presets */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-gray-700">
+                    Product Price (₦) *
+                  </label>
+                  <span className="text-xs font-bold text-[#7C3AED]">
+                    Current: ₦{Number(editPrice || 0).toLocaleString()}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  required
+                  min="1000"
+                  step="500"
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(e.target.value)}
+                  className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] px-4 py-3 text-xs sm:text-sm text-[#111111] outline-none transition-all font-semibold mb-2"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-[10px] uppercase font-bold text-gray-400 self-center">Presets:</span>
+                  {[30000, 35000, 40000, 50000, 65000].map((pr) => (
+                    <button
+                      type="button"
+                      key={pr}
+                      onClick={() => setEditPrice(pr)}
+                      className={`text-xs font-bold px-3 py-1 rounded-full border transition-all cursor-pointer ${
+                        Number(editPrice) === pr
+                          ? 'bg-[#7C3AED] text-white border-[#7C3AED]'
+                          : 'bg-[#EDEDEF]/60 text-gray-700 border-black/[0.04] hover:bg-gray-200'
+                      }`}
+                    >
+                      ₦{pr.toLocaleString()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Stock Inventory */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-gray-700">
+                    Inventory Stock Count
+                  </label>
+                  <span className={`text-xs font-bold ${editStock <= 2 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                    {editStock === 0 ? 'Out of Stock' : `${editStock} Available in Stock`}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  value={editStock}
+                  onChange={(e) => setEditStock(e.target.value)}
+                  className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] px-4 py-3 text-xs sm:text-sm text-[#111111] outline-none transition-all font-semibold mb-2"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-[10px] uppercase font-bold text-gray-400 self-center">Stock Presets:</span>
+                  {[
+                    { label: 'Sold Out (0)', val: 0 },
+                    { label: '1 Left', val: 1 },
+                    { label: '2 Left', val: 2 },
+                    { label: '5 Units', val: 5 },
+                    { label: '10 Units', val: 10 },
+                    { label: '20 Units', val: 20 },
+                  ].map((st) => (
+                    <button
+                      type="button"
+                      key={st.val}
+                      onClick={() => setEditStock(st.val)}
+                      className={`text-xs font-bold px-3 py-1 rounded-full border transition-all cursor-pointer ${
+                        Number(editStock) === st.val
+                          ? 'bg-[#111111] text-white border-[#111111]'
+                          : 'bg-[#EDEDEF]/60 text-gray-700 border-black/[0.04] hover:bg-gray-200'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Category & Tag */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1.5">
+                    Category
+                  </label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] px-4 py-3 text-xs sm:text-sm text-[#111111] outline-none transition-all font-semibold"
+                  >
+                    <option value="T-Shirts">T-Shirts</option>
+                    <option value="Jeans">Jeans</option>
+                    <option value="Beach Pants">Beach Pants</option>
+                    <option value="Shorts">Shorts</option>
+                    <option value="Tracksuits">Tracksuits</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1.5">
+                    Badge / Tag
+                  </label>
+                  <select
+                    value={editTag}
+                    onChange={(e) => setEditTag(e.target.value)}
+                    className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] px-4 py-3 text-xs sm:text-sm text-[#111111] outline-none transition-all font-semibold"
+                  >
+                    <option value="New Drop">New Drop</option>
+                    <option value="Best Seller">Best Seller</option>
+                    <option value="Limited Edition">Limited Edition</option>
+                    <option value="Luxury Essential">Luxury Essential</option>
+                    <option value="Raw Denim">Raw Denim</option>
+                    <option value="Pure Linen">Pure Linen</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Fabric GSM & Fit */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1.5">
+                    GSM / Fabric Weight
+                  </label>
+                  <input
+                    type="text"
+                    value={editGsm}
+                    onChange={(e) => setEditGsm(e.target.value)}
+                    placeholder="e.g. 240 GSM Heavyweight"
+                    className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] px-4 py-3 text-xs sm:text-sm text-[#111111] outline-none transition-all font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-700 block mb-1.5">
+                    Silhouette Fit
+                  </label>
+                  <input
+                    type="text"
+                    value={editFit}
+                    onChange={(e) => setEditFit(e.target.value)}
+                    placeholder="e.g. Oversized Drop-Shoulder"
+                    className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] px-4 py-3 text-xs sm:text-sm text-[#111111] outline-none transition-all font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Available Sizes Toggles */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1.5">
+                  Available Sizes * (Click to toggle availability)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {standardSizes.map((sz) => {
+                    const isSelected = editSizes.includes(sz);
+                    return (
+                      <button
+                        type="button"
+                        key={sz}
+                        onClick={() => toggleEditSize(sz)}
+                        className={`px-4 py-2 rounded-[12px] text-xs font-bold border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#111111] text-white border-[#111111] shadow-xs'
+                            : 'bg-white text-gray-400 border-black/[0.08] line-through hover:border-gray-300'
+                        }`}
+                      >
+                        {sz} {isSelected ? '✓' : ''}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  E.g. If only Medium is available, deselect others so only Medium can be ordered.
+                </p>
+              </div>
+
+              {/* Primary Image Upload & Preview */}
+              <div className="bg-[#F7F7F8] rounded-[20px] p-4 sm:p-5 border border-black/[0.04]">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-xs font-bold text-[#111111] block">
+                    Main Product Image *
+                  </label>
+                  <label className="inline-flex items-center gap-1.5 text-xs font-bold text-[#7C3AED] hover:underline cursor-pointer bg-white px-3 py-1.5 rounded-full border border-[#DDD6FE]">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{uploadingEditImage ? 'Uploading...' : 'Upload From Device'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleEditFileUpload}
+                      className="hidden"
+                      disabled={uploadingEditImage}
+                    />
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-4 mb-3">
+                  <div className="w-20 h-24 rounded-[12px] bg-[#EDEDEF] overflow-hidden shrink-0 border border-black/[0.06] flex items-center justify-center">
+                    {editImage ? (
+                      <img src={editImage} alt="Current" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-[10px] text-gray-400 font-bold">No Image</span>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={editImage}
+                      onChange={(e) => setEditImage(e.target.value)}
+                      placeholder="Paste image URL or upload above"
+                      className="w-full bg-white border border-black/[0.06] rounded-[12px] px-3.5 py-2.5 text-xs text-[#111111] outline-none"
+                    />
+                    <span className="text-[10px] text-gray-400 block mt-1">
+                      Direct uploads save with automatic device fallback.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Additional Gallery Angle Images */}
+                <div className="pt-3 border-t border-black/[0.06]">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-gray-700 block">
+                      Angle Views &amp; Gallery Photos ({editGallery.length})
+                    </span>
+                    <label className="inline-flex items-center gap-1 text-[11px] font-bold text-[#7C3AED] hover:underline cursor-pointer">
+                      <Plus className="w-3 h-3" />
+                      <span>{uploadingEditGallery ? 'Uploading...' : '+ Add Another Angle'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleEditGalleryUpload}
+                        className="hidden"
+                        disabled={uploadingEditGallery}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {editGallery.map((gImg, idx) => (
+                      <div key={idx} className="relative w-16 h-20 rounded-[10px] bg-[#EDEDEF] overflow-hidden border border-black/[0.08] group">
+                        <img src={gImg} alt={`Angle ${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveGalleryImage(idx)}
+                          className="absolute top-1 right-1 bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+                          title="Remove photo"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1.5">
+                  Product Description
+                </label>
+                <textarea
+                  rows={3}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] p-3 text-xs text-[#111111] outline-none transition-all leading-relaxed"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-black/[0.06]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditingProduct(null);
+                  }}
+                  className="px-5 py-2.5 rounded-full border border-black/[0.1] text-xs font-bold text-gray-600 hover:bg-gray-100 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="inline-flex items-center gap-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold px-6 py-2.5 rounded-full shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-60"
+                >
+                  {savingEdit ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Saving Changes...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Save Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </form>
+          </div>
         </div>
       )}
 

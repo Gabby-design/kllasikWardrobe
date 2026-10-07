@@ -43,7 +43,7 @@ export async function GET(request) {
               gallery: (Array.isArray(p.gallery) && p.gallery.length > 0)
                 ? p.gallery 
                 : (staticMatch?.gallery || (p.image_url ? [p.image_url] : ['/images/media__1786369656046.jpg'])),
-              brand: p.brand || staticMatch?.brand || 'Kllasik Wardrobe',
+              brand: p.brand || staticMatch?.brand || 'Klasik Wardrobe',
               category: p.category || staticMatch?.category || 'T-Shirts',
               gsm: p.gsm || staticMatch?.gsm || '240 GSM Heavyweight',
               material: p.material || staticMatch?.material || '100% Combed Organic Cotton',

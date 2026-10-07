@@ -44,7 +44,7 @@ export default function CheckoutPage() {
   // Verified Bank details
   const bankDetails = {
     bankName: process.env.NEXT_PUBLIC_BANK_NAME || 'OPay / Paycom',
-    accountName: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'KLLASIK WARDROBE',
+    accountName: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || 'KLASIK WARDROBE',
     accountNumber: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER || '7075039738',
   };
 
@@ -93,7 +93,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    const generatedOrderId = `KLLASIK-${Date.now().toString().slice(-6)}`;
+    const generatedOrderId = `KLASIK-${Date.now().toString().slice(-6)}`;
     const orderData = {
       orderId: generatedOrderId,
       items: [...cart],
@@ -160,7 +160,7 @@ export default function CheckoutPage() {
         return;
       }
 
-      const generatedOrderId = result.orderId || `KLLASIK-${Date.now().toString().slice(-6)}`;
+      const generatedOrderId = result.orderId || `KLASIK-${Date.now().toString().slice(-6)}`;
       const orderRecord = {
         orderId: generatedOrderId,
         items: [...cart],
@@ -523,7 +523,7 @@ export default function CheckoutPage() {
                     Ready to Confirm on WhatsApp?
                   </h3>
                   <p className="text-xs text-emerald-800 max-w-md mx-auto leading-relaxed mb-5">
-                    Clicking below prepares your complete cart details, item sizes, delivery place, and payment sum, opening WhatsApp directly with the owner of Kllasik Wardrobe.
+                    Clicking below prepares your complete cart details, item sizes, delivery place, and payment sum, opening WhatsApp directly with the owner of Klasik Wardrobe.
                   </p>
 
                   <button
@@ -648,7 +648,7 @@ export default function CheckoutPage() {
                           className="w-full h-full object-cover rounded-[10px]" 
                         />
                       ) : (
-                        <div className="font-sans text-[10px] text-gray-400">KLLASIK</div>
+                        <div className="font-sans text-[10px] text-gray-400">KLASIK</div>
                       )}
                     </div>
 

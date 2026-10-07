@@ -119,7 +119,7 @@ export function CartDrawer() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center font-sans text-xs text-gray-400">
-                          KLLASIK
+                          KLASIK
                         </div>
                       )}
                     </div>

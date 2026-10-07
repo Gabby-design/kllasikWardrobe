@@ -103,6 +103,77 @@ export async function createProductAction(productData) {
   }
 }
 
+export async function updateProductAction(productData) {
+  try {
+    if (!productData || !productData.id) {
+      return { success: false, error: 'Product ID is required for editing' };
+    }
+    if (!productData.title || !productData.price) {
+      return { success: false, error: 'Product title and price are required' };
+    }
+
+    const updatedProduct = {
+      ...productData,
+      id: productData.id,
+      title: productData.title.trim(),
+      price: Number(productData.price),
+      category: productData.category || 'T-Shirts',
+      tag: productData.tag || 'Luxury Essential',
+      description: productData.description ? productData.description.trim() : '',
+      gsm: productData.gsm || '240 GSM Heavyweight',
+      material: productData.material || '100% Combed Organic Cotton',
+      fit: productData.fit || 'Oversized Drop-Shoulder',
+      sizes: Array.isArray(productData.sizes) && productData.sizes.length > 0
+        ? productData.sizes
+        : ['S', 'M', 'L', 'XL', 'XXL'],
+      colors: Array.isArray(productData.colors) && productData.colors.length > 0
+        ? productData.colors
+        : [{ name: productData.colorName || 'Obsidian Black', hex: productData.colorHex || '#111111' }],
+      image: productData.image?.trim() || '/images/media__1786369656046.jpg',
+      fallbackImage: productData.fallbackImage?.trim() || productData.image?.trim() || '/images/media__1786369656046.jpg',
+      gallery: Array.isArray(productData.gallery) && productData.gallery.length > 0
+        ? productData.gallery
+        : [productData.image?.trim() || '/images/media__1786369656046.jpg'],
+      stock: productData.stock !== undefined ? Number(productData.stock) : 10,
+      isCustom: true,
+      updatedAt: new Date().toISOString()
+    };
+
+    const res = saveCustomProduct(updatedProduct);
+    if (!res.success) {
+      return { success: false, error: res.error };
+    }
+
+    // Background sync to Supabase database
+    try {
+      const supabase = createAdminClient();
+      if (supabase) {
+        await supabase.from('products').upsert({
+          id: updatedProduct.id,
+          name: updatedProduct.title,
+          price: updatedProduct.price,
+          category: updatedProduct.category,
+          description: updatedProduct.description,
+          image_url: updatedProduct.image,
+          stock: updatedProduct.stock
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase product sync notice:', e.message);
+    }
+
+    revalidatePath('/');
+    revalidatePath('/catalog');
+    revalidatePath('/admin');
+    revalidatePath(`/product/${productData.id}`);
+
+    return { success: true, product: updatedProduct };
+  } catch (err) {
+    console.error('updateProductAction error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 export async function deleteProductAction(productId) {
   try {
     if (!productId) return { success: false, error: 'Product ID required' };

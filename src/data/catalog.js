@@ -2,7 +2,7 @@
 export const PRODUCTS = [
   {
     id: 'kwt-01',
-    title: 'Kllasik Wonderland Textured Crochet Shirt',
+    title: 'Klasik Wonderland Textured Crochet Shirt',
     price: 35000,
     stock: 6,
     category: 'T-Shirts',
@@ -26,7 +26,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-02',
-    title: 'Kllasik Mindset Over Everything Heavyweight Tee',
+    title: 'Klasik Mindset Over Everything Heavyweight Tee',
     price: 35000,
     stock: 4,
     category: 'T-Shirts',
@@ -52,7 +52,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-03',
-    title: 'Kllasik Dark Cat Silhouette Heavyweight Tee',
+    title: 'Klasik Dark Cat Silhouette Heavyweight Tee',
     price: 40000,
     stock: 1,
     category: 'T-Shirts',
@@ -79,7 +79,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-04',
-    title: 'Kllasik Whatever Brush-Stroke Sky Blue Tee',
+    title: 'Klasik Whatever Brush-Stroke Sky Blue Tee',
     price: 30000,
     stock: 12,
     category: 'T-Shirts',
@@ -105,7 +105,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-05',
-    title: 'Kllasik Sukuna Graphic Heavyweight Tee',
+    title: 'Klasik Sukuna Graphic Heavyweight Tee',
     price: 35000,
     stock: 5,
     category: 'T-Shirts',
@@ -131,7 +131,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-06',
-    title: 'Kllasik Life Is Short Minimalist Clock Tee',
+    title: 'Klasik Life Is Short Minimalist Clock Tee',
     price: 40000,
     stock: 1,
     category: 'T-Shirts',
@@ -157,7 +157,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-07',
-    title: 'Kllasik Dark Cat Silhouette Wine Edition',
+    title: 'Klasik Dark Cat Silhouette Wine Edition',
     price: 30000,
     stock: 8,
     category: 'T-Shirts',
@@ -184,7 +184,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-08',
-    title: 'Kllasik Mindset Noir Signature Edition',
+    title: 'Klasik Mindset Noir Signature Edition',
     price: 35000,
     stock: 3,
     category: 'T-Shirts',
@@ -210,7 +210,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-09',
-    title: 'Kllasik Never Noir Executive Edition',
+    title: 'Klasik Never Noir Executive Edition',
     price: 40000,
     stock: 1,
     category: 'T-Shirts',
@@ -236,7 +236,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-10',
-    title: 'Kllasik Never Minimalist Back-Print Edition',
+    title: 'Klasik Never Minimalist Back-Print Edition',
     price: 30000,
     stock: 10,
     category: 'T-Shirts',
@@ -262,7 +262,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-11',
-    title: 'Kllasik Dark Cat Royal Cobalt Tee',
+    title: 'Klasik Dark Cat Royal Cobalt Tee',
     price: 35000,
     stock: 7,
     category: 'T-Shirts',
@@ -288,7 +288,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-12',
-    title: 'Kllasik Mindset Boxy Back-Graphic Tee',
+    title: 'Klasik Mindset Boxy Back-Graphic Tee',
     price: 40000,
     stock: 2,
     category: 'T-Shirts',
@@ -314,7 +314,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-13',
-    title: 'Kllasik Whatever Relaxed Azure Edition',
+    title: 'Klasik Whatever Relaxed Azure Edition',
     price: 30000,
     stock: 9,
     category: 'T-Shirts',
@@ -340,7 +340,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-14',
-    title: 'Kllasik Sukuna Manga Contrast Tee',
+    title: 'Klasik Sukuna Manga Contrast Tee',
     price: 35000,
     stock: 4,
     category: 'T-Shirts',
@@ -366,7 +366,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-15',
-    title: 'Kllasik Life Is Short Silk-Lustre Tee',
+    title: 'Klasik Life Is Short Silk-Lustre Tee',
     price: 40000,
     stock: 1,
     category: 'T-Shirts',
@@ -392,7 +392,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-16',
-    title: 'Kllasik Dark Burgundy Velour-Touch Tee',
+    title: 'Klasik Dark Burgundy Velour-Touch Tee',
     price: 30000,
     stock: 6,
     category: 'T-Shirts',
@@ -418,7 +418,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-17',
-    title: 'Kllasik Mindset Heavy Ribbed Knit Tee',
+    title: 'Klasik Mindset Heavy Ribbed Knit Tee',
     price: 35000,
     stock: 1,
     category: 'T-Shirts',
@@ -444,7 +444,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-18',
-    title: 'Kllasik Never Royal Drop-Shoulder Tee',
+    title: 'Klasik Never Royal Drop-Shoulder Tee',
     price: 40000,
     stock: 5,
     category: 'T-Shirts',
@@ -472,7 +472,7 @@ export const PRODUCTS = [
   // --- JEANS CATEGORY ---
   {
     id: 'kwt-jeans-01',
-    title: 'Kllasik Raw Indigo Selvedge Heavyweight Jeans',
+    title: 'Klasik Raw Indigo Selvedge Heavyweight Jeans',
     price: 40000,
     stock: 8,
     category: 'Jeans',
@@ -498,7 +498,7 @@ export const PRODUCTS = [
   },
   {
     id: 'kwt-jeans-02',
-    title: 'Kllasik Vintage Washed Black Baggy Jeans',
+    title: 'Klasik Vintage Washed Black Baggy Jeans',
     price: 35000,
     stock: 3,
     category: 'Jeans',
@@ -526,7 +526,7 @@ export const PRODUCTS = [
   // --- SHORT JEANS CATEGORY ---
   {
     id: 'kwt-short-01',
-    title: 'Kllasik Vintage Washed Denim Jorts',
+    title: 'Klasik Vintage Washed Denim Jorts',
     price: 30000,
     stock: 1,
     category: 'Short Jeans',
@@ -554,7 +554,7 @@ export const PRODUCTS = [
   // --- BEACH PANTS CATEGORY ---
   {
     id: 'kwt-beach-01',
-    title: 'Kllasik Relaxed Ivory Linen Beach Pants',
+    title: 'Klasik Relaxed Ivory Linen Beach Pants',
     price: 35000,
     stock: 6,
     category: 'Beach Pants',
@@ -590,7 +590,7 @@ export const REVIEWS = [
   {
     name: 'Chinedu Eze',
     role: 'Creative Director',
-    comment: 'Kllasik Wardrobe got the drop-shoulder cut and denim jorts fit spot on. Rare craftsmanship in Nigeria.',
+    comment: 'Klasik Wardrobe got the drop-shoulder cut and denim jorts fit spot on. Rare craftsmanship in Nigeria.',
     rating: 5,
   },
   {

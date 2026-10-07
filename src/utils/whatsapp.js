@@ -22,7 +22,7 @@ export function formatWhatsAppOrderMessage({
       }).join('\n\n')
     : '• No items listed';
 
-  const orderRef = orderId ? `#${orderId}` : `#KLLASIK-${Date.now().toString().slice(-6)}`;
+  const orderRef = orderId ? `#${orderId}` : `#KLASIK-${Date.now().toString().slice(-6)}`;
   const dateStr = new Date().toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
@@ -31,7 +31,7 @@ export function formatWhatsAppOrderMessage({
     minute: '2-digit'
   });
 
-  const message = `*KLLASIK WARDROBE — ORDER NOTIFICATION*
+  const message = `*KLASIK WARDROBE — ORDER NOTIFICATION*
 ----------------------------------------
 *Order Ref:* ${orderRef}
 *Date:* ${dateStr}
@@ -57,7 +57,7 @@ ${itemsText}
 
 *BANK DETAILS FOR TRANSFER*
 • Bank: ${bankDetails.bankName || 'OPay / Paycom'}
-• Account Name: ${bankDetails.accountName || 'KLLASIK WARDROBE'}
+• Account Name: ${bankDetails.accountName || 'KLASIK WARDROBE'}
 • Account Number: ${bankDetails.accountNumber || '7075039738'}
 
 ----------------------------------------

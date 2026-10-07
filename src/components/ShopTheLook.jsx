@@ -13,7 +13,7 @@ export function ShopTheLook() {
   const lookItems = [
     {
       id: 'kwt-01',
-      title: 'Klassic Never Heavyweight Noir',
+      title: 'Klasik Never Heavyweight Noir',
       tag: 'Noir Edition',
       price: 30000,
       image: '/images/hero-tee-black.png',
@@ -23,7 +23,7 @@ export function ShopTheLook() {
     },
     {
       id: 'kwt-02',
-      title: 'Klassic Signature Heavyweight Purple',
+      title: 'Klasik Signature Heavyweight Purple',
       tag: 'Purple Edition',
       price: 35000,
       image: '/images/hero-tee-purple.png',
@@ -33,7 +33,7 @@ export function ShopTheLook() {
     },
     {
       id: 'kwt-03',
-      title: 'Klassic Executive Silk-Cotton White',
+      title: 'Klasik Executive Silk-Cotton White',
       tag: 'Silk Edition',
       price: 40000,
       image: '/images/hero-tee-white.png',

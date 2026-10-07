@@ -1,6 +1,6 @@
 export const metadata = {
-  title: 'Admin Dashboard | Kllasik Wardrobe',
-  description: 'Manage store orders, products, and inventory for Kllasik Wardrobe.',
+  title: 'Admin Dashboard | Klasik Wardrobe',
+  description: 'Manage store orders, products, and inventory for Klasik Wardrobe.',
 };
 
 export default function AdminLayout({ children }) {

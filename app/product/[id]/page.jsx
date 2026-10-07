@@ -101,10 +101,10 @@ export default async function ProductPage({ params }) {
               {formattedProduct.title}
             </h1>
 
-            {/* Brand Row: "Kllasik Wardrobe" with verified tick and Following pill */}
+            {/* Brand Row: "Klasik Wardrobe" with verified tick and Following pill */}
             <div className="flex items-center gap-2 mb-3">
               <span className="font-sans text-xs sm:text-sm font-semibold text-[#111111]">
-                Kllasik Wardrobe
+                Klasik Wardrobe
               </span>
               <CheckCircle className="w-4 h-4 fill-[#7C3AED] text-white" />
               <span className="bg-[#111111] text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-full select-none">

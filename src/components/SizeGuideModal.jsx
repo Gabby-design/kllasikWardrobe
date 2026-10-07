@@ -52,11 +52,11 @@ export function SizeGuideModal({
           </div>
 
           <h2 className="font-sans text-xl sm:text-2xl font-bold tracking-tight text-[#111111] mb-2">
-            Kllasik Silhouette Measurements
+            Klasik Silhouette Measurements
           </h2>
           
           <p className="font-sans text-xs sm:text-sm text-gray-500 leading-relaxed mb-6">
-            All Kllasik pieces are constructed with an intentional oversized dropped-shoulder drape. Stay true to size for a relaxed luxury streetwear fit, or size down for a more tailored silhouette.
+            All Klasik pieces are constructed with an intentional oversized dropped-shoulder drape. Stay true to size for a relaxed luxury streetwear fit, or size down for a more tailored silhouette.
           </p>
 
           {/* Sizing Matrix Table */}

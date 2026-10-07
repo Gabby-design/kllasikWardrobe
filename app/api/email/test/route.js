@@ -19,7 +19,7 @@ export async function GET(request) {
       orderId: 'TEST-' + Math.floor(100000 + Math.random() * 900000),
       items: [
         {
-          title: 'Signature Classic Oversized Hoodie (TEST EMAIL)',
+          title: 'Signature Klasik Oversized Hoodie (TEST EMAIL)',
           size: 'XL',
           color: 'Washed Black',
           price: 35000,

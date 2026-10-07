@@ -1,4 +1,4 @@
-export function KlasikLogo({ height = 48, className = '', fill = 'currentColor', alt = 'Kllasik Wardrobe' }) {
+export function KlasikLogo({ height = 48, className = '', fill = 'currentColor', alt = 'Klasik Wardrobe' }) {
   const isLight = Boolean(
     fill && ['#f9f8f6', '#fff', '#ffffff', 'white', '#fafafa'].includes(String(fill).trim().toLowerCase())
   );

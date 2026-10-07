@@ -23,18 +23,10 @@ export async function POST(request) {
     const base = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
     const safeName = `product_${Date.now()}_${base}${ext}`;
 
-    // 1. Always write local copy to public/images for local fallback / zero broken links
-    const uploadDir = path.join(process.cwd(), 'public', 'images');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    const localFilePath = path.join(uploadDir, safeName);
-    fs.writeFileSync(localFilePath, buffer);
+    let finalImageUrl = null;
+    let storageBackend = 'memory';
 
-    let finalImageUrl = `/images/${safeName}`;
-    let storageBackend = 'local';
-
-    // 2. Upload to Supabase Storage backend ('products' bucket)
+    // 1. Attempt Supabase Storage backend ('products' bucket)
     try {
       const supabase = createAdminClient();
       if (supabase) {
@@ -60,6 +52,29 @@ export async function POST(request) {
       }
     } catch (supabaseErr) {
       console.warn('Supabase storage connection notice:', supabaseErr.message);
+    }
+
+    // 2. If Supabase storage is not available, try writing local copy to public/images
+    if (!finalImageUrl) {
+      try {
+        const uploadDir = path.join(process.cwd(), 'public', 'images');
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        const localFilePath = path.join(uploadDir, safeName);
+        fs.writeFileSync(localFilePath, buffer);
+        finalImageUrl = `/images/${safeName}`;
+        storageBackend = 'local';
+      } catch (fsErr) {
+        console.warn('Local FS write skipped (read-only environment):', fsErr.message);
+      }
+    }
+
+    // 3. Guaranteed fallback: Convert buffer to base64 Data URI
+    if (!finalImageUrl) {
+      const mime = file.type || 'image/jpeg';
+      finalImageUrl = `data:${mime};base64,${buffer.toString('base64')}`;
+      storageBackend = 'inline-data';
     }
 
     return NextResponse.json({

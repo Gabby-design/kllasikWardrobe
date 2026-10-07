@@ -5,8 +5,8 @@ import { Footer } from '../src/components/Footer';
 import { Analytics } from '@vercel/analytics/react';
 
 export const metadata = {
-  title: 'Kllasik Wardrobe | Heavyweight Luxury Streetwear Essentials',
-  description: "Nigeria's premier luxury streetwear house by Kllasik Wardrobe. Crafted from 240–300 GSM organic cotton and mulberry silk essentials.",
+  title: 'Klasik Wardrobe | Heavyweight Luxury Streetwear Essentials',
+  description: "Nigeria's premier luxury streetwear house by Klasik Wardrobe. Crafted from 240–300 GSM organic cotton and mulberry silk essentials.",
 };
 
 export default function RootLayout({ children }) {

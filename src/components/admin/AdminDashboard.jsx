@@ -55,13 +55,13 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
 
   // Preset Image Options for quick selection
   const presetImages = [
+    { name: 'Wonderland Crochet Shirt', url: '/images/wonderland-shirt-front.jpg' },
+    { name: 'Wonderland Texture Detail', url: '/images/wonderland-shirt-detail.jpg' },
     { name: 'Raw Indigo Jeans', url: '/images/jeans-raw-indigo.jpg' },
     { name: 'Washed Black Jeans', url: '/images/jeans-washed-black.jpg' },
     { name: 'Vintage Denim Jorts', url: '/images/short-jeans-jorts.jpg' },
     { name: 'Linen Beach Pants', url: '/images/beach-pants-linen.jpg' },
     { name: 'Noir Black Tee', url: '/images/hero-tee-black.png' },
-    { name: 'Never Noir Graphic', url: '/images/media__1786369656046.jpg' },
-    { name: 'Mindset Vintage Boxy', url: '/images/media__1786370258071_2.jpg' },
     { name: 'Dark Cat Silhouette', url: '/images/media__1786369649479.jpg' },
   ];
 

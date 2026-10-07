@@ -84,6 +84,8 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
 
   // Preset Image Options for quick selection
   const presetImages = [
+    { name: 'Denim Collar Shirt Front', url: '/images/linen-denim-collar-shirt-front.jpg' },
+    { name: 'Denim Collar Detail', url: '/images/linen-denim-collar-shirt-detail.jpg' },
     { name: 'Blue Striped Shirt Front', url: '/images/stripe-shirt-blue-front.jpg' },
     { name: 'Blue Striped Fabric Detail', url: '/images/stripe-shirt-blue-detail.jpg' },
     { name: 'Wonderland Crochet Shirt', url: '/images/wonderland-shirt-front.jpg' },

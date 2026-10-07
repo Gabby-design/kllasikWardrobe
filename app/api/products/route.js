@@ -29,25 +29,32 @@ export async function GET(request) {
 
         if (!error && data && data.length > 0) {
           // Merge supabase products if any exist
-          const dbItems = data.map((p) => ({
-            id: p.id,
-            name: p.name || p.title,
-            title: p.name || p.title,
-            price: Number(p.price),
-            description: p.description,
-            stock: p.stock !== undefined ? p.stock : 10,
-            image: p.image_url || '/images/media__1786369656046.jpg',
-            fallbackImage: p.image_url || '/images/media__1786369656046.jpg',
-            gallery: p.image_url ? [p.image_url] : ['/images/media__1786369656046.jpg'],
-            brand: p.brand || 'Klasik Wardrobe',
-            category: p.category || 'T-Shirts',
-            gsm: p.gsm || '240 GSM Heavyweight',
-            material: p.material || '100% Combed Organic Cotton',
-            fit: p.fit || 'Oversized Drop-Shoulder',
-            sizes: p.sizes || ['S', 'M', 'L', 'XL', 'XXL'],
-            colors: p.color ? [{ name: p.color, hex: '#111111' }] : [{ name: 'Obsidian Black', hex: '#111111' }],
-            tag: p.tag || 'New Drop'
-          }));
+          const dbItems = data.map((p) => {
+            const staticMatch = products.find(sp => sp.id === p.id);
+            return {
+              id: p.id,
+              name: p.name || p.title || staticMatch?.title,
+              title: p.name || p.title || staticMatch?.title,
+              price: Number(p.price || staticMatch?.price || 0),
+              description: p.description || staticMatch?.description,
+              stock: p.stock !== undefined ? p.stock : (staticMatch?.stock ?? 10),
+              image: p.image_url || staticMatch?.image || '/images/media__1786369656046.jpg',
+              fallbackImage: p.image_url || staticMatch?.fallbackImage || '/images/media__1786369656046.jpg',
+              gallery: (Array.isArray(p.gallery) && p.gallery.length > 0)
+                ? p.gallery 
+                : (staticMatch?.gallery || (p.image_url ? [p.image_url] : ['/images/media__1786369656046.jpg'])),
+              brand: p.brand || staticMatch?.brand || 'Klasik Wardrobe',
+              category: p.category || staticMatch?.category || 'T-Shirts',
+              gsm: p.gsm || staticMatch?.gsm || '240 GSM Heavyweight',
+              material: p.material || staticMatch?.material || '100% Combed Organic Cotton',
+              fit: p.fit || staticMatch?.fit || 'Oversized Drop-Shoulder',
+              sizes: p.sizes || staticMatch?.sizes || ['S', 'M', 'L', 'XL', 'XXL'],
+              colors: p.color 
+                ? [{ name: p.color, hex: '#111111' }] 
+                : (staticMatch?.colors || [{ name: 'Obsidian Black', hex: '#111111' }]),
+              tag: p.tag || staticMatch?.tag || 'New Drop'
+            };
+          });
           const existingIds = new Set(dbItems.map(d => d.id));
           products = [...dbItems, ...products.filter(p => !existingIds.has(p.id))];
         }

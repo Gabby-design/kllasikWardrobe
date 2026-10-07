@@ -1,6 +1,7 @@
 import { createClient } from '../../../utils/supabase/server';
 import { notFound } from 'next/navigation';
 import AddToCartSection from './AddToCartSection';
+import ProductGallerySlider from './ProductGallerySlider';
 import { Navbar } from '../../../src/components/Navbar';
 import { CartDrawer } from '../../../src/components/CartDrawer';
 import { getAllProducts } from '../../../src/data/productsManager';
@@ -21,19 +22,22 @@ export default async function ProductPage({ params }) {
         .single();
 
       if (product) {
+        const staticMatch = getAllProducts().find(p => p.id === id);
         formattedProduct = {
           id: product.id,
           title: product.name,
           price: product.price,
           description: product.description,
-          gsm: product.gsm || '240 GSM Heavyweight',
-          material: product.material || '100% Combed Organic Cotton',
-          fit: product.fit || 'Oversized Drop-Shoulder',
-          image: product.image_url || '/images/media__1786369656046.jpg',
-          gallery: product.image_url ? [product.image_url] : ['/images/media__1786369656046.jpg'],
-          category: product.category || 'Essential',
-          sizes: ['S', 'M', 'L', 'XL', 'XXL'],
-          colors: [{ name: product.color || 'Standard', hex: '#111111' }]
+          gsm: product.gsm || staticMatch?.gsm || '240 GSM Heavyweight',
+          material: product.material || staticMatch?.material || '100% Combed Organic Cotton',
+          fit: product.fit || staticMatch?.fit || 'Oversized Drop-Shoulder',
+          image: product.image_url || staticMatch?.image || '/images/media__1786369656046.jpg',
+          gallery: (Array.isArray(product.gallery) && product.gallery.length > 0)
+            ? product.gallery
+            : (staticMatch?.gallery || (product.image_url ? [product.image_url] : ['/images/media__1786369656046.jpg'])),
+          category: product.category || staticMatch?.category || 'Essential',
+          sizes: product.sizes || staticMatch?.sizes || ['S', 'M', 'L', 'XL', 'XXL'],
+          colors: product.color ? [{ name: product.color, hex: '#111111' }] : (staticMatch?.colors || [{ name: 'Standard', hex: '#111111' }])
         };
       }
     }
@@ -75,39 +79,13 @@ export default async function ProductPage({ params }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           
-          {/* Left Column: Large Rounded Image Showcase (6 Cols) */}
-          <div className="lg:col-span-6 flex flex-col items-center">
-            <div className="w-full bg-[#EDEDEF] aspect-[4/5] rounded-[24px] overflow-hidden p-3 sm:p-4 shadow-[0_8px_24px_rgba(17,17,17,0.06)] relative group flex items-center justify-center touch-pan-y">
-              <img 
-                src={formattedProduct.image} 
-                alt={formattedProduct.title} 
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover rounded-[20px] pointer-events-none select-none"
-                draggable={false}
-              />
-
-              {formattedProduct.tag && (
-                <span className="absolute top-4 left-4 bg-[#111111] text-white px-3 py-1 text-xs font-sans font-semibold rounded-full shadow-xs">
-                  {formattedProduct.tag}
-                </span>
-              )}
-            </div>
-
-            {/* Gallery Thumbnails */}
-            {gallery.length > 1 && (
-              <div className="flex gap-2 mt-4">
-                {gallery.map((imgUrl, i) => (
-                  <div key={i} className="w-14 h-16 rounded-[12px] bg-[#EDEDEF] p-1 overflow-hidden border border-black/[0.04]">
-                    <img 
-                      src={imgUrl} 
-                      alt={`View ${i + 1}`} 
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover rounded-[8px]" 
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+          {/* Left Column: Large Rounded Image Showcase (Slideable with hand, dots only, no buttons or scrollbar) */}
+          <div className="lg:col-span-6">
+            <ProductGallerySlider 
+              gallery={gallery} 
+              title={formattedProduct.title} 
+              tag={formattedProduct.tag} 
+            />
           </div>
 
           {/* Right Column: Garment Specs & Ordering Hub (6 Cols) */}

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { Heart, Plus, ArrowRight, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 
-function CardImageSlider({ 
+function CardImageDisplay({ 
   images = [], 
   title, 
   onOpenDetails, 
@@ -13,81 +13,14 @@ function CardImageSlider({
   isFavorited, 
   onToggleWishlist 
 }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollRef = useRef(null);
-  const touchStartPos = useRef({ x: 0, y: 0, time: 0 });
-  const hasMoved = useRef(false);
-
   const displayImages = images && images.length > 0 ? images : ['/images/media__1786369656046.jpg'];
-
-  const handleScroll = (e) => {
-    const el = e.currentTarget;
-    if (!el) return;
-    const scrollLeft = el.scrollLeft;
-    const width = el.offsetWidth || 1;
-    const index = Math.round(scrollLeft / width);
-    if (index !== currentIndex && index >= 0 && index < displayImages.length) {
-      setCurrentIndex(index);
-    }
-  };
-
-  const handleTouchStart = (e) => {
-    touchStartPos.current = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
-      time: Date.now()
-    };
-    hasMoved.current = false;
-  };
-
-  const handleTouchMove = (e) => {
-    const dx = Math.abs(e.touches[0].clientX - touchStartPos.current.x);
-    const dy = Math.abs(e.touches[0].clientY - touchStartPos.current.y);
-    if (dx > 8 || dy > 8) {
-      hasMoved.current = true;
-    }
-  };
-
-  const handleTouchEnd = () => {
-    const elapsed = Date.now() - touchStartPos.current.time;
-    if (!hasMoved.current && elapsed < 350) {
-      onOpenDetails?.();
-    }
-  };
-
-  const scrollToIndex = (idx, e) => {
-    e?.stopPropagation();
-    if (scrollRef.current) {
-      const width = scrollRef.current.offsetWidth;
-      scrollRef.current.scrollTo({
-        left: idx * width,
-        behavior: 'smooth'
-      });
-      setCurrentIndex(idx);
-    }
-  };
-
-  const prevImage = (e) => {
-    e.stopPropagation();
-    if (currentIndex > 0) scrollToIndex(currentIndex - 1);
-  };
-
-  const nextImage = (e) => {
-    e.stopPropagation();
-    if (currentIndex < displayImages.length - 1) scrollToIndex(currentIndex + 1);
-  };
+  const primaryImage = displayImages[0];
+  const hasMultipleImages = displayImages.length > 1;
 
   return (
     <div 
-      className="relative w-full aspect-[4/5] rounded-[20px] bg-[#EDEDEF] overflow-hidden select-none group/slider"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onClick={(e) => {
-        if (!hasMoved.current) {
-          onOpenDetails?.();
-        }
-      }}
+      className="relative w-full aspect-[4/5] rounded-[20px] bg-[#EDEDEF] overflow-hidden select-none group/card cursor-pointer"
+      onClick={onOpenDetails}
     >
       {/* Top-Left: Small tag pill */}
       {tagText && (
@@ -100,7 +33,10 @@ function CardImageSlider({
       <button
         type="button"
         aria-label="Save to Wishlist"
-        onClick={onToggleWishlist}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleWishlist?.(e);
+        }}
         className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 w-8 h-8 rounded-full bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)] flex items-center justify-center text-gray-400 hover:text-[#7C3AED] active:scale-90 transition-all z-30 cursor-pointer"
       >
         <Heart 
@@ -119,78 +55,33 @@ function CardImageSlider({
         </div>
       )}
 
-      {/* Horizontal Scrollable Slider on touch/drag */}
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-none overscroll-x-contain touch-pan-x"
-        style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
-      >
-        {displayImages.map((imgUrl, idx) => (
-          <div
-            key={idx}
-            className="w-full h-full flex-shrink-0 snap-center snap-always relative overflow-hidden"
-          >
-            <img
-              src={imgUrl}
-              alt={`${title} - view ${idx + 1}`}
-              loading={idx === 0 ? 'eager' : 'lazy'}
-              draggable="false"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 pointer-events-none select-none"
-            />
-          </div>
-        ))}
+      {/* Primary Static Image (Non-slideable in catalog grid) */}
+      <div className="w-full h-full relative overflow-hidden">
+        <img
+          src={primaryImage}
+          alt={title}
+          loading="lazy"
+          draggable="false"
+          className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500 pointer-events-none select-none"
+        />
       </div>
 
-      {/* Desktop / Tablet Hover Arrows (hidden on touch phones) */}
-      {displayImages.length > 1 && (
-        <>
-          {currentIndex > 0 && (
-            <button
-              type="button"
-              onClick={prevImage}
-              aria-label="Previous view"
-              className="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/80 hover:bg-white text-[#111111] shadow-xs items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-opacity z-20 cursor-pointer"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-          )}
-          {currentIndex < displayImages.length - 1 && (
-            <button
-              type="button"
-              onClick={nextImage}
-              aria-label="Next view"
-              className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white/80 hover:bg-white text-[#111111] shadow-xs items-center justify-center opacity-0 group-hover/slider:opacity-100 transition-opacity z-20 cursor-pointer"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </>
-      )}
-
-      {/* Mobile Swipe Pagination Dots Indicator */}
-      {displayImages.length > 1 && (
-        <div className="absolute bottom-2 inset-x-0 flex items-center justify-center gap-1 z-20 pointer-events-none">
-          <div className="flex items-center gap-1 bg-black/35 backdrop-blur-[4px] px-2 py-0.5 rounded-full">
-            {displayImages.map((_, i) => (
+      {/* Multiple Images Indicator: 3 dots showing additional views exist inside */}
+      {hasMultipleImages && (
+        <div className="absolute bottom-2.5 inset-x-0 flex items-center justify-center z-20 pointer-events-none">
+          <div className="flex items-center gap-1.5 bg-black/45 backdrop-blur-[4px] px-2.5 py-1 rounded-full">
+            {[0, 1, 2].slice(0, Math.min(Math.max(displayImages.length, 3), 3)).map((idx) => (
               <span
-                key={i}
-                className={`transition-all duration-300 rounded-full ${
-                  currentIndex === i
-                    ? 'w-3.5 h-1 bg-white'
-                    : 'w-1 h-1 bg-white/50'
+                key={idx}
+                className={`rounded-full transition-all ${
+                  idx === 0
+                    ? 'w-2 h-2 bg-white'
+                    : 'w-1.5 h-1.5 bg-white/60'
                 }`}
               />
             ))}
           </div>
         </div>
-      )}
-
-      {/* Count pill e.g. 1/4 */}
-      {displayImages.length > 1 && (
-        <span className="absolute bottom-2 right-2 text-[9px] font-bold text-white bg-black/40 backdrop-blur-[4px] px-1.5 py-0.5 rounded-full z-20 pointer-events-none">
-          {currentIndex + 1}/{displayImages.length}
-        </span>
       )}
     </div>
   );
@@ -386,8 +277,8 @@ export function ProductGrid({
                   
                   {/* Top: Image sits in a grey (#EDEDEF) rounded box with 20px radius, aspect ratio ~4:5 */}
                   <div>
-                    {/* Top: Swipeable/Scrollable Image Gallery (3-5 detail shots) */}
-                    <CardImageSlider
+                    {/* Top: Card Image with multi-image indicator dots (non-slideable in catalog) */}
+                    <CardImageDisplay
                       images={product.gallery && product.gallery.length > 0 ? product.gallery : [currentImage || product.image]}
                       title={product.title}
                       tagText={tagText}

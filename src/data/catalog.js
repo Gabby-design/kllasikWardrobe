@@ -12,7 +12,7 @@ export const PRODUCTS = [
     gsm: '260 GSM Textured Knit',
     material: '100% Textured Pointelle Cotton',
     fit: 'Relaxed Camp-Collar Fit',
-    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+    sizes: ['M'],
     colors: [
       { name: 'Ecru Cream', hex: '#fdfbf7' },
     ],

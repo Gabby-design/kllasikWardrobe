@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, X, CheckCircle, Plus, Minus, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
@@ -16,9 +16,19 @@ export function QuickViewModal({
   handleAddToCart
 }) {
   const [quantity, setQuantity] = useState(1);
+  const [activeSlideIdx, setActiveSlideIdx] = useState(0);
+  const galleryScrollRef = useRef(null);
+
+  const gallery = quickViewProduct?.gallery && quickViewProduct.gallery.filter(Boolean).length > 0 
+    ? quickViewProduct.gallery.filter(Boolean) 
+    : (quickViewProduct?.image ? [quickViewProduct.image] : []);
 
   useEffect(() => {
     setQuantity(1);
+    setActiveSlideIdx(0);
+    if (galleryScrollRef.current) {
+      galleryScrollRef.current.scrollLeft = 0;
+    }
     if (quickViewProduct) {
       const available = quickViewProduct.available_sizes || quickViewProduct.sizes || ['M', 'L', 'XL'];
       if (!available.includes(quickViewSize)) {
@@ -38,14 +48,36 @@ export function QuickViewModal({
     }
   }, [quickViewProduct]);
 
+  // Slideable gallery swipe on mobile
+  const handleGalleryScroll = (e) => {
+    const el = e.currentTarget;
+    if (!el) return;
+    const width = el.offsetWidth || 1;
+    const idx = Math.round(el.scrollLeft / width);
+    if (idx !== activeSlideIdx && idx >= 0 && idx < gallery.length) {
+      setActiveSlideIdx(idx);
+      if (setQuickViewActiveImg && gallery[idx]) {
+        setQuickViewActiveImg(gallery[idx]);
+      }
+    }
+  };
+
+  const scrollToSlide = (idx) => {
+    if (galleryScrollRef.current) {
+      const width = galleryScrollRef.current.offsetWidth;
+      galleryScrollRef.current.scrollTo({
+        left: idx * width,
+        behavior: 'smooth'
+      });
+      setActiveSlideIdx(idx);
+      if (setQuickViewActiveImg && gallery[idx]) {
+        setQuickViewActiveImg(gallery[idx]);
+      }
+    }
+  };
+
   if (!quickViewProduct) return null;
 
-  const currentImage = quickViewActiveImg || quickViewProduct.image;
-  const gallery = quickViewProduct.gallery && quickViewProduct.gallery.filter(Boolean).length > 0 
-    ? quickViewProduct.gallery.filter(Boolean) 
-    : [quickViewProduct.image];
-
-  const activeIndex = gallery.indexOf(currentImage) >= 0 ? gallery.indexOf(currentImage) : 0;
   const totalPrice = (quickViewProduct.price || 0) * quantity;
 
   return (
@@ -72,31 +104,48 @@ export function QuickViewModal({
             <X className="w-4 h-4" />
           </button>
 
-          {/* Top/Left Column: Large Image with Carousel Dots (Fully scrollable with content) */}
-          <div className="w-full md:w-1/2 relative bg-[#EDEDEF] p-5 sm:p-7 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-black/[0.04] flex-shrink-0 touch-pan-y">
+          {/* Top/Left Column: Slideable Image Gallery with hand-swipe support, dots only, no prev/next button, no scrollbar */}
+          <div className="w-full md:w-1/2 relative bg-[#EDEDEF] p-5 sm:p-7 flex flex-col items-center justify-center border-b md:border-b-0 md:border-r border-black/[0.04] flex-shrink-0">
             
-            {/* Main Image Box: 20px radius */}
-            <div className="relative w-full max-w-xs aspect-[4/5] rounded-[20px] overflow-hidden bg-white shadow-soft flex items-center justify-center p-2 touch-pan-y">
-              <img
-                src={currentImage}
-                referrerPolicy="no-referrer"
-                alt={quickViewProduct.title}
-                className="w-full h-full object-cover rounded-[18px] pointer-events-none select-none"
-                draggable={false}
-              />
+            {/* Main Image Box: 20px radius, horizontal snap */}
+            <div className="relative w-full max-w-xs aspect-[4/5] rounded-[20px] overflow-hidden bg-white shadow-soft flex items-center justify-center p-2">
+              
+              {/* Touch-swipeable Gallery */}
+              <div
+                ref={galleryScrollRef}
+                onScroll={handleGalleryScroll}
+                className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-none overscroll-x-contain touch-pan-x"
+                style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+              >
+                {gallery.map((imgUrl, idx) => (
+                  <div
+                    key={idx}
+                    className="w-full h-full flex-shrink-0 snap-center snap-always relative overflow-hidden flex items-center justify-center"
+                  >
+                    <img
+                      src={imgUrl}
+                      referrerPolicy="no-referrer"
+                      alt={`${quickViewProduct.title} - angle ${idx + 1}`}
+                      className="w-full h-full object-cover rounded-[18px] pointer-events-none select-none"
+                      draggable={false}
+                    />
+                  </div>
+                ))}
+              </div>
 
+              {/* Tag pill */}
               {quickViewProduct.tag && (
-                <span className="absolute top-3 left-3 bg-[#111111] text-white px-2.5 py-0.5 text-[10px] font-semibold rounded-full shadow-xs">
+                <span className="absolute top-3 left-3 bg-[#111111] text-white px-2.5 py-0.5 text-[10px] font-semibold rounded-full shadow-xs pointer-events-none z-20">
                   {quickViewProduct.tag}
                 </span>
               )}
             </div>
 
-            {/* Carousel Dots Below Image */}
+            {/* Carousel Dots Below Image ONLY (No prev/next buttons, no scrollbar) */}
             {gallery.length > 1 && (
               <div className="flex items-center gap-1.5 mt-4 z-10">
-                {gallery.map((img, idx) => {
-                  const isActive = activeIndex === idx;
+                {gallery.map((_, idx) => {
+                  const isActive = activeSlideIdx === idx;
                   return (
                     <button
                       key={idx}
@@ -107,7 +156,7 @@ export function QuickViewModal({
                           ? 'w-6 h-2 bg-[#7C3AED] rounded-full'
                           : 'w-2 h-2 bg-gray-300 hover:bg-gray-400 rounded-full'
                       }`}
-                      onClick={() => setQuickViewActiveImg(img)}
+                      onClick={() => scrollToSlide(idx)}
                     />
                   );
                 })}

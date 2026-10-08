@@ -15,11 +15,13 @@ export default async function ProductPage({ params }) {
   try {
     const supabase = await createClient();
     if (supabase) {
-      const { data: product, error } = await supabase
+      const dbPromise = supabase
         .from('products')
         .select('*')
         .eq('id', id)
         .single();
+      const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ data: null, error: 'timeout' }), 400));
+      const { data: product } = await Promise.race([dbPromise, timeoutPromise]);
 
       if (product) {
         const staticMatch = getAllProducts().find(p => p.id === id);

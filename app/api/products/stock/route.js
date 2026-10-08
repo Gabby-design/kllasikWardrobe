@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { decrementProductStock, updateProductStock } from '../../../../src/data/productsManager.js';
+import { decrementProductStock, updateProductStock, getProductById, getAllProducts } from '../../../../src/data/productsManager.js';
 import { createAdminClient } from '../../../../utils/supabase/admin.js';
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +11,45 @@ const NO_CACHE_HEADERS = {
   'Pragma': 'no-cache',
   'Expires': '0',
 };
+
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const productId = searchParams.get('productId');
+
+    if (productId) {
+      const product = getProductById(productId);
+      if (!product) {
+        return NextResponse.json(
+          { success: false, error: 'Product not found' },
+          { status: 404, headers: NO_CACHE_HEADERS }
+        );
+      }
+      return NextResponse.json({
+        success: true,
+        productId,
+        stock: Number(product.stock !== undefined ? product.stock : 10),
+        isOutOfStock: Number(product.stock !== undefined ? product.stock : 10) <= 0,
+      }, { headers: NO_CACHE_HEADERS });
+    }
+
+    const all = getAllProducts();
+    const stockMap = {};
+    for (const p of all) {
+      stockMap[p.id] = Number(p.stock !== undefined ? p.stock : 10);
+    }
+
+    return NextResponse.json({
+      success: true,
+      stocks: stockMap,
+    }, { headers: NO_CACHE_HEADERS });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500, headers: NO_CACHE_HEADERS }
+    );
+  }
+}
 
 export async function POST(request) {
   try {

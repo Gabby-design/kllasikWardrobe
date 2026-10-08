@@ -226,4 +226,11 @@ export function decrementProductStock(productId, qty = 1) {
     console.error('Error decrementing product stock:', err);
     return null;
   }
+}export function getProductById(productId) {
+  try {
+    const all = getAllProducts();
+    return all.find((p) => p.id === productId) || null;
+  } catch {
+    return null;
+  }
 }

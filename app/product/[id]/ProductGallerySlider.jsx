@@ -1,11 +1,19 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
-export default function ProductGallerySlider({ gallery = [], title, tag }) {
+export default function ProductGallerySlider({ gallery = [], title, tag, selectedImage = null }) {
   const [activeSlideIdx, setActiveSlideIdx] = useState(0);
   const scrollRef = useRef(null);
   const displayImages = gallery && gallery.length > 0 ? gallery : ['/images/media__1786369656046.jpg'];
+
+  useEffect(() => {
+    if (!selectedImage) return;
+    const idx = displayImages.findIndex((img) => img === selectedImage);
+    if (idx !== -1) {
+      scrollToSlide(idx);
+    }
+  }, [selectedImage]);
 
   const handleScroll = (e) => {
     const el = e.currentTarget;

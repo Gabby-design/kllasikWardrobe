@@ -181,3 +181,49 @@ export function removeCustomProduct(productId) {
     return { success: false, error: err.message };
   }
 }
+
+export function updateProductStock(productId, newStock) {
+  try {
+    const all = getAllProducts();
+    const existing = all.find((p) => p.id === productId);
+    if (!existing) return null;
+    const oldStock = Number(existing.stock !== undefined ? existing.stock : 10);
+    const updated = {
+      ...existing,
+      stock: Math.max(0, Number(newStock)),
+      updatedAt: new Date().toISOString(),
+      isCustom: true,
+    };
+    saveCustomProduct(updated);
+    return { product: updated, previousStock: oldStock, newStock: updated.stock };
+  } catch (err) {
+    console.error('Error updating product stock:', err);
+    return null;
+  }
+}
+
+export function decrementProductStock(productId, qty = 1) {
+  try {
+    const all = getAllProducts();
+    const existing = all.find((p) => p.id === productId);
+    if (!existing) return null;
+    const oldStock = Number(existing.stock !== undefined ? existing.stock : 10);
+    const updatedStock = Math.max(0, oldStock - Number(qty));
+    const updated = {
+      ...existing,
+      stock: updatedStock,
+      updatedAt: new Date().toISOString(),
+      isCustom: true,
+    };
+    saveCustomProduct(updated);
+    return { 
+      product: updated, 
+      previousStock: oldStock, 
+      newStock: updatedStock,
+      wasLastUnit: oldStock === 1 && updatedStock === 0,
+    };
+  } catch (err) {
+    console.error('Error decrementing product stock:', err);
+    return null;
+  }
+}

@@ -6,6 +6,7 @@ import Link from 'next/link';
 
 function CardImageDisplay({ 
   images = [], 
+  selectedImage = null,
   title, 
   onOpenDetails, 
   isSoldOut, 
@@ -15,7 +16,7 @@ function CardImageDisplay({
 }) {
   const displayImages = images && images.length > 0 ? images : ['/images/media__1786369656046.jpg'];
   const [activeImgIdx, setActiveImgIdx] = useState(0);
-  const primaryImage = displayImages[activeImgIdx] || displayImages[0];
+  const primaryImage = selectedImage || displayImages[activeImgIdx] || displayImages[0];
   const hasMultipleImages = displayImages.length > 1;
 
   return (
@@ -294,6 +295,7 @@ export function ProductGrid({
                     {/* Top: Card Image with multi-image indicator dots (non-slideable in catalog) */}
                     <CardImageDisplay
                       images={product.gallery && product.gallery.length > 0 ? product.gallery : [currentImage || product.image]}
+                      selectedImage={currentImage}
                       title={product.title}
                       tagText={tagText}
                       isSoldOut={product.stock <= 0}
@@ -397,6 +399,9 @@ export function ProductGrid({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (handleSelectCardColor) handleSelectCardColor(product.id, color.name);
+                                  if (color.image && handleSelectCardImage) {
+                                    handleSelectCardImage(product.id, color.image);
+                                  }
                                 }}
                                 className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full border border-gray-200 transition-all cursor-pointer ${
                                   isSelected ? 'ring-2 ring-[#7C3AED] ring-offset-1' : 'opacity-80 hover:opacity-100'
@@ -418,14 +423,19 @@ export function ProductGrid({
 
                       <button
                         type="button"
-                        aria-label="Add to Bag"
+                        aria-label={product.stock <= 0 ? 'Out of Stock' : 'Add to Bag'}
                         disabled={product.stock <= 0}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (product.stock <= 0) return;
                           handleAddToCart(product, currentSize, currentColor);
                         }}
-                        className="w-8 h-8 rounded-full bg-[#7C3AED] hover:bg-[#6D28D9] text-white flex items-center justify-center shadow-xs active:scale-95 transition-all cursor-pointer"
+                        className={`w-8 h-8 rounded-full flex items-center justify-center shadow-xs transition-all ${
+                          product.stock <= 0
+                            ? 'bg-gray-300 text-gray-400 cursor-not-allowed opacity-50 pointer-events-none'
+                            : 'bg-[#7C3AED] hover:bg-[#6D28D9] text-white active:scale-95 cursor-pointer'
+                        }`}
+                        title={product.stock <= 0 ? 'Out of Stock' : 'Add to Bag'}
                       >
                         <Plus className="w-4 h-4 stroke-[2.5]" />
                       </button>

@@ -8,10 +8,15 @@ import ProductGallerySlider from './ProductGallerySlider';
 import { Navbar } from '../../../src/components/Navbar';
 import { CartDrawer } from '../../../src/components/CartDrawer';
 import { getSingleStoredProduct, getStoredRemovedProductIds, subscribeToProductChanges } from '../../../src/utils/productSync';
+import toast from 'react-hot-toast';
 
 export default function ProductPageClient({ initialProduct }) {
   const [product, setProduct] = useState(initialProduct);
   const [isRemoved, setIsRemoved] = useState(false);
+  const [selectedColor, setSelectedColor] = useState(() => {
+    return initialProduct?.colors?.[0]?.name || initialProduct?.colors?.[0] || 'Standard';
+  });
+  const [selectedImage, setSelectedImage] = useState(null);
 
   useEffect(() => {
     function syncProduct() {
@@ -36,8 +41,22 @@ export default function ProductPageClient({ initialProduct }) {
 
     syncProduct();
 
-    const unsubscribe = subscribeToProductChanges(() => {
-      syncProduct();
+    const unsubscribe = subscribeToProductChanges((event) => {
+      if (event?.productId === initialProduct.id) {
+        if (event?.type === 'out_of_stock_alert') {
+          setProduct((prev) => ({ ...prev, stock: 0 }));
+          toast.error(
+            `Notice: Another customer just ordered the last piece of "${initialProduct.title}". It is now Sold Out.`,
+            { id: `oos-${initialProduct.id}`, duration: 6000 }
+          );
+        } else if (event?.extra?.newStock !== undefined) {
+          setProduct((prev) => ({ ...prev, stock: event.extra.newStock }));
+        } else {
+          syncProduct();
+        }
+      } else {
+        syncProduct();
+      }
     });
 
     return () => unsubscribe();
@@ -96,6 +115,7 @@ export default function ProductPageClient({ initialProduct }) {
               gallery={gallery} 
               title={product.title} 
               tag={product.tag} 
+              selectedImage={selectedImage}
             />
           </div>
 
@@ -168,7 +188,13 @@ export default function ProductPageClient({ initialProduct }) {
             </div>
 
             {/* Add To Cart & Quantity Section */}
-            <AddToCartSection product={product} />
+            <AddToCartSection 
+              product={product} 
+              selectedColor={selectedColor}
+              setSelectedColor={setSelectedColor}
+              onSelectImage={setSelectedImage}
+              onStockClaimed={() => setProduct((prev) => ({ ...prev, stock: 0 }))}
+            />
             
             {/* Value Guarantees List */}
             <div className="mt-8 pt-5 border-t border-black/[0.04] flex flex-col gap-2.5 font-sans text-xs text-gray-500">

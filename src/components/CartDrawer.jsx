@@ -1,12 +1,15 @@
 "use client";
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '../store/cartStore';
 import { useRouter } from 'next/navigation';
-import { ShoppingBag, X, Plus, Minus, ArrowRight, Truck, ShieldCheck } from 'lucide-react';
+import { ShoppingBag, X, Plus, Minus, ArrowRight, Truck, ShieldCheck, AlertTriangle, Trash2 } from 'lucide-react';
+import { getSingleStoredProduct, subscribeToProductChanges } from '../utils/productSync';
+import toast from 'react-hot-toast';
 
 export function CartDrawer() {
-  const { cart, isCartOpen, setIsCartOpen, updateCartQty, cartSubtotal, cartItemCount } = useCartStore();
+  const { cart, isCartOpen, setIsCartOpen, updateCartQty, removeFromCart, cartSubtotal, cartItemCount } = useCartStore();
+  const [syncTick, setSyncTick] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -19,12 +22,36 @@ export function CartDrawer() {
     }
   }, [isCartOpen]);
 
+  useEffect(() => {
+    const unsubscribe = subscribeToProductChanges(() => {
+      setSyncTick((t) => t + 1);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const subtotal = cartSubtotal ? cartSubtotal() : 0;
   const isFreeShipping = subtotal >= 200000;
   const shippingProgress = Math.min(100, (subtotal / 200000) * 100);
   const formatPrice = (amount) => `₦${Number(amount || 0).toLocaleString('en-US')}`;
 
+  // Check if any cart items are out of stock
+  const cartWithStockStatus = cart.map((item) => {
+    const stored = getSingleStoredProduct(item.id);
+    const currentStock = stored?.stock !== undefined ? Number(stored.stock) : (item.stock !== undefined ? Number(item.stock) : 10);
+    return {
+      ...item,
+      isSoldOut: currentStock <= 0,
+      currentStock,
+    };
+  });
+
+  const hasSoldOutItems = cartWithStockStatus.some((i) => i.isSoldOut);
+
   const handleCheckout = () => {
+    if (hasSoldOutItems) {
+      toast.error('Please remove sold out piece(s) from your bag before checking out.', { duration: 4000 });
+      return;
+    }
     setIsCartOpen(false);
     router.push('/checkout');
   };
@@ -87,7 +114,7 @@ export function CartDrawer() {
 
             {/* Cart Items List */}
             <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col divide-y divide-black/[0.04] custom-scrollbar">
-              {cart.length === 0 ? (
+              {cartWithStockStatus.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center py-20">
                   <div className="w-16 h-16 rounded-full bg-[#EDEDEF] flex items-center justify-center mb-4">
                     <ShoppingBag className="w-6 h-6 text-[#7C3AED]" />
@@ -107,9 +134,9 @@ export function CartDrawer() {
                   </button>
                 </div>
               ) : (
-                cart.map((item, idx) => (
-                  <div key={`${item.id}-${item.size}-${item.color}`} className="py-4 flex gap-4">
-                    <div className="w-20 h-24 flex-shrink-0 bg-[#EDEDEF] rounded-[16px] overflow-hidden p-1">
+                cartWithStockStatus.map((item, idx) => (
+                  <div key={`${item.id}-${item.size}-${item.color}`} className={`py-4 flex gap-4 ${item.isSoldOut ? 'opacity-85' : ''}`}>
+                    <div className="w-20 h-24 flex-shrink-0 bg-[#EDEDEF] rounded-[16px] overflow-hidden p-1 relative">
                       {item.image ? (
                         <img 
                           src={item.image} 
@@ -120,6 +147,13 @@ export function CartDrawer() {
                       ) : (
                         <div className="w-full h-full flex items-center justify-center font-sans text-xs text-gray-400">
                           KLASIK
+                        </div>
+                      )}
+                      {item.isSoldOut && (
+                        <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
+                          <span className="bg-[#111111] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">
+                            Sold Out
+                          </span>
                         </div>
                       )}
                     </div>
@@ -136,26 +170,44 @@ export function CartDrawer() {
                           <span>&bull;</span>
                           <span className="truncate">{item.color}</span>
                         </div>
+
+                        {item.isSoldOut && (
+                          <div className="mt-1.5 flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 border border-red-200/80 px-2 py-0.5 rounded-full w-fit">
+                            <AlertTriangle className="w-3 h-3 text-red-500 shrink-0" />
+                            <span>Sold Out &bull; Claimed by another shopper</span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center bg-[#EDEDEF] rounded-full px-2 py-1 gap-2">
-                          <button 
-                            className="text-gray-600 hover:text-[#111111] transition-colors p-1 cursor-pointer" 
-                            onClick={() => updateCartQty(idx, -1)}
-                            aria-label="Decrease quantity"
+                        {item.isSoldOut ? (
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(idx)}
+                            className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-full transition-colors cursor-pointer"
                           >
-                            <Minus className="w-3 h-3" />
+                            <Trash2 className="w-3 h-3" />
+                            <span>Remove</span>
                           </button>
-                          <span className="font-sans text-xs font-bold w-4 text-center text-[#111111]">{item.quantity}</span>
-                          <button 
-                            className="text-gray-600 hover:text-[#111111] transition-colors p-1 cursor-pointer" 
-                            onClick={() => updateCartQty(idx, 1)}
-                            aria-label="Increase quantity"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                        </div>
+                        ) : (
+                          <div className="flex items-center bg-[#EDEDEF] rounded-full px-2 py-1 gap-2">
+                            <button 
+                              className="text-gray-600 hover:text-[#111111] transition-colors p-1 cursor-pointer" 
+                              onClick={() => updateCartQty(idx, -1)}
+                              aria-label="Decrease quantity"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="font-sans text-xs font-bold w-4 text-center text-[#111111]">{item.quantity}</span>
+                            <button 
+                              className="text-gray-600 hover:text-[#111111] transition-colors p-1 cursor-pointer" 
+                              onClick={() => updateCartQty(idx, 1)}
+                              aria-label="Increase quantity"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
 
                         <span className="font-sans text-sm font-bold text-[#111111]">
                           {formatPrice(item.price * item.quantity)}
@@ -170,6 +222,13 @@ export function CartDrawer() {
             {/* Footer Summary & Checkout Trigger */}
             {cart.length > 0 && (
               <div className="px-6 py-5 border-t border-black/[0.04] bg-white shadow-lg">
+                {hasSoldOutItems && (
+                  <div className="mb-3.5 p-3 bg-red-50 border border-red-200/90 rounded-[14px] flex items-start gap-2.5 text-xs text-red-700 font-semibold">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+                    <span>One or more pieces in your bag just sold out to another customer. Please remove them before proceeding.</span>
+                  </div>
+                )}
+
                 <div className="flex flex-col gap-2 mb-4 font-sans text-xs">
                   <div className="flex justify-between text-gray-500">
                     <span>Subtotal</span>
@@ -189,11 +248,14 @@ export function CartDrawer() {
 
                 <button
                   type="button"
-                  className="w-full bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-sans text-xs sm:text-sm font-bold py-3.5 px-6 rounded-full transition-all duration-300 flex items-center justify-center gap-2 shadow-md active:scale-[0.98] cursor-pointer group"
+                  disabled={hasSoldOutItems}
+                  className={`w-full bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-sans text-xs sm:text-sm font-bold py-3.5 px-6 rounded-full transition-all duration-300 flex items-center justify-center gap-2 shadow-md active:scale-[0.98] cursor-pointer group ${
+                    hasSoldOutItems ? 'bg-gray-400 hover:bg-gray-400 opacity-60 cursor-not-allowed' : ''
+                  }`}
                   onClick={handleCheckout}
                 >
-                  <span>Proceed to Checkout</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  <span>{hasSoldOutItems ? 'Remove Sold-Out Pieces to Continue' : 'Proceed to Checkout'}</span>
+                  {!hasSoldOutItems && <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />}
                 </button>
 
                 <div className="flex items-center justify-center gap-2 mt-3 font-sans text-[11px] text-gray-400">

@@ -28,9 +28,11 @@ import {
   Minus,
   CheckCircle2,
   Send,
-  Building2
+  Building2,
+  AlertTriangle
 } from 'lucide-react';
 import { getWhatsAppOrderLink } from '../../src/utils/whatsapp';
+import { getSingleStoredProduct, decrementStoredProductStock, subscribeToProductChanges } from '../../src/utils/productSync';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -40,6 +42,7 @@ export default function CheckoutPage() {
   const [copied, setCopied] = useState(false);
   const [checkoutMode, setCheckoutMode] = useState(null); // null | 'whatsapp' | 'website'
   const [orderNotes, setOrderNotes] = useState('');
+  const [syncTick, setSyncTick] = useState(0);
 
   // Verified Bank details
   const bankDetails = {
@@ -52,6 +55,13 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToProductChanges(() => {
+      setSyncTick((t) => t + 1);
+    });
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -79,6 +89,18 @@ export default function CheckoutPage() {
 
   // Option 1: Direct WhatsApp Checkout with complete customer & delivery details
   const handleWhatsAppCheckout = () => {
+    // Check if any cart item is sold out
+    const soldOutItem = cart.find((item) => {
+      const sp = getSingleStoredProduct(item.id);
+      const stock = sp?.stock !== undefined ? Number(sp.stock) : (item.stock !== undefined ? Number(item.stock) : 10);
+      return stock <= 0;
+    });
+
+    if (soldOutItem) {
+      toast.error(`"${soldOutItem.title}" is out of stock (claimed by another customer). Please remove it from your bag.`, { duration: 5000 });
+      return;
+    }
+
     if (!customerForm.name || !customerForm.name.trim()) {
       toast.error('Please enter your full name in delivery details above.');
       const nameInput = document.getElementById('customer-name-input');
@@ -91,6 +113,11 @@ export default function CheckoutPage() {
       const addressInput = document.getElementById('customer-address-input');
       if (addressInput) addressInput.focus();
       return;
+    }
+
+    // Decrement stock and broadcast claims across all tabs
+    for (const item of cart) {
+      decrementStoredProductStock(item.id, item.quantity || 1, item);
     }
 
     const generatedOrderId = `KLASIK-${Date.now().toString().slice(-6)}`;
@@ -128,6 +155,18 @@ export default function CheckoutPage() {
   const handleWebsiteSubmit = async (e) => {
     e.preventDefault();
 
+    // Check if any cart item is sold out
+    const soldOutItem = cart.find((item) => {
+      const sp = getSingleStoredProduct(item.id);
+      const stock = sp?.stock !== undefined ? Number(sp.stock) : (item.stock !== undefined ? Number(item.stock) : 10);
+      return stock <= 0;
+    });
+
+    if (soldOutItem) {
+      toast.error(`"${soldOutItem.title}" is out of stock (claimed by another customer). Please remove it from your bag.`, { duration: 5000 });
+      return;
+    }
+
     if (!customerForm.name || !customerForm.name.trim()) {
       toast.error('Please enter your full name in delivery details above.');
       const nameInput = document.getElementById('customer-name-input');
@@ -160,6 +199,11 @@ export default function CheckoutPage() {
         return;
       }
 
+      // Decrement stock and broadcast claims across all tabs
+      for (const item of cart) {
+        decrementStoredProductStock(item.id, item.quantity || 1, item);
+      }
+
       const generatedOrderId = result.orderId || `KLASIK-${Date.now().toString().slice(-6)}`;
       const orderRecord = {
         orderId: generatedOrderId,
@@ -178,12 +222,19 @@ export default function CheckoutPage() {
       }
       
       toast.success('Order placed successfully!');
+      if (clearCart) clearCart();
       router.push('/success');
     } catch (error) {
       toast.error(error.message || 'Failed to place order.');
       setLoading(false);
     }
   };
+
+  const soldOutItem = cart.find((item) => {
+    const sp = getSingleStoredProduct(item.id);
+    const stock = sp?.stock !== undefined ? Number(sp.stock) : (item.stock !== undefined ? Number(item.stock) : 10);
+    return stock <= 0;
+  });
 
   if (!isMounted || !cart || cart.length === 0) {
     return (
@@ -218,6 +269,24 @@ export default function CheckoutPage() {
             </span>
           </div>
         </div>
+
+        {/* Sold Out Warning Banner */}
+        {soldOutItem && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200/90 rounded-[20px] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-red-700 font-semibold shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+              <span>
+                Urgent: &quot;{soldOutItem.title}&quot; in your bag just sold out to another customer. Please remove it from your bag before completing your order.
+              </span>
+            </div>
+            <Link
+              href="/"
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-bold shrink-0 transition-colors text-center"
+            >
+              Return to Store
+            </Link>
+          </div>
+        )}
 
         {/* Free Shipping Progress Pill Banner */}
         <div className="bg-white rounded-[20px] p-4 sm:p-5 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)] mb-6 sm:mb-8">

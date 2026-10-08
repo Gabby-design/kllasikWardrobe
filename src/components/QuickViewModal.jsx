@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, X, CheckCircle, Plus, Minus, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
+import { subscribeToProductChanges } from '../utils/productSync';
 
 export function QuickViewModal({
   quickViewProduct,
@@ -12,6 +13,7 @@ export function QuickViewModal({
   quickViewSize,
   setQuickViewSize,
   quickViewColor,
+  setQuickViewColor,
   formatPrice,
   handleAddToCart
 }) {
@@ -34,8 +36,29 @@ export function QuickViewModal({
       if (!available.includes(quickViewSize)) {
         setQuickViewSize(available[0] || 'M');
       }
+      if (setQuickViewColor && quickViewProduct.colors && quickViewProduct.colors.length > 0) {
+        const firstColor = quickViewProduct.colors[0]?.name || quickViewProduct.colors[0];
+        if (firstColor && (!quickViewColor || !quickViewProduct.colors.some(c => (c.name || c) === quickViewColor))) {
+          setQuickViewColor(firstColor);
+        }
+      }
     }
   }, [quickViewProduct]);
+
+  // Subscribe to real-time product updates (out of stock broadcast from other tabs)
+  useEffect(() => {
+    if (!quickViewProduct?.id) return;
+    const unsubscribe = subscribeToProductChanges((event) => {
+      if (event?.productId === quickViewProduct.id) {
+        if (event?.type === 'out_of_stock_alert') {
+          setQuickViewProduct((prev) => (prev ? { ...prev, stock: 0 } : null));
+        } else if (event?.extra?.newStock !== undefined) {
+          setQuickViewProduct((prev) => (prev ? { ...prev, stock: event.extra.newStock } : null));
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [quickViewProduct?.id]);
 
   // Lock body scroll when modal is open so 100% of gestures scroll the modal
   useEffect(() => {
@@ -227,6 +250,61 @@ export function QuickViewModal({
               <p className="font-sans text-xs sm:text-sm text-gray-600 leading-relaxed mb-5">
                 {quickViewProduct.description}
               </p>
+
+              {/* Available Colors Swatches */}
+              {quickViewProduct.colors && quickViewProduct.colors.length > 0 && (
+                <div className="mb-5">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="font-sans text-xs font-bold text-[#111111]">
+                      Available Color: <span className="text-[#7C3AED]">{quickViewColor || quickViewProduct.colors[0]?.name || 'Standard'}</span>
+                    </label>
+                    <span className="text-[11px] text-gray-400 font-sans">
+                      Verified Dye
+                    </span>
+                  </div>
+                  <div className="flex gap-2 flex-wrap items-center">
+                    {quickViewProduct.colors.map((colorObj, idx) => {
+                      const cName = typeof colorObj === 'string' ? colorObj : (colorObj.name || `Color ${idx + 1}`);
+                      const cHex = typeof colorObj === 'string' ? '#111111' : (colorObj.hex || '#111111');
+                      const cImg = typeof colorObj === 'object' ? colorObj.image : null;
+                      const activeColor = quickViewColor || quickViewProduct.colors[0]?.name || quickViewProduct.colors[0];
+                      const isSelected = activeColor === cName;
+
+                      return (
+                        <button
+                          key={cName + idx}
+                          type="button"
+                          onClick={() => {
+                            if (setQuickViewColor) setQuickViewColor(cName);
+                            if (cImg) {
+                              const imgIdx = gallery.findIndex((g) => g === cImg);
+                              if (imgIdx !== -1) {
+                                scrollToSlide(imgIdx);
+                              } else if (setQuickViewActiveImg) {
+                                setQuickViewActiveImg(cImg);
+                              }
+                            }
+                          }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border font-sans text-xs transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-[#7C3AED] bg-purple-50 text-[#7C3AED] font-bold shadow-xs ring-1 ring-[#7C3AED]'
+                              : 'border-black/[0.08] bg-[#EDEDEF]/60 text-gray-700 hover:border-gray-300 hover:bg-[#EDEDEF]'
+                          }`}
+                        >
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border border-black/10 shrink-0"
+                            style={{ backgroundColor: cHex }}
+                          />
+                          <span>{cName}</span>
+                          {cImg && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#7C3AED]" title="Includes photo angle" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Size Chips: 12px rounded squares */}
               <div className="mb-5">

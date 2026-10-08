@@ -221,19 +221,22 @@ export function mergeWithStoredProducts(baseProducts = []) {
   return [...brandNew, ...mergedBase];
 }
 
-export function broadcastProductChange(product, action = 'update') {
+export function broadcastProductChange(product, action = 'update', extraData = {}) {
   if (typeof window === 'undefined') return;
+
+  const payload = {
+    type: 'products_updated',
+    action,
+    product,
+    timestamp: Date.now(),
+    ...extraData,
+  };
 
   // 1. BroadcastChannel for cross-tab communication
   try {
     if ('BroadcastChannel' in window) {
       const channel = new BroadcastChannel(CHANNEL_NAME);
-      channel.postMessage({
-        type: 'products_updated',
-        action,
-        product,
-        timestamp: Date.now(),
-      });
+      channel.postMessage(payload);
       channel.close();
     }
   } catch (e) {}
@@ -242,10 +245,118 @@ export function broadcastProductChange(product, action = 'update') {
   try {
     window.dispatchEvent(
       new CustomEvent('klasik_products_updated', {
-        detail: { product, action, timestamp: Date.now() },
+        detail: payload,
       })
     );
   } catch (e) {}
+}
+
+export function broadcastStockAlert(product, previousStock = 1, message = '') {
+  broadcastProductChange(product, 'out_of_stock_alert', {
+    previousStock,
+    wasLastUnit: previousStock === 1,
+    message: message || `"${product.title || product.name}" (which had only 1 remaining a moment ago) was just claimed and is now Out of Stock.`,
+  });
+}
+
+export function decrementStoredProductStock(productId, quantity = 1, fallbackProduct = null) {
+  if (typeof window === 'undefined' || !productId) return null;
+  try {
+    const stored = getSingleStoredProduct(productId);
+    const target = stored || fallbackProduct;
+    if (!target) return null;
+
+    const currentStock = target.stock !== undefined ? Number(target.stock) : 10;
+    const newStock = Math.max(0, currentStock - Number(quantity || 1));
+    const wasLastUnit = currentStock === 1 && newStock === 0;
+
+    const updatedProduct = {
+      ...target,
+      stock: newStock,
+      updatedAt: new Date().toISOString(),
+    };
+
+    saveStoredCustomProduct(updatedProduct);
+
+    // Call server API in background to persist
+    try {
+      fetch('/api/products/stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId,
+          quantity,
+          action: 'decrement',
+        }),
+      }).catch(() => {});
+    } catch {}
+
+    if (wasLastUnit || newStock === 0) {
+      broadcastStockAlert(updatedProduct, currentStock);
+    } else {
+      broadcastProductChange(updatedProduct, 'stock_change', {
+        previousStock: currentStock,
+        newStock,
+      });
+    }
+
+    return {
+      success: true,
+      product: updatedProduct,
+      previousStock: currentStock,
+      newStock,
+      wasLastUnit,
+    };
+  } catch (err) {
+    console.error('Error decrementing stored product stock:', err);
+    return null;
+  }
+}
+
+export function updateStoredProductStock(productId, newStock, fallbackProduct = null) {
+  if (typeof window === 'undefined' || !productId) return null;
+  try {
+    const stored = getSingleStoredProduct(productId);
+    const target = stored || fallbackProduct;
+    if (!target) return null;
+
+    const currentStock = target.stock !== undefined ? Number(target.stock) : 10;
+    const finalStock = Math.max(0, Number(newStock ?? 0));
+
+    const updatedProduct = {
+      ...target,
+      stock: finalStock,
+      updatedAt: new Date().toISOString(),
+    };
+
+    saveStoredCustomProduct(updatedProduct);
+
+    try {
+      fetch('/api/products/stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId,
+          newStock: finalStock,
+          action: 'set',
+        }),
+      }).catch(() => {});
+    } catch {}
+
+    if (finalStock === 0) {
+      broadcastStockAlert(updatedProduct, currentStock);
+    } else {
+      broadcastProductChange(updatedProduct, 'stock_change', {
+        previousStock: currentStock,
+        newStock: finalStock,
+      });
+    }
+
+    return updatedProduct;
+  } catch (err) {
+    console.error('Error updating product stock:', err);
+    return null;
+  }
 }
 
 export function subscribeToProductChanges(onUpdate) {

@@ -11,7 +11,7 @@ import { Navbar } from '../src/components/Navbar';
 import { ProductGrid } from '../src/components/ProductGrid';
 import { BottomNav } from '../src/components/BottomNav';
 import { Sparkles, Search, SlidersHorizontal, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { mergeWithStoredProducts, subscribeToProductChanges } from '../src/utils/productSync.js';
+import { mergeWithStoredProducts, subscribeToProductChanges, decrementStoredProductStock } from '../src/utils/productSync.js';
 
 export default function HomePage() {
   const [dbProducts, setDbProducts] = useState(PRODUCTS);
@@ -62,8 +62,27 @@ export default function HomePage() {
     fetchProducts();
 
     // 2. Real-time subscription across tabs & on focus
-    const unsubscribe = subscribeToProductChanges(() => {
+    const unsubscribe = subscribeToProductChanges((data) => {
       fetchProducts();
+      // If someone ordered the last unit, immediately alert other users in real-time
+      if (data && (data.action === 'out_of_stock_alert' || data.wasLastUnit) && data.product) {
+        const pTitle = data.product.title || data.product.name || 'This piece';
+        toast.error(
+          `Notice: "${pTitle}" (which had only 1 remaining a moment ago) was just ordered and is now OUT OF STOCK!`,
+          { duration: 6000, id: `oos-${data.product.id}` }
+        );
+        // Also update local state immediately without waiting for fetch
+        setDbProducts((prev) =>
+          prev.map((p) => (p.id === data.product.id ? { ...p, stock: 0 } : p))
+        );
+        // If the out-of-stock product is currently opened in quick view, update it
+        setQuickViewProduct((current) => {
+          if (current && current.id === data.product.id) {
+            return { ...current, stock: 0 };
+          }
+          return current;
+        });
+      }
     });
 
     return () => {
@@ -84,7 +103,7 @@ export default function HomePage() {
     setSelectedCardSizes((prev) => ({ ...prev, [productId]: size }));
   };
 
-  const getSelectedColor = (product) => selectedCardColors[product.id] || product.colors[0]?.name;
+  const getSelectedColor = (product) => selectedCardColors[product.id] || product.colors?.[0]?.name;
 
   const handleSelectCardColor = (productId, colorName) => {
     setSelectedCardColors((prev) => ({ ...prev, [productId]: colorName }));
@@ -101,6 +120,29 @@ export default function HomePage() {
   };
 
   const handleAddToCart = (product, size = 'L', color = null) => {
+    const currentProd = dbProducts.find((p) => p.id === product.id) || product;
+    const currentStock = currentProd.stock !== undefined ? Number(currentProd.stock) : 10;
+
+    // If item is already sold out
+    if (currentStock <= 0) {
+      toast.error(
+        `Sorry! "${product.title}" is already out of stock. It had 1 remaining a few minutes ago, but another customer just ordered it.`,
+        { duration: 5000, id: `oos-attempt-${product.id}` }
+      );
+      return;
+    }
+
+    // If it's the last unit remaining (stock === 1), claim it immediately and alert other users
+    if (currentStock === 1) {
+      decrementStoredProductStock(product.id, 1, currentProd);
+      setDbProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, stock: 0 } : p))
+      );
+      addToCart(product, size, color);
+      toast.success(`You claimed the last remaining unit of "${product.title}" (${size})!`, { duration: 4000 });
+      return;
+    }
+
     addToCart(product, size, color);
     toast.success(`Added "${product.title}" (${size}) to your bag!`);
   };
@@ -108,7 +150,7 @@ export default function HomePage() {
   const handleBuyNow = (product) => {
     const size = getSelectedSize(product.id);
     const color = getSelectedColor(product);
-    addToCart(product, size, color);
+    handleAddToCart(product, size, color);
     setIsCartOpen(true);
   };
 

@@ -66,6 +66,13 @@ export const useCartStore = create(
         });
       },
 
+      removeFromCart: (index) => {
+        set((state) => {
+          const updated = state.cart.filter((_, i) => i !== index);
+          return { cart: updated };
+        });
+      },
+
       clearCart: () => set({ cart: [] }),
 
       cartSubtotal: () => {

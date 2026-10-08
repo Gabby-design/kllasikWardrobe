@@ -2,6 +2,7 @@
 
 import { createAdminClient } from '../../utils/supabase/admin.js';
 import { sendOwnerOrderNotification, sendCustomerReceipt, DEFAULT_OWNER_EMAIL } from '../../lib/email.js';
+import { decrementProductStock } from '../../src/data/productsManager.js';
 
 export async function submitManualOrder(cart, customerForm, totalAmount) {
   console.log('--- NEW CHECKOUT INITIATED ---');
@@ -56,15 +57,20 @@ export async function submitManualOrder(cart, customerForm, totalAmount) {
     for (const item of cart) {
       if (item.id) {
         try {
+          decrementProductStock(item.id, item.quantity || 1);
+        } catch (localErr) {
+          console.warn(`Local stock decrement notice for ${item.id}:`, localErr.message);
+        }
+        try {
           const { error: stockError } = await supabase.rpc('decrement_stock', {
             p_id: item.id,
             qty: item.quantity || 1
           });
           if (stockError) {
-            console.warn(`⚠️ Failed to decrement stock for product ${item.id}:`, stockError.message);
+            console.warn(`Failed to decrement stock for product ${item.id}:`, stockError.message);
           }
         } catch (rpcErr) {
-          console.warn(`⚠️ RPC decrement_stock error for product ${item.id}:`, rpcErr.message);
+          console.warn(`RPC decrement_stock error for product ${item.id}:`, rpcErr.message);
         }
       }
     }

@@ -38,7 +38,8 @@ import {
   removeStoredCustomProduct, 
   mergeWithStoredProducts, 
   broadcastProductChange,
-  compressImageFile
+  compressImageFile,
+  updateStoredProductStock
 } from '../../utils/productSync.js';
 
 export function AdminDashboard({ initialProducts, initialOrders }) {
@@ -48,12 +49,22 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   const [orders, setOrders] = useState(initialOrders || []);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all' | 'critical' | 'low' | 'sold-out' | 'in-stock'
+  const [catalogSearch, setCatalogSearch] = useState('');
 
   // Auto-Save & Synchronization State
   const [autoSaveStatus, setAutoSaveStatus] = useState('idle'); // 'saving' | 'saved' | 'idle'
   const [lastSavedTime, setLastSavedTime] = useState(null);
   const autoSaveTimerRef = useRef(null);
   const isInitialModalLoad = useRef(true);
+
+  // Quick inline stock updater
+  const handleQuickStockChange = (prod, targetStock) => {
+    const finalStock = Math.max(0, Number(targetStock || 0));
+    updateStoredProductStock(prod.id, finalStock, prod);
+    setProducts((prev) => prev.map((p) => (p.id === prod.id ? { ...p, stock: finalStock } : p)));
+    toast.success(`Updated stock for "${prod.title}" to ${finalStock}!`, { id: `quick-stock-${prod.id}` });
+  };
 
   // Hydrate with local stored products on mount
   useEffect(() => {
@@ -71,8 +82,10 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   const [editMaterial, setEditMaterial] = useState('100% Combed Organic Cotton');
   const [editFit, setEditFit] = useState('Oversized Drop-Shoulder');
   const [editSizes, setEditSizes] = useState(['S', 'M', 'L', 'XL', 'XXL']);
-  const [editColorName, setEditColorName] = useState('Standard');
-  const [editColorHex, setEditColorHex] = useState('#111111');
+  const [editColors, setEditColors] = useState([{ name: 'Obsidian Black', hex: '#111111', image: '' }]);
+  const [newEditColorName, setNewEditColorName] = useState('');
+  const [newEditColorHex, setNewEditColorHex] = useState('#111111');
+  const [newEditColorImage, setNewEditColorImage] = useState('');
   const [editImage, setEditImage] = useState('');
   const [editGallery, setEditGallery] = useState([]);
   const [editDescription, setEditDescription] = useState('');
@@ -81,7 +94,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   const [uploadingEditImage, setUploadingEditImage] = useState(false);
   const [uploadingEditGallery, setUploadingEditGallery] = useState(false);
 
-  // Form State
+  // Form State (New Product)
   const [categoryPreset, setCategoryPreset] = useState('T-Shirts');
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState(30000);
@@ -91,14 +104,28 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   const [material, setMaterial] = useState('100% Combed Organic Cotton');
   const [fit, setFit] = useState('Oversized Drop-Shoulder');
   const [sizes, setSizes] = useState(['S', 'M', 'L', 'XL', 'XXL']);
-  const [colorName, setColorName] = useState('Obsidian Black');
-  const [colorHex, setColorHex] = useState('#111111');
+  const [newProductColors, setNewProductColors] = useState([{ name: 'Obsidian Black', hex: '#111111', image: '' }]);
+  const [addFormColorName, setAddFormColorName] = useState('');
+  const [addFormColorHex, setAddFormColorHex] = useState('#111111');
+  const [addFormColorImage, setAddFormColorImage] = useState('');
   const [image, setImage] = useState('/images/hero-tee-black.png');
   const [gallery, setGallery] = useState(['/images/hero-tee-black.png']);
   const [urlInput, setUrlInput] = useState('');
   const [previewActiveIndex, setPreviewActiveIndex] = useState(0);
   const [description, setDescription] = useState('Crafted from 240 GSM combed organic cotton. Features clean minimalist cut with intentional dropped shoulder drape.');
   const [stock, setStock] = useState(15);
+
+  const colorPresets = [
+    { name: 'Obsidian Black', hex: '#111111' },
+    { name: 'Pure White', hex: '#fafafa' },
+    { name: 'Royal Blue', hex: '#2563EB' },
+    { name: 'Wine Noir', hex: '#4a0e17' },
+    { name: 'Terracotta Rust', hex: '#c85a32' },
+    { name: 'Ecru Cream', hex: '#fdfbf7' },
+    { name: 'Olive Green', hex: '#4b5320' },
+    { name: 'Purple Accent', hex: '#7C3AED' },
+    { name: 'Heather Grey', hex: '#9ca3af' },
+  ];
 
   // Preset Image Options for quick selection
   const presetImages = [
@@ -272,8 +299,24 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     setEditMaterial(product.material || '100% Combed Organic Cotton');
     setEditFit(product.fit || 'Oversized Drop-Shoulder');
     setEditSizes(Array.isArray(product.sizes) && product.sizes.length > 0 ? product.sizes : ['S', 'M', 'L', 'XL', 'XXL']);
-    setEditColorName(product.colors?.[0]?.name || 'Standard');
-    setEditColorHex(product.colors?.[0]?.hex || '#111111');
+    
+    // Parse all available colors
+    const rawColors = Array.isArray(product.colors) && product.colors.length > 0
+      ? product.colors
+      : (product.color ? [{ name: product.color, hex: '#111111', image: '' }] : [{ name: 'Obsidian Black', hex: '#111111', image: '' }]);
+    const parsedColors = rawColors.map((c) => {
+      if (typeof c === 'string') return { name: c, hex: '#111111', image: '' };
+      return {
+        name: c.name || 'Standard',
+        hex: c.hex || '#111111',
+        image: c.image || '',
+      };
+    });
+    setEditColors(parsedColors);
+    setNewEditColorName('');
+    setNewEditColorHex('#111111');
+    setNewEditColorImage('');
+
     const initialGallery = Array.isArray(product.gallery) && product.gallery.length > 0
       ? product.gallery
       : (product.image ? [product.image] : []);
@@ -285,6 +328,68 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     setTimeout(() => {
       isInitialModalLoad.current = false;
     }, 400);
+  };
+
+  // Color management helpers for Edit Modal
+  const handleUpdateEditColor = (idx, field, value) => {
+    setEditColors((prev) => {
+      const next = [...prev];
+      next[idx] = { ...next[idx], [field]: value };
+      return next;
+    });
+  };
+
+  const handleAddEditColor = () => {
+    if (!newEditColorName.trim()) {
+      toast.error('Please enter a color name (e.g. Pure White)');
+      return;
+    }
+    const newEntry = {
+      name: newEditColorName.trim(),
+      hex: newEditColorHex || '#111111',
+      image: newEditColorImage || '',
+    };
+    setEditColors((prev) => [...prev, newEntry]);
+    setNewEditColorName('');
+    setNewEditColorHex('#111111');
+    setNewEditColorImage('');
+    toast.success(`Color "${newEntry.name}" added to product!`);
+  };
+
+  const handleRemoveEditColor = (idx) => {
+    if (editColors.length <= 1) {
+      toast.error('Product must have at least one available color');
+      return;
+    }
+    const target = editColors[idx];
+    setEditColors((prev) => prev.filter((_, i) => i !== idx));
+    toast.success(`Removed color "${target.name}"`);
+  };
+
+  // Color management helpers for New Product Form
+  const handleAddFormAddColor = () => {
+    if (!addFormColorName.trim()) {
+      toast.error('Please enter a color name (e.g. Pure White)');
+      return;
+    }
+    const newEntry = {
+      name: addFormColorName.trim(),
+      hex: addFormColorHex || '#111111',
+      image: addFormColorImage || '',
+    };
+    setNewProductColors((prev) => [...prev, newEntry]);
+    setAddFormColorName('');
+    setAddFormColorHex('#111111');
+    setAddFormColorImage('');
+    toast.success(`Color "${newEntry.name}" added!`);
+  };
+
+  const handleAddFormRemoveColor = (idx) => {
+    if (newProductColors.length <= 1) {
+      toast.error('Product must have at least one color');
+      return;
+    }
+    setNewProductColors((prev) => prev.filter((_, i) => i !== idx));
   };
 
   // Real-time auto-save as admin edits garment fields
@@ -311,7 +416,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
         material: editMaterial,
         fit: editFit,
         sizes: editSizes,
-        colors: [{ name: editColorName || 'Standard', hex: editColorHex || '#111111' }],
+        colors: editColors.length > 0 ? editColors : [{ name: 'Standard', hex: '#111111', image: '' }],
         image: editGallery[0] || editImage,
         fallbackImage: editGallery[1] || editGallery[0] || editImage,
         gallery: editGallery.length > 0 ? editGallery : [editImage],
@@ -351,8 +456,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     editMaterial,
     editFit,
     editSizes,
-    editColorName,
-    editColorHex,
+    editColors,
     editImage,
     editGallery,
     editDescription,
@@ -452,7 +556,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       material: editMaterial,
       fit: editFit,
       sizes: editSizes,
-      colors: [{ name: editColorName || 'Standard', hex: editColorHex || '#111111' }],
+      colors: editColors.length > 0 ? editColors : [{ name: 'Standard', hex: '#111111', image: '' }],
       image: editGallery[0] || editImage,
       fallbackImage: editGallery[1] || editGallery[0] || editImage,
       gallery: editGallery.length > 0 ? editGallery : [editImage],
@@ -508,8 +612,9 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       material,
       fit,
       sizes,
-      colorName,
-      colorHex,
+      colors: newProductColors.length > 0 ? newProductColors : [{ name: colorName || 'Obsidian Black', hex: colorHex || '#111111', image: '' }],
+      colorName: newProductColors[0]?.name || colorName,
+      colorHex: newProductColors[0]?.hex || colorHex,
       image: gallery[0] || image,
       fallbackImage: gallery[1] || gallery[0] || image,
       gallery: gallery && gallery.length > 0 ? gallery : [image],
@@ -924,38 +1029,107 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                 />
               </div>
 
-              {/* Color Name & Hex */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">
-                    Color Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Obsidian Black, Sky Blue"
-                    value={colorName}
-                    onChange={(e) => setColorName(e.target.value)}
-                    className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-full px-4 py-2.5 text-xs text-[#111111] outline-none"
-                  />
+              {/* Available Colors Manager */}
+              <div className="bg-[#F7F7F8] rounded-[20px] p-4 sm:p-5 border border-black/[0.04] space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-xs font-bold text-[#111111] block">
+                      Available Colors ({newProductColors.length}) *
+                    </label>
+                    <span className="text-[11px] text-gray-500">
+                      Add colorways available for this product with exact swatch hex codes.
+                    </span>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">
-                    Color Hex
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={colorHex}
-                      onChange={(e) => setColorHex(e.target.value)}
-                      className="w-9 h-9 rounded-full cursor-pointer border border-black/[0.1] p-0.5"
-                    />
-                    <input
-                      type="text"
-                      value={colorHex}
-                      onChange={(e) => setColorHex(e.target.value)}
-                      className="flex-1 bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-full px-4 py-2.5 text-xs text-[#111111] font-mono outline-none"
-                    />
+                {/* List of currently added colors */}
+                <div className="flex flex-wrap gap-2.5">
+                  {newProductColors.map((c, idx) => (
+                    <div
+                      key={idx}
+                      className="inline-flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-1.5 border border-black/[0.08] shadow-xs text-xs font-semibold text-[#111111]"
+                    >
+                      <span
+                        className="w-4 h-4 rounded-full border border-black/10 shrink-0"
+                        style={{ backgroundColor: c.hex || '#111111' }}
+                      />
+                      <span>{c.name}</span>
+                      <span className="text-[10px] text-gray-400 font-mono">({c.hex})</span>
+                      {newProductColors.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleAddFormRemoveColor(idx)}
+                          className="text-gray-400 hover:text-red-500 ml-1 transition-colors cursor-pointer"
+                          title="Remove color"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Quick Add New Color Box */}
+                <div className="bg-white rounded-[16px] p-3 border border-black/[0.06] space-y-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">
+                    + Add Another Colorway:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+                    <div className="sm:col-span-5">
+                      <input
+                        type="text"
+                        placeholder="Color name (e.g. Pure White)"
+                        value={addFormColorName}
+                        onChange={(e) => setAddFormColorName(e.target.value)}
+                        className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-full px-3.5 py-2 text-xs text-[#111111] outline-none font-medium"
+                      />
+                    </div>
+                    <div className="sm:col-span-4 flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={addFormColorHex}
+                        onChange={(e) => setAddFormColorHex(e.target.value)}
+                        className="w-8 h-8 rounded-full cursor-pointer border border-black/[0.1] p-0.5 shrink-0"
+                        title="Pick color"
+                      />
+                      <input
+                        type="text"
+                        value={addFormColorHex}
+                        onChange={(e) => setAddFormColorHex(e.target.value)}
+                        className="flex-1 bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-full px-3 py-2 text-xs text-[#111111] font-mono outline-none"
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <button
+                        type="button"
+                        onClick={handleAddFormAddColor}
+                        className="w-full bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold py-2 px-3 rounded-full transition-all cursor-pointer shadow-xs"
+                      >
+                        + Add Color
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Color Presets */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[10px] text-gray-400 font-bold mr-1">Presets:</span>
+                    {colorPresets.map((cp) => (
+                      <button
+                        type="button"
+                        key={cp.name}
+                        onClick={() => {
+                          setAddFormColorName(cp.name);
+                          setAddFormColorHex(cp.hex);
+                        }}
+                        className="inline-flex items-center gap-1 bg-[#EDEDEF]/70 hover:bg-[#EDEDEF] px-2 py-0.5 rounded-full text-[10px] font-semibold text-gray-700 transition-all cursor-pointer"
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-black/10 shrink-0"
+                          style={{ backgroundColor: cp.hex }}
+                        />
+                        <span>{cp.name}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1236,130 +1410,333 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       )}
 
       {/* TAB 2: ALL PRODUCTS CATALOG */}
-      {activeTab === 'catalog' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-[20px] p-5 border border-black/[0.04]">
-            <div>
-              <h3 className="font-bold text-lg text-[#111111]">Store Products Archive</h3>
-              <p className="text-xs text-gray-500">
-                Manage all active collection pieces currently available on Klasik Wardrobe.
-              </p>
+      {activeTab === 'catalog' && (() => {
+        const criticalCount = products.filter((p) => Number(p.stock) === 1).length;
+        const lowCount = products.filter((p) => Number(p.stock) > 0 && Number(p.stock) <= 3).length;
+        const soldOutCount = products.filter((p) => Number(p.stock) === 0).length;
+        const healthyCount = products.filter((p) => Number(p.stock) > 3).length;
+
+        const filteredCatalogProducts = products.filter((prod) => {
+          const stock = prod.stock !== undefined ? Number(prod.stock) : 10;
+          if (inventoryFilter === 'critical' && stock !== 1) return false;
+          if (inventoryFilter === 'low' && (stock <= 0 || stock > 3)) return false;
+          if (inventoryFilter === 'sold-out' && stock !== 0) return false;
+          if (inventoryFilter === 'in-stock' && stock <= 3) return false;
+
+          if (catalogSearch.trim()) {
+            const q = catalogSearch.toLowerCase();
+            const titleMatch = (prod.title || '').toLowerCase().includes(q);
+            const catMatch = (prod.category || '').toLowerCase().includes(q);
+            return titleMatch || catMatch;
+          }
+          return true;
+        });
+
+        return (
+          <div className="space-y-6">
+            
+            {/* Header & New Product CTA */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-[20px] p-5 border border-black/[0.04]">
+              <div>
+                <h3 className="font-bold text-lg text-[#111111]">Store Products &amp; Inventory Archive</h3>
+                <p className="text-xs text-gray-500">
+                  Audit live stock counts, monitor single-unit alerts, and edit active pieces.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('new-product')}
+                className="inline-flex items-center gap-1.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold px-5 py-2.5 rounded-full transition-all shadow-xs cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Another Product</span>
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('new-product')}
-              className="inline-flex items-center gap-1.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold px-5 py-2.5 rounded-full transition-all shadow-xs cursor-pointer self-start sm:self-auto"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Another Product</span>
-            </button>
-          </div>
+            {/* Inventory Quick-Filter Bar & Search Input */}
+            <div className="bg-white rounded-[20px] p-4 border border-black/[0.04] flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-[0_4px_16px_rgba(17,17,17,0.03)]">
+              {/* Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+                <button
+                  type="button"
+                  onClick={() => setInventoryFilter('all')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    inventoryFilter === 'all'
+                      ? 'bg-[#111111] text-white shadow-xs'
+                      : 'bg-[#EDEDEF] text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  All Pieces ({products.length})
+                </button>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {products.map((prod) => (
-              <div
-                key={prod.id}
-                className="bg-white rounded-[20px] border border-black/[0.04] p-4 shadow-[0_8px_24px_rgba(17,17,17,0.06)] flex flex-col justify-between"
-              >
-                <div>
-                  <div className="relative aspect-[3/4] rounded-[14px] bg-[#EDEDEF] overflow-hidden mb-3">
-                    <img
-                      src={prod.image}
-                      alt={prod.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-2 left-2 flex gap-1">
-                      {prod.isCustom ? (
-                        <span className="bg-[#7C3AED] text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
-                          Custom Added
-                        </span>
-                      ) : (
-                        <span className="bg-[#111111] text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
-                          Verified Catalog
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                <button
+                  type="button"
+                  onClick={() => setInventoryFilter('critical')}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    inventoryFilter === 'critical'
+                      ? 'bg-amber-600 text-white shadow-xs ring-2 ring-amber-300'
+                      : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>Only 1 Left ({criticalCount})</span>
+                </button>
 
-                  <div className="space-y-1 mb-3">
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-[10px] font-bold text-gray-400 uppercase truncate">
-                        {prod.category} &bull; {prod.gsm || '240 GSM'}
-                      </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                        (prod.stock !== undefined && prod.stock <= 2)
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-emerald-50 text-emerald-700'
-                      }`}>
-                        Stock: {prod.stock !== undefined ? prod.stock : 15} left
-                      </span>
-                    </div>
-                    <h4 className="font-bold text-xs sm:text-sm text-[#111111] line-clamp-1">
-                      {prod.title}
-                    </h4>
-                    <span className="text-xs font-bold text-[#7C3AED] block">
-                      {formatPrice(prod.price)}
-                    </span>
+                <button
+                  type="button"
+                  onClick={() => setInventoryFilter('low')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    inventoryFilter === 'low'
+                      ? 'bg-amber-700 text-white shadow-xs'
+                      : 'bg-amber-50/70 text-amber-800 border border-amber-100 hover:bg-amber-100'
+                  }`}
+                >
+                  Low Stock &le;3 ({lowCount})
+                </button>
 
-                    {/* Sizes */}
-                    <div className="flex flex-wrap gap-1 pt-1">
-                      {standardSizes.map((sz) => {
-                        const isAvail = Array.isArray(prod.sizes) && prod.sizes.includes(sz);
-                        return (
-                          <span
-                            key={sz}
-                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] ${
-                              isAvail
-                                ? 'bg-[#EDEDEF] text-[#111111]'
-                                : 'bg-transparent text-gray-300 line-through'
-                            }`}
-                          >
-                            {sz}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setInventoryFilter('sold-out')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    inventoryFilter === 'sold-out'
+                      ? 'bg-red-700 text-white shadow-xs'
+                      : 'bg-red-50 text-red-700 border border-red-200/80 hover:bg-red-100'
+                  }`}
+                >
+                  Sold Out ({soldOutCount})
+                </button>
 
-                <div className="pt-3 border-t border-black/[0.04] flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenEdit(prod)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EDE9FE] text-[#7C3AED] hover:bg-[#DDD6FE] text-xs font-bold transition-all cursor-pointer shadow-xs"
-                    title="Edit garment details, price, sizes, images, stock"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    <span>Edit</span>
-                  </button>
-
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/product/${prod.id}`}
-                      target="_blank"
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-600 hover:text-[#7C3AED]"
-                    >
-                      <span>View</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </Link>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteProduct(prod.id)}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-full transition-all cursor-pointer"
-                      title="Remove product"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
-                  </div>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setInventoryFilter('in-stock')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    inventoryFilter === 'in-stock'
+                      ? 'bg-emerald-700 text-white shadow-xs'
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 hover:bg-emerald-100'
+                  }`}
+                >
+                  Healthy Stock ({healthyCount})
+                </button>
               </div>
-            ))}
+
+              {/* Search Box */}
+              <div className="w-full md:w-64 shrink-0">
+                <input
+                  type="text"
+                  placeholder="Filter by title or category..."
+                  value={catalogSearch}
+                  onChange={(e) => setCatalogSearch(e.target.value)}
+                  className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-full px-4 py-2 text-xs text-[#111111] font-medium outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Products Grid */}
+            {filteredCatalogProducts.length === 0 ? (
+              <div className="bg-white rounded-[20px] p-12 text-center border border-black/[0.04]">
+                <Package className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <h4 className="font-bold text-sm text-[#111111]">No garments match this inventory filter</h4>
+                <p className="text-xs text-gray-400 mt-1">Try selecting a different filter above or clearing your search.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInventoryFilter('all');
+                    setCatalogSearch('');
+                  }}
+                  className="mt-4 text-xs font-bold text-[#7C3AED] hover:underline"
+                >
+                  Reset Filters
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredCatalogProducts.map((prod) => {
+                  const stockNum = prod.stock !== undefined ? Number(prod.stock) : 10;
+                  const isCritical = stockNum === 1;
+                  const isSoldOut = stockNum === 0;
+
+                  return (
+                    <div
+                      key={prod.id}
+                      className={`bg-white rounded-[20px] border p-4 shadow-[0_8px_24px_rgba(17,17,17,0.06)] flex flex-col justify-between transition-all ${
+                        isCritical
+                          ? 'border-amber-300 ring-2 ring-amber-100'
+                          : isSoldOut
+                          ? 'border-red-200 opacity-90'
+                          : 'border-black/[0.04]'
+                      }`}
+                    >
+                      <div>
+                        {/* Image Showcase */}
+                        <div className="relative aspect-[3/4] rounded-[14px] bg-[#EDEDEF] overflow-hidden mb-3">
+                          <img
+                            src={prod.image}
+                            alt={prod.title}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute top-2 left-2 flex flex-col gap-1">
+                            {prod.isCustom ? (
+                              <span className="bg-[#7C3AED] text-white text-[9px] font-bold px-2 py-0.5 rounded-full w-fit">
+                                Custom Added
+                              </span>
+                            ) : (
+                              <span className="bg-[#111111] text-white text-[9px] font-bold px-2 py-0.5 rounded-full w-fit">
+                                Verified Catalog
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Top Right Stock Badge */}
+                          <div className="absolute top-2 right-2">
+                            {isCritical ? (
+                              <span className="bg-amber-600 text-white text-[9px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                <span>Only 1 Left</span>
+                              </span>
+                            ) : isSoldOut ? (
+                              <span className="bg-[#111111] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                Sold Out
+                              </span>
+                            ) : stockNum <= 3 ? (
+                              <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                {stockNum} Left
+                              </span>
+                            ) : (
+                              <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                {stockNum} in stock
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Details */}
+                        <div className="space-y-1 mb-3">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase truncate">
+                              {prod.category} &bull; {prod.gsm || '240 GSM'}
+                            </span>
+                            <span className="text-[10px] text-gray-500 font-medium truncate max-w-[100px]">
+                              {prod.colors?.length || 1} color{prod.colors?.length > 1 ? 's' : ''}
+                            </span>
+                          </div>
+
+                          <h4 className="font-bold text-xs sm:text-sm text-[#111111] line-clamp-1">
+                            {prod.title}
+                          </h4>
+                          <span className="text-xs font-bold text-[#7C3AED] block">
+                            {formatPrice(prod.price)}
+                          </span>
+
+                          {/* Quick Inline Stock Adjuster */}
+                          <div className="bg-[#F7F7F8] rounded-[12px] p-2 mt-2 border border-black/[0.04]">
+                            <div className="flex items-center justify-between gap-1 mb-1.5">
+                              <span className="text-[10px] font-bold text-gray-500">Live Inventory:</span>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickStockChange(prod, 1)}
+                                  className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors cursor-pointer"
+                                  title="Set to 1 to test immediate claim alert"
+                                >
+                                  Set 1
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickStockChange(prod, 0)}
+                                  className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 hover:bg-red-200 transition-colors cursor-pointer"
+                                  title="Set to 0 to mark as sold out"
+                                >
+                                  Set 0
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleQuickStockChange(prod, Math.max(0, stockNum - 1))}
+                                className="w-6 h-6 rounded-full bg-white hover:bg-gray-100 text-[#111111] border border-black/10 flex items-center justify-center font-bold text-xs transition-colors cursor-pointer"
+                                title="Decrease stock"
+                              >
+                                -
+                              </button>
+                              <span className="text-xs font-bold text-[#111111] min-w-[28px] text-center">
+                                {stockNum} units
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickStockChange(prod, stockNum + 1)}
+                                className="w-6 h-6 rounded-full bg-white hover:bg-gray-100 text-[#111111] border border-black/10 flex items-center justify-center font-bold text-xs transition-colors cursor-pointer"
+                                title="Increase stock"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Sizes */}
+                          <div className="flex flex-wrap gap-1 pt-1.5">
+                            {standardSizes.map((sz) => {
+                              const isAvail = Array.isArray(prod.sizes) && prod.sizes.includes(sz);
+                              return (
+                                <span
+                                  key={sz}
+                                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-[4px] ${
+                                    isAvail
+                                      ? 'bg-[#EDEDEF] text-[#111111]'
+                                      : 'bg-transparent text-gray-300 line-through'
+                                  }`}
+                                >
+                                  {sz}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Action Buttons */}
+                      <div className="pt-3 border-t border-black/[0.04] flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(prod)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#EDE9FE] text-[#7C3AED] hover:bg-[#DDD6FE] text-xs font-bold transition-all cursor-pointer shadow-xs"
+                          title="Edit garment details, colors, photo angles, sizes, price, stock"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/product/${prod.id}`}
+                            target="_blank"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-600 hover:text-[#7C3AED]"
+                          >
+                            <span>View</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </Link>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProduct(prod.id)}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-full transition-all cursor-pointer"
+                            title="Remove product"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* TAB 3: CUSTOMER ORDERS */}
       {activeTab === 'orders' && (
@@ -1666,6 +2043,20 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                 </div>
               </div>
 
+              {/* Material Composition */}
+              <div>
+                <label className="text-xs font-bold text-gray-700 block mb-1.5">
+                  Material Composition
+                </label>
+                <input
+                  type="text"
+                  value={editMaterial}
+                  onChange={(e) => setEditMaterial(e.target.value)}
+                  placeholder="e.g. 100% Combed Organic Cotton"
+                  className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] px-4 py-3 text-xs sm:text-sm text-[#111111] outline-none transition-all font-semibold"
+                />
+              </div>
+
               {/* Available Sizes Toggles */}
               <div>
                 <label className="text-xs font-bold text-gray-700 block mb-1.5">
@@ -1693,6 +2084,178 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                 <p className="text-[11px] text-gray-400 mt-1">
                   E.g. If only Medium is available, deselect others so only Medium can be ordered.
                 </p>
+              </div>
+
+              {/* Available Colors & Photo Angle Mapping */}
+              <div className="bg-[#F7F7F8] rounded-[22px] p-4 sm:p-5 border border-black/[0.04] space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-[#111111] block">
+                      Available Colors &amp; Photo Mapping ({editColors.length}) *
+                    </label>
+                    <span className="text-[11px] text-gray-500">
+                      Configure colors available for this product and link each color to its corresponding photo angle.
+                    </span>
+                  </div>
+                </div>
+
+                {/* List of current colors */}
+                <div className="space-y-3">
+                  {editColors.map((colorObj, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-white rounded-[16px] p-3.5 border border-black/[0.06] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {/* Swatch Picker */}
+                        <div className="relative shrink-0">
+                          <input
+                            type="color"
+                            value={colorObj.hex || '#111111'}
+                            onChange={(e) => handleUpdateEditColor(idx, 'hex', e.target.value)}
+                            className="w-9 h-9 rounded-full cursor-pointer border border-black/10 p-0.5"
+                            title="Click to pick color"
+                          />
+                        </div>
+
+                        {/* Color Name Input */}
+                        <div className="flex-1 min-w-0">
+                          <input
+                            type="text"
+                            value={colorObj.name || ''}
+                            placeholder="Color name"
+                            onChange={(e) => handleUpdateEditColor(idx, 'name', e.target.value)}
+                            className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[10px] px-3 py-1.5 text-xs text-[#111111] font-semibold outline-none"
+                          />
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] font-mono text-gray-400">
+                              {colorObj.hex || '#111111'}
+                            </span>
+                            {/* Color presets quick-select */}
+                            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+                              {colorPresets.slice(0, 5).map((cp) => (
+                                <button
+                                  type="button"
+                                  key={cp.name}
+                                  title={cp.name}
+                                  onClick={() => {
+                                    handleUpdateEditColor(idx, 'name', cp.name);
+                                    handleUpdateEditColor(idx, 'hex', cp.hex);
+                                  }}
+                                  className="w-3 h-3 rounded-full border border-black/10 transition-transform hover:scale-125 cursor-pointer"
+                                  style={{ backgroundColor: cp.hex }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Linked Photo Selector */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1.5 bg-[#EDEDEF] rounded-[10px] px-2.5 py-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                          <select
+                            value={colorObj.image || ''}
+                            onChange={(e) => handleUpdateEditColor(idx, 'image', e.target.value)}
+                            className="bg-transparent text-xs text-gray-700 font-medium outline-none cursor-pointer max-w-[150px] truncate"
+                          >
+                            <option value="">(Default / Cover Photo)</option>
+                            {editGallery.map((gUrl, gIdx) => (
+                              <option key={gIdx} value={gUrl}>
+                                {gIdx === 0 ? 'Cover Photo' : `Angle Photo ${gIdx + 1}`}
+                              </option>
+                            ))}
+                          </select>
+                          {colorObj.image && (
+                            <img
+                              src={colorObj.image}
+                              alt={colorObj.name}
+                              className="w-6 h-6 rounded-md object-cover border border-black/10 shrink-0"
+                            />
+                          )}
+                        </div>
+
+                        {/* Remove Color */}
+                        {editColors.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveEditColor(idx)}
+                            className="p-1.5 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
+                            title="Remove color"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add New Color Sub-Card */}
+                <div className="bg-white rounded-[16px] p-3.5 border border-black/[0.06] space-y-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">
+                    + Add New Available Color:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
+                    <div className="sm:col-span-5">
+                      <input
+                        type="text"
+                        placeholder="Color name (e.g. Royal Blue)"
+                        value={newEditColorName}
+                        onChange={(e) => setNewEditColorName(e.target.value)}
+                        className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[10px] px-3 py-2 text-xs text-[#111111] font-semibold outline-none"
+                      />
+                    </div>
+                    <div className="sm:col-span-4 flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={newEditColorHex}
+                        onChange={(e) => setNewEditColorHex(e.target.value)}
+                        className="w-8 h-8 rounded-full cursor-pointer border border-black/10 p-0.5 shrink-0"
+                        title="Pick color hex"
+                      />
+                      <input
+                        type="text"
+                        value={newEditColorHex}
+                        onChange={(e) => setNewEditColorHex(e.target.value)}
+                        className="flex-1 bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[10px] px-3 py-2 text-xs text-[#111111] font-mono outline-none"
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <button
+                        type="button"
+                        onClick={handleAddEditColor}
+                        className="w-full bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold py-2 px-3 rounded-full transition-all cursor-pointer shadow-xs"
+                      >
+                        + Add Color
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Preset Quick Swatches */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[10px] text-gray-400 font-bold mr-1">Presets:</span>
+                    {colorPresets.map((cp) => (
+                      <button
+                        type="button"
+                        key={cp.name}
+                        onClick={() => {
+                          setNewEditColorName(cp.name);
+                          setNewEditColorHex(cp.hex);
+                        }}
+                        className="inline-flex items-center gap-1 bg-[#EDEDEF]/70 hover:bg-[#EDEDEF] px-2 py-0.5 rounded-full text-[10px] font-semibold text-gray-700 transition-all cursor-pointer"
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-black/10 shrink-0"
+                          style={{ backgroundColor: cp.hex }}
+                        />
+                        <span>{cp.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
               </div>
 
               {/* Product Photos & Angles Gallery */}

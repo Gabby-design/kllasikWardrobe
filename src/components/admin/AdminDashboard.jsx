@@ -37,7 +37,8 @@ import {
   saveStoredCustomProduct, 
   removeStoredCustomProduct, 
   mergeWithStoredProducts, 
-  broadcastProductChange 
+  broadcastProductChange,
+  compressImageFile
 } from '../../utils/productSync.js';
 
 export function AdminDashboard({ initialProducts, initialOrders }) {
@@ -233,69 +234,25 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     if (files.length === 0) return;
 
     setUploadingImage(true);
-    const formData = new FormData();
-    files.forEach((f) => formData.append('files', f));
-
     try {
-      const res = await fetch('/api/admin/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await res.json();
-      if (data && data.success && Array.isArray(data.urls) && data.urls.length > 0) {
-        setGallery((prev) => {
-          const isInitialDefault = prev.length === 1 && prev[0] === '/images/hero-tee-black.png';
-          return isInitialDefault ? data.urls : [...prev, ...data.urls];
-        });
-        setImage(data.urls[0]);
+      const compressedUrls = [];
+      for (const f of files) {
+        const compressed = await compressImageFile(f);
+        if (compressed) compressedUrls.push(compressed);
+      }
+
+      if (compressedUrls.length > 0) {
+        setGallery(compressedUrls);
+        setImage(compressedUrls[0]);
         setPreviewActiveIndex(0);
         toast.success(
-          data.urls.length > 1
-            ? `${data.urls.length} images uploaded to product!`
-            : 'Image uploaded successfully!'
+          compressedUrls.length > 1
+            ? `${compressedUrls.length} photos ready for product!`
+            : 'Photo ready for product!'
         );
-      } else {
-        // Resilient client-side FileReader fallback for multiple files
-        const loadedUrls = [];
-        let done = 0;
-        files.forEach((f) => {
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            loadedUrls.push(ev.target.result);
-            done++;
-            if (done === files.length) {
-              setGallery((prev) => {
-                const isInitialDefault = prev.length === 1 && prev[0] === '/images/hero-tee-black.png';
-                return isInitialDefault ? loadedUrls : [...prev, ...loadedUrls];
-              });
-              setImage(loadedUrls[0]);
-              setPreviewActiveIndex(0);
-              toast.success(`${files.length} image(s) loaded from device!`);
-            }
-          };
-          reader.readAsDataURL(f);
-        });
       }
-    } catch {
-      const loadedUrls = [];
-      let done = 0;
-      files.forEach((f) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          loadedUrls.push(ev.target.result);
-          done++;
-          if (done === files.length) {
-            setGallery((prev) => {
-              const isInitialDefault = prev.length === 1 && prev[0] === '/images/hero-tee-black.png';
-              return isInitialDefault ? loadedUrls : [...prev, ...loadedUrls];
-            });
-            setImage(loadedUrls[0]);
-            setPreviewActiveIndex(0);
-            toast.success(`${files.length} image(s) loaded from device!`);
-          }
-        };
-        reader.readAsDataURL(f);
-      });
+    } catch (err) {
+      toast.error('Upload notice: ' + err.message);
     } finally {
       setUploadingImage(false);
     }
@@ -414,61 +371,31 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     }
   };
 
-  // Handle multi-image upload from device for edited product
+  // Handle multi-image upload from device for edited product (replaces old photos)
   const handleEditFilesUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
     setUploadingEditGallery(true);
-    const formData = new FormData();
-    files.forEach((f) => formData.append('files', f));
-
     try {
-      const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data && data.success && Array.isArray(data.urls) && data.urls.length > 0) {
-        setEditGallery((prev) => [...prev, ...data.urls]);
-        if (!editImage) {
-          setEditImage(data.urls[0]);
-        }
-        toast.success(
-          data.urls.length > 1
-            ? `${data.urls.length} photos added to gallery!`
-            : 'Photo added to gallery!'
-        );
-      } else {
-        const loadedUrls = [];
-        let done = 0;
-        files.forEach((f) => {
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            loadedUrls.push(ev.target.result);
-            done++;
-            if (done === files.length) {
-              setEditGallery((prev) => [...prev, ...loadedUrls]);
-              if (!editImage) setEditImage(loadedUrls[0]);
-              toast.success(`${files.length} photo(s) loaded from device!`);
-            }
-          };
-          reader.readAsDataURL(f);
-        });
+      const compressedUrls = [];
+      for (const f of files) {
+        const compressed = await compressImageFile(f);
+        if (compressed) compressedUrls.push(compressed);
       }
-    } catch {
-      const loadedUrls = [];
-      let done = 0;
-      files.forEach((f) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          loadedUrls.push(ev.target.result);
-          done++;
-          if (done === files.length) {
-            setEditGallery((prev) => [...prev, ...loadedUrls]);
-            if (!editImage) setEditImage(loadedUrls[0]);
-            toast.success(`${files.length} photo(s) loaded from device!`);
-          }
-        };
-        reader.readAsDataURL(f);
-      });
+
+      if (compressedUrls.length > 0) {
+        // REPLACE old photos with newly uploaded photos
+        setEditGallery(compressedUrls);
+        setEditImage(compressedUrls[0]);
+        toast.success(
+          compressedUrls.length > 1
+            ? `${compressedUrls.length} new photos set! Old photos replaced.`
+            : 'New photo set! Old photo replaced.'
+        );
+      }
+    } catch (err) {
+      toast.error('Upload notice: ' + err.message);
     } finally {
       setUploadingEditGallery(false);
     }
@@ -488,11 +415,14 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   const handleRemoveGalleryImage = (idx) => {
     setEditGallery((prev) => {
       const next = prev.filter((_, i) => i !== idx);
-      if (idx === 0 && next.length > 0) {
+      if (next.length > 0) {
         setEditImage(next[0]);
+      } else {
+        setEditImage('');
       }
       return next;
     });
+    toast.success('Photo deleted');
   };
 
   // Submit edited product changes
@@ -1414,17 +1344,15 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                       <ExternalLink className="w-3 h-3" />
                     </Link>
 
-                    {prod.isCustom && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteProduct(prod.id)}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 p-1 cursor-pointer"
-                        title="Remove product"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Delete</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProduct(prod.id)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-full transition-all cursor-pointer"
+                      title="Remove product"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1778,18 +1706,35 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                       Upload 1 or multiple photos from your device (front, back, fabric details).
                     </span>
                   </div>
-                  <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all self-start sm:self-auto">
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>{uploadingEditGallery ? 'Uploading Photos...' : '+ Upload Photos (1 or Multiple)'}</span>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={handleEditFilesUpload}
-                      className="hidden"
-                      disabled={uploadingEditGallery}
-                    />
-                  </label>
+                  <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                    {editGallery.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditGallery([]);
+                          setEditImage('');
+                          toast.success('Old photos deleted. Upload new photos.');
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3.5 py-2 rounded-full cursor-pointer transition-all border border-red-200"
+                        title="Remove all photos from this product"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete All Old Photos</span>
+                      </button>
+                    )}
+                    <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{uploadingEditGallery ? 'Processing...' : '+ Upload New Photos'}</span>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleEditFilesUpload}
+                        className="hidden"
+                        disabled={uploadingEditGallery}
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 {/* Gallery Thumbnails Grid */}
@@ -1828,16 +1773,14 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                           </div>
 
                           {/* Delete Button */}
-                          {editGallery.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveGalleryImage(idx)}
-                              className="absolute top-2 right-2 bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-90 hover:opacity-100 transition-all cursor-pointer z-10"
-                              title="Remove photo"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGalleryImage(idx)}
+                            className="absolute top-2 right-2 bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-90 hover:opacity-100 transition-all cursor-pointer z-10"
+                            title="Remove photo"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
 
                           {/* Set as Cover Button */}
                           {idx !== 0 && (

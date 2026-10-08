@@ -17,15 +17,17 @@ async function processSingleFile(file, supabase) {
   let finalImageUrl = null;
   let storageBackend = 'memory';
 
-  // 1. Attempt Supabase Storage ('products' bucket)
+  // 1. Attempt Supabase Storage ('products' bucket) with 500ms timeout race
   if (supabase) {
     try {
-      const { data, error } = await supabase.storage
+      const uploadPromise = supabase.storage
         .from('products')
         .upload(safeName, buffer, {
           contentType: file.type || 'image/jpeg',
           upsert: true,
         });
+      const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ error: 'timeout' }), 500));
+      const { data, error } = await Promise.race([uploadPromise, timeoutPromise]);
 
       if (!error && data) {
         const { data: publicUrlData } = supabase.storage

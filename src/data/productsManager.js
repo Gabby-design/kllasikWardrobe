@@ -5,7 +5,56 @@ import { PRODUCTS } from './catalog.js';
 
 const customProductsFile = path.join(process.cwd(), 'src', 'data', 'custom-products.json');
 const tmpCustomProductsFile = path.join(os.tmpdir(), 'klasik-custom-products.json');
+
+const removedProductsFile = path.join(process.cwd(), 'src', 'data', 'removed-products.json');
+const tmpRemovedProductsFile = path.join(os.tmpdir(), 'klasik-removed-products.json');
+
 let inMemoryCustomProducts = null;
+let inMemoryRemovedIds = null;
+
+export function getRemovedProductIds() {
+  try {
+    if (fs.existsSync(removedProductsFile)) {
+      const data = fs.readFileSync(removedProductsFile, 'utf-8');
+      if (data && data.trim()) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) {
+          inMemoryRemovedIds = parsed;
+          return inMemoryRemovedIds;
+        }
+      }
+    }
+  } catch {}
+
+  try {
+    if (fs.existsSync(tmpRemovedProductsFile)) {
+      const data = fs.readFileSync(tmpRemovedProductsFile, 'utf-8');
+      if (data && data.trim()) {
+        const parsed = JSON.parse(data);
+        if (Array.isArray(parsed)) {
+          inMemoryRemovedIds = parsed;
+          return inMemoryRemovedIds;
+        }
+      }
+    }
+  } catch {}
+
+  if (inMemoryRemovedIds !== null) {
+    return inMemoryRemovedIds;
+  }
+  inMemoryRemovedIds = [];
+  return inMemoryRemovedIds;
+}
+
+export function saveRemovedProductIds(ids) {
+  inMemoryRemovedIds = ids;
+  try {
+    fs.writeFileSync(removedProductsFile, JSON.stringify(ids, null, 2), 'utf-8');
+  } catch {}
+  try {
+    fs.writeFileSync(tmpRemovedProductsFile, JSON.stringify(ids, null, 2), 'utf-8');
+  } catch {}
+}
 
 export function getCustomProducts() {
   // 1. Try reading from primary project file
@@ -47,17 +96,28 @@ export function getCustomProducts() {
 
 export function getAllProducts() {
   const custom = getCustomProducts();
-  const customMap = new Map(custom.map(p => [p.id, p]));
+  const removedIds = new Set(getRemovedProductIds());
+  const customMap = new Map();
 
-  // Merge edits into catalog defaults in-place to preserve catalog order
-  const mergedDefaults = PRODUCTS.map(defaultProd => {
-    if (customMap.has(defaultProd.id)) {
-      const updated = customMap.get(defaultProd.id);
-      customMap.delete(defaultProd.id);
-      return updated;
+  custom.forEach((p) => {
+    if (!removedIds.has(p.id)) {
+      customMap.set(p.id, p);
     }
-    return defaultProd;
   });
+
+  // Filter out removed catalog defaults and merge in-place
+  const mergedDefaults = [];
+  for (const defaultProd of PRODUCTS) {
+    if (removedIds.has(defaultProd.id)) {
+      continue;
+    }
+    if (customMap.has(defaultProd.id)) {
+      mergedDefaults.push(customMap.get(defaultProd.id));
+      customMap.delete(defaultProd.id);
+    } else {
+      mergedDefaults.push(defaultProd);
+    }
+  }
 
   // Any newly created custom products (not overriding defaults) go to the top
   const newlyCreated = Array.from(customMap.values());
@@ -66,8 +126,14 @@ export function getAllProducts() {
 
 export function saveCustomProduct(product) {
   try {
+    // If it was previously marked removed, restore it
+    const removed = getRemovedProductIds();
+    if (removed.includes(product.id)) {
+      saveRemovedProductIds(removed.filter((id) => id !== product.id));
+    }
+
     const existing = getCustomProducts();
-    const updated = [product, ...existing.filter(p => p.id !== product.id)];
+    const updated = [product, ...existing.filter((p) => p.id !== product.id)];
     inMemoryCustomProducts = updated;
 
     // Write to primary file
@@ -91,8 +157,14 @@ export function saveCustomProduct(product) {
 
 export function removeCustomProduct(productId) {
   try {
+    // Record in removed IDs
+    const removed = getRemovedProductIds();
+    if (!removed.includes(productId)) {
+      saveRemovedProductIds([...removed, productId]);
+    }
+
     const existing = getCustomProducts();
-    const filtered = existing.filter(p => p.id !== productId);
+    const filtered = existing.filter((p) => p.id !== productId);
     inMemoryCustomProducts = filtered;
 
     try {

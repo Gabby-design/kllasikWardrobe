@@ -403,13 +403,24 @@ export function QuickViewModal({
                     : `Add to Cart • ${formatPrice(totalPrice)}`}
                 </span>
               </button>
-              <button
-                type="button"
-                onClick={() => setQuickViewProduct(null)}
-                className="w-full mt-2.5 py-2 text-center font-sans text-xs font-semibold text-gray-500 hover:text-[#111111] transition-colors cursor-pointer"
-              >
-                Continue Browsing
-              </button>
+
+              <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-black/[0.04] text-xs">
+                <Link
+                  href={`/product/${quickViewProduct.id}`}
+                  onClick={() => setQuickViewProduct(null)}
+                  className="font-sans font-bold text-[#7C3AED] hover:text-[#6D28D9] transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <span>View Full Product Page</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setQuickViewProduct(null)}
+                  className="font-sans text-xs text-gray-500 hover:text-[#111111] transition-colors cursor-pointer"
+                >
+                  Continue Browsing
+                </button>
+              </div>
             </div>
 
           </div>

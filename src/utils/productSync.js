@@ -110,7 +110,23 @@ export function getStoredCustomProducts() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.map((p) => {
+      // Discard dead blob URLs or non-existent ephemeral runtime /images/product_ paths
+      const isDeadImage = (img) => !img || typeof img !== 'string' || img.startsWith('blob:') || img.startsWith('/images/product_');
+      if (isDeadImage(p.image)) {
+        const safeGalleryImg = Array.isArray(p.gallery) ? p.gallery.find((g) => !isDeadImage(g)) : null;
+        p.image = safeGalleryImg || (p.fallbackImage && !isDeadImage(p.fallbackImage) ? p.fallbackImage : '/images/media__1786370258071_2.jpg');
+      }
+      if (Array.isArray(p.gallery)) {
+        p.gallery = p.gallery.filter((g) => !isDeadImage(g));
+        if (p.gallery.length === 0 && p.image) {
+          p.gallery = [p.image];
+        }
+      }
+      return p;
+    });
   } catch (e) {
     return [];
   }

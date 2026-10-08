@@ -44,8 +44,8 @@ async function processSingleFile(file, supabase) {
     }
   }
 
-  // 2. Local FS fallback (wrapped to prevent 500 in read-only environments)
-  if (!finalImageUrl) {
+  // 2. Local FS fallback (only in local dev where public/images is statically served by next dev)
+  if (!finalImageUrl && !process.env.VERCEL) {
     try {
       const uploadDir = path.join(process.cwd(), 'public', 'images');
       if (!fs.existsSync(uploadDir)) {

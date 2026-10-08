@@ -63,6 +63,11 @@ function CardImageDisplay({
           alt={title}
           loading="lazy"
           draggable="false"
+          onError={(e) => {
+            if (e.currentTarget.src !== '/images/media__1786369656046.jpg') {
+              e.currentTarget.src = '/images/media__1786369656046.jpg';
+            }
+          }}
           className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500 pointer-events-none select-none"
         />
       </div>

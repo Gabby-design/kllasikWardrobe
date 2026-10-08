@@ -11,6 +11,7 @@ import { Navbar } from '../src/components/Navbar';
 import { ProductGrid } from '../src/components/ProductGrid';
 import { BottomNav } from '../src/components/BottomNav';
 import { Sparkles, Search, SlidersHorizontal, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { mergeWithStoredProducts, subscribeToProductChanges } from '../src/utils/productSync.js';
 
 export default function HomePage() {
   const [dbProducts, setDbProducts] = useState(PRODUCTS);
@@ -31,6 +32,9 @@ export default function HomePage() {
   const [quickViewActiveImg, setQuickViewActiveImg] = useState(null);
 
   useEffect(() => {
+    // 1. Immediately hydrate with any locally saved updates
+    setDbProducts((current) => mergeWithStoredProducts(current));
+
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const cat = urlParams.get('category');
@@ -41,20 +45,30 @@ export default function HomePage() {
 
     async function fetchProducts() {
       try {
-        const res = await fetch('/api/products');
+        const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           if (data && data.products && data.products.length > 0) {
-            setDbProducts(data.products);
+            const merged = mergeWithStoredProducts(data.products);
+            setDbProducts(merged);
             return;
           }
         }
       } catch (err) {
         console.warn('Backend API products notice (using default catalog):', err.message);
       }
-      setDbProducts(PRODUCTS);
+      setDbProducts(mergeWithStoredProducts(PRODUCTS));
     }
     fetchProducts();
+
+    // 2. Real-time subscription across tabs & on focus
+    const unsubscribe = subscribeToProductChanges(() => {
+      fetchProducts();
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const getSelectedSize = (productId) => {

@@ -297,16 +297,32 @@ export async function updateStoredProductStock(productId, newStock, fallbackProd
 
     // Call server API immediately with no-store
     try {
+      const stockPayload = JSON.stringify({
+        productId,
+        newStock: finalStock,
+        action: 'set',
+      });
+
       await fetch('/api/products/stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         cache: 'no-store',
-        body: JSON.stringify({
-          productId,
-          newStock: finalStock,
-          action: 'set',
-        }),
+        body: stockPayload,
       });
+
+      // If running on localhost, also push stock to Live Host in background
+      if (typeof window !== 'undefined' && (
+        window.location.hostname === 'localhost' || 
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname.startsWith('192.168.')
+      )) {
+        fetch('https://kllasik-wardrobe.vercel.app/api/products/stock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          body: stockPayload,
+        }).catch(() => {});
+      }
     } catch {}
 
     if (finalStock === 0) {
@@ -379,7 +395,7 @@ export async function decrementStoredProductStock(productId, quantity = 1, fallb
   }
 }
 
-// Push local edits from this browser to the backend server
+// Push local edits from this browser to the backend server (and live host if running on localhost)
 export async function syncClientEditsToServer(products) {
   if (typeof window === 'undefined') return { success: false, error: 'SSR' };
   try {
@@ -392,16 +408,34 @@ export async function syncClientEditsToServer(products) {
     }
 
     const removedIds = getStoredRemovedProductIds();
+    const payload = JSON.stringify({
+      products: toSend,
+      removedIds,
+    });
 
+    const isLocalhost = Boolean(
+      window.location.hostname === 'localhost' || 
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.startsWith('192.168.')
+    );
+
+    // 1. Primary sync to current host API
     const res = await fetch('/api/admin/sync-catalog', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
-      body: JSON.stringify({
-        products: toSend,
-        removedIds,
-      }),
+      body: payload,
     });
+
+    // 2. If running locally, automatically sync to live production host in parallel
+    if (isLocalhost) {
+      fetch('https://kllasik-wardrobe.vercel.app/api/admin/sync-catalog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: payload,
+      }).catch(() => {});
+    }
 
     if (res.ok) {
       const data = await res.json();

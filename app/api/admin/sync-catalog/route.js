@@ -10,6 +10,17 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, Pragma, Cache-Control',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
+};
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -18,7 +29,7 @@ export async function POST(request) {
     if (!Array.isArray(products)) {
       return NextResponse.json(
         { success: false, error: 'Products array is required' },
-        { status: 400 }
+        { status: 400, headers: CORS_HEADERS }
       );
     }
 
@@ -71,15 +82,13 @@ export async function POST(request) {
       syncedProductsCount: products.length,
       timestamp: Date.now()
     }, {
-      headers: {
-        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
-      }
+      headers: CORS_HEADERS
     });
   } catch (err) {
     console.error('sync-catalog error:', err);
     return NextResponse.json(
       { success: false, error: err.message },
-      { status: 500 }
+      { status: 500, headers: CORS_HEADERS }
     );
   }
 }
@@ -92,8 +101,6 @@ export async function GET() {
     products: all,
     timestamp: Date.now()
   }, {
-    headers: {
-      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0'
-    }
+    headers: CORS_HEADERS
   });
 }

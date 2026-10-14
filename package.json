@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "sync:supabase": "node scripts/sync-to-supabase.mjs"
+    "sync:supabase": "node scripts/sync-to-supabase.mjs",
+    "sync:pull": "node scripts/sync-live.mjs pull",
+    "sync:push": "node scripts/sync-live.mjs push"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.13.0",

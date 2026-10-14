@@ -39,7 +39,10 @@ import {
   mergeWithStoredProducts, 
   broadcastProductChange,
   compressImageFile,
-  updateStoredProductStock
+  updateStoredProductStock,
+  getStoredCustomProducts,
+  syncClientEditsToServer,
+  startLiveCatalogSync
 } from '../../utils/productSync.js';
 
 export function AdminDashboard({ initialProducts, initialOrders }) {
@@ -48,6 +51,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   const [products, setProducts] = useState(initialProducts || []);
   const [orders, setOrders] = useState(initialOrders || []);
   const [loading, setLoading] = useState(false);
+  const [manualSyncing, setManualSyncing] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all' | 'critical' | 'low' | 'sold-out' | 'in-stock'
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -58,17 +62,91 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   const autoSaveTimerRef = useRef(null);
   const isInitialModalLoad = useRef(true);
 
-  // Quick inline stock updater
-  const handleQuickStockChange = (prod, targetStock) => {
+  // Quick inline stock updater & live push to all devices
+  const handleQuickStockChange = async (prod, targetStock) => {
     const finalStock = Math.max(0, Number(targetStock || 0));
-    updateStoredProductStock(prod.id, finalStock, prod);
     setProducts((prev) => prev.map((p) => (p.id === prod.id ? { ...p, stock: finalStock } : p)));
-    toast.success(`Updated stock for "${prod.title}" to ${finalStock}!`, { id: `quick-stock-${prod.id}` });
+    await updateStoredProductStock(prod.id, finalStock, prod);
+    toast.success(`Updated stock for "${prod.title}" to ${finalStock}! Live on all devices.`, { id: `quick-stock-${prod.id}` });
   };
 
-  // Hydrate with local stored products on mount
+  // Manual one-click sync to push all local edits to code & all devices
+  const handleManualSyncToAllDevices = async () => {
+    setManualSyncing(true);
+    try {
+      const stored = getStoredCustomProducts();
+      const listToSync = (stored && stored.length > 0) ? stored : products;
+      const res = await syncClientEditsToServer(listToSync);
+      if (res?.success) {
+        toast.success(`Synchronized ${res.syncedProductsCount || listToSync.length} products to code & live devices!`, { duration: 4500 });
+        broadcastProductChange({}, 'refresh');
+        router.refresh();
+      } else {
+        toast.error('Sync notice: ' + (res?.error || 'Failed to sync'));
+      }
+    } catch (err) {
+      toast.error('Sync notice: ' + err.message);
+    } finally {
+      setManualSyncing(false);
+    }
+  };
+
+  // Export catalog JSON to clipboard
+  const handleExportCatalog = () => {
+    try {
+      const stored = getStoredCustomProducts();
+      const currentList = stored && stored.length > 0 ? stored : products;
+      const jsonStr = JSON.stringify(currentList, null, 2);
+      navigator.clipboard.writeText(jsonStr);
+      toast.success('Catalog JSON copied to clipboard! Ready to backup or transfer.', { duration: 4000 });
+    } catch {
+      toast.error('Could not copy to clipboard');
+    }
+  };
+
+  // Import catalog JSON and synchronize to server
+  const handleImportCatalog = async () => {
+    const raw = prompt('Paste your Products JSON array here:');
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        toast.error('Invalid JSON: Must be an array of products');
+        return;
+      }
+      setProducts(parsed);
+      for (const prod of parsed) {
+        saveStoredCustomProduct(prod);
+      }
+      await syncClientEditsToServer(parsed);
+      toast.success(`Imported and synchronized ${parsed.length} products to live store!`, { duration: 4500 });
+      router.refresh();
+    } catch (err) {
+      toast.error('JSON parse error: ' + err.message);
+    }
+  };
+
+  // Hydrate and proactively sync local products on mount, plus continuous live polling
   useEffect(() => {
-    setProducts((current) => mergeWithStoredProducts(current));
+    // 1. If this browser has local stored products from admin editing, auto-sync them to server
+    const stored = getStoredCustomProducts();
+    if (stored && stored.length > 0) {
+      setProducts((current) => mergeWithStoredProducts(current));
+      syncClientEditsToServer(stored).then((res) => {
+        if (res?.success) {
+          console.log('Local admin products synced to server:', res);
+        }
+      }).catch(() => {});
+    }
+
+    // 2. Start continuous live sync across all devices
+    const unsubscribe = startLiveCatalogSync((liveProducts) => {
+      if (Array.isArray(liveProducts) && liveProducts.length > 0) {
+        setProducts(liveProducts);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Edit Product Modal State
@@ -428,9 +506,10 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       saveStoredCustomProduct(payload);
       setProducts((prev) => prev.map((p) => (p.id === payload.id ? payload : p)));
 
-      // 2. Persist to server in background
+      // 2. Persist to server in background and sync to backend catalog
       try {
         await updateProductAction(payload);
+        await syncClientEditsToServer([payload]);
       } catch (err) {}
 
       setAutoSaveStatus('saved');
@@ -568,12 +647,13 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     saveStoredCustomProduct(payload);
     setProducts((prev) => prev.map((p) => (p.id === payload.id ? payload : p)));
 
-    // 2. Persist to server
+    // 2. Persist to server & sync backend catalog
     try {
       const res = await updateProductAction(payload);
       if (res && res.product) {
         setProducts((prev) => prev.map((p) => (p.id === payload.id ? res.product : p)));
       }
+      await syncClientEditsToServer([payload]);
     } catch (err) {
       console.warn('Server sync notice:', err.message);
     }
@@ -695,16 +775,22 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
         <div className="flex items-center gap-2.5">
           <button
             type="button"
-            onClick={() => {
-              broadcastProductChange({}, 'refresh');
-              router.refresh();
-              toast.success('Storefront synchronized across all open windows!');
-            }}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#7C3AED] hover:text-[#6D28D9] bg-[#EDE9FE] hover:bg-[#DDD6FE] border border-[#DDD6FE] px-3.5 py-2 rounded-full transition-all cursor-pointer shadow-xs"
-            title="Force refresh & sync storefront"
+            disabled={manualSyncing}
+            onClick={handleManualSyncToAllDevices}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] border border-[#7C3AED] px-4 py-2 rounded-full transition-all cursor-pointer shadow-xs disabled:opacity-60"
+            title="Push local edits to code & synchronize across all devices"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Sync Storefront</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${manualSyncing ? 'animate-spin' : ''}`} />
+            <span>{manualSyncing ? 'Syncing Devices...' : 'Sync All Devices'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleExportCatalog}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-[#7C3AED] bg-white hover:bg-gray-50 border border-black/[0.06] px-3.5 py-2 rounded-full transition-all shadow-xs cursor-pointer"
+            title="Copy all current catalog JSON to clipboard"
+          >
+            <span>Backup JSON</span>
           </button>
 
           <Link

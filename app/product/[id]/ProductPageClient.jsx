@@ -19,42 +19,45 @@ export default function ProductPageClient({ initialProduct }) {
   const [selectedImage, setSelectedImage] = useState(null);
 
   useEffect(() => {
-    function syncProduct() {
+    async function syncProduct() {
       if (!initialProduct?.id) return;
-      const removedIds = getStoredRemovedProductIds();
-      if (removedIds.includes(initialProduct.id)) {
-        setIsRemoved(true);
-        return;
-      }
+      try {
+        const res = await fetch(`/api/products/stock?productId=${initialProduct.id}&t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.stock !== undefined) {
+            setProduct((prev) => ({ ...prev, stock: data.stock }));
+          }
+        }
+      } catch {}
 
       const stored = getSingleStoredProduct(initialProduct.id);
       if (stored) {
-        setProduct({
-          ...initialProduct,
+        setProduct((prev) => ({
+          ...prev,
           ...stored,
           gallery: Array.isArray(stored.gallery) && stored.gallery.length > 0
             ? stored.gallery
-            : (stored.image ? [stored.image] : initialProduct.gallery)
-        });
+            : (stored.image ? [stored.image] : prev.gallery)
+        }));
       }
     }
 
     syncProduct();
 
     const unsubscribe = subscribeToProductChanges((event) => {
-      if (event?.productId === initialProduct.id) {
-        if (event?.type === 'out_of_stock_alert') {
-          setProduct((prev) => ({ ...prev, stock: 0 }));
-          toast.error(
-            `Notice: Another customer just ordered the last piece of "${initialProduct.title}". It is now Sold Out.`,
-            { id: `oos-${initialProduct.id}`, duration: 6000 }
-          );
-        } else if (event?.extra?.newStock !== undefined) {
-          setProduct((prev) => ({ ...prev, stock: event.extra.newStock }));
-        } else {
-          syncProduct();
+      if (Array.isArray(event?.products)) {
+        const matching = event.products.find((p) => p.id === initialProduct.id);
+        if (matching) {
+          setProduct((prev) => ({ ...prev, ...matching }));
+          if (matching.stock <= 0) {
+            toast.error(
+              `Notice: "${matching.title}" is now Sold Out.`,
+              { id: `oos-${initialProduct.id}`, duration: 5000 }
+            );
+          }
         }
-      } else {
+      } else if (event?.productId === initialProduct.id || event?.product?.id === initialProduct.id) {
         syncProduct();
       }
     });

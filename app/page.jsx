@@ -61,21 +61,30 @@ export default function HomePage() {
     }
     fetchProducts();
 
-    // 2. Real-time subscription across tabs & on focus
+    // 2. Real-time subscription across tabs, mobile focus & live server polling
     const unsubscribe = subscribeToProductChanges((data) => {
-      fetchProducts();
-      // If someone ordered the last unit, immediately alert other users in real-time
+      if (Array.isArray(data?.products) && data.products.length > 0) {
+        setDbProducts(data.products);
+        // Also sync quick view modal if open
+        setQuickViewProduct((current) => {
+          if (!current) return null;
+          const fresh = data.products.find((p) => p.id === current.id);
+          return fresh ? { ...current, ...fresh } : current;
+        });
+      } else {
+        fetchProducts();
+      }
+
+      // If someone ordered the last unit or set stock to 0, immediately alert in real-time
       if (data && (data.action === 'out_of_stock_alert' || data.wasLastUnit) && data.product) {
         const pTitle = data.product.title || data.product.name || 'This piece';
         toast.error(
-          `Notice: "${pTitle}" (which had only 1 remaining a moment ago) was just ordered and is now OUT OF STOCK!`,
+          `Notice: "${pTitle}" is now OUT OF STOCK!`,
           { duration: 6000, id: `oos-${data.product.id}` }
         );
-        // Also update local state immediately without waiting for fetch
         setDbProducts((prev) =>
           prev.map((p) => (p.id === data.product.id ? { ...p, stock: 0 } : p))
         );
-        // If the out-of-stock product is currently opened in quick view, update it
         setQuickViewProduct((current) => {
           if (current && current.id === data.product.id) {
             return { ...current, stock: 0 };

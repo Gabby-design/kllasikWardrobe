@@ -340,19 +340,37 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
 
     setUploadingImage(true);
     try {
-      const compressedUrls = [];
+      const finalUrls = [];
       for (const f of files) {
-        const compressed = await compressImageFile(f);
-        if (compressed) compressedUrls.push(compressed);
+        let uploadedUrl = null;
+        try {
+          const fd = new FormData();
+          fd.append('file', f);
+          const res = await fetch('/api/admin/upload', {
+            method: 'POST',
+            body: fd,
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.url) {
+              uploadedUrl = data.url;
+            }
+          }
+        } catch {}
+
+        if (!uploadedUrl) {
+          uploadedUrl = await compressImageFile(f);
+        }
+        if (uploadedUrl) finalUrls.push(uploadedUrl);
       }
 
-      if (compressedUrls.length > 0) {
-        setGallery(compressedUrls);
-        setImage(compressedUrls[0]);
+      if (finalUrls.length > 0) {
+        setGallery(finalUrls);
+        setImage(finalUrls[0]);
         setPreviewActiveIndex(0);
         toast.success(
-          compressedUrls.length > 1
-            ? `${compressedUrls.length} photos ready for product!`
+          finalUrls.length > 1
+            ? `${finalUrls.length} photos ready for product!`
             : 'Photo ready for product!'
         );
       }
@@ -561,19 +579,37 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
 
     setUploadingEditGallery(true);
     try {
-      const compressedUrls = [];
+      const finalUrls = [];
       for (const f of files) {
-        const compressed = await compressImageFile(f);
-        if (compressed) compressedUrls.push(compressed);
+        let uploadedUrl = null;
+        try {
+          const fd = new FormData();
+          fd.append('file', f);
+          const res = await fetch('/api/admin/upload', {
+            method: 'POST',
+            body: fd,
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.url) {
+              uploadedUrl = data.url;
+            }
+          }
+        } catch {}
+
+        if (!uploadedUrl) {
+          uploadedUrl = await compressImageFile(f);
+        }
+        if (uploadedUrl) finalUrls.push(uploadedUrl);
       }
 
-      if (compressedUrls.length > 0) {
+      if (finalUrls.length > 0) {
         // REPLACE old photos with newly uploaded photos
-        setEditGallery(compressedUrls);
-        setEditImage(compressedUrls[0]);
+        setEditGallery(finalUrls);
+        setEditImage(finalUrls[0]);
         toast.success(
-          compressedUrls.length > 1
-            ? `${compressedUrls.length} new photos set! Old photos replaced.`
+          finalUrls.length > 1
+            ? `${finalUrls.length} new photos set! Old photos replaced.`
             : 'New photo set! Old photo replaced.'
         );
       }
@@ -791,6 +827,15 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
             title="Copy all current catalog JSON to clipboard"
           >
             <span>Backup JSON</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleImportCatalog}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-[#7C3AED] bg-white hover:bg-gray-50 border border-black/[0.06] px-3.5 py-2 rounded-full transition-all shadow-xs cursor-pointer"
+            title="Paste and restore backup catalog JSON"
+          >
+            <span>Restore JSON</span>
           </button>
 
           <Link

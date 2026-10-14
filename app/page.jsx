@@ -64,11 +64,12 @@ export default function HomePage() {
     // 2. Real-time subscription across tabs, mobile focus & live server polling
     const unsubscribe = subscribeToProductChanges((data) => {
       if (Array.isArray(data?.products) && data.products.length > 0) {
-        setDbProducts(data.products);
+        const merged = mergeWithStoredProducts(data.products);
+        setDbProducts(merged);
         // Also sync quick view modal if open
         setQuickViewProduct((current) => {
           if (!current) return null;
-          const fresh = data.products.find((p) => p.id === current.id);
+          const fresh = merged.find((p) => p.id === current.id);
           return fresh ? { ...current, ...fresh } : current;
         });
       } else {

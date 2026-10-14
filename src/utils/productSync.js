@@ -29,8 +29,8 @@ function openDB() {
   });
 }
 
-// Client-side image compression
-export function compressImageFile(file, maxWidth = 1200, maxHeight = 1200, quality = 0.82) {
+// Client-side image compression: optimized to keep size under 50KB to preserve localStorage quota
+export function compressImageFile(file, maxWidth = 800, maxHeight = 800, quality = 0.72) {
   return new Promise((resolve) => {
     if (typeof window === 'undefined' || !file || !file.type || !file.type.startsWith('image/')) {
       const reader = new FileReader();
@@ -115,7 +115,8 @@ export function getStoredCustomProducts() {
     if (!Array.isArray(parsed)) return [];
 
     return parsed.map((p) => {
-      const isDeadImage = (img) => !img || typeof img !== 'string' || img.startsWith('blob:') || img.startsWith('/images/product_');
+      // Valid images include uploaded paths (/images/...), base64 data URLs, and external URLs
+      const isDeadImage = (img) => !img || typeof img !== 'string' || img.startsWith('blob:');
       if (isDeadImage(p.image)) {
         const safeGalleryImg = Array.isArray(p.gallery) ? p.gallery.find((g) => !isDeadImage(g)) : null;
         p.image = safeGalleryImg || (p.fallbackImage && !isDeadImage(p.fallbackImage) ? p.fallbackImage : '/images/media__1786370258071_2.jpg');
@@ -139,23 +140,32 @@ export function getSingleStoredProduct(productId) {
   return list.find((p) => p.id === productId) || null;
 }
 
-// Obliterates any stale local cache and synchronizes directly with fresh server catalog
+// Reconciles server catalog without overwriting newer local user modifications
 export function reconcileWithServerProducts(serverProducts = []) {
   if (typeof window === 'undefined' || !Array.isArray(serverProducts) || serverProducts.length === 0) {
     return;
   }
   try {
-    // 1. Save server truth to localStorage so offline fallback remains fresh
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(serverProducts));
+    const currentStored = getStoredCustomProducts();
+    const storedMap = new Map(currentStored.map((p) => [p.id, p]));
+
+    const reconciled = serverProducts.map((sp) => {
+      const local = storedMap.get(sp.id);
+      if (local && local.updatedAt && sp.updatedAt) {
+        return new Date(local.updatedAt) > new Date(sp.updatedAt) ? local : sp;
+      }
+      return local || sp;
+    });
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(reconciled));
     localStorage.setItem(VERSION_KEY, String(Date.now()));
 
-    // 2. Also update IndexedDB
     openDB().then((db) => {
       if (!db) return;
       try {
         const tx = db.transaction(DB_STORE, 'readwrite');
         const store = tx.objectStore(DB_STORE);
-        serverProducts.forEach((p) => store.put(p));
+        reconciled.forEach((p) => store.put(p));
       } catch {}
     }).catch(() => {});
   } catch (e) {
@@ -222,22 +232,40 @@ export function removeStoredCustomProduct(productId) {
   } catch (e) {}
 }
 
-// Server-authoritative merge: Server data is ALWAYS authoritative.
-// Local cache is only used as an initial instant-render placeholder before server returns.
+// Merges server products with stored custom products: Local user edits ALWAYS win over default items
 export function mergeWithStoredProducts(baseProducts = []) {
   if (typeof window === 'undefined') return baseProducts;
 
-  // If server provided products, the server IS the source of truth!
-  if (Array.isArray(baseProducts) && baseProducts.length > 0) {
-    // Reconcile and clean up stale local storage
-    reconcileWithServerProducts(baseProducts);
-    return baseProducts;
-  }
-
-  // If no server products yet, fall back to locally stored cache
   const stored = getStoredCustomProducts();
   const removedIds = new Set(getStoredRemovedProductIds());
-  return stored.filter((p) => !removedIds.has(p.id));
+
+  if (!stored || stored.length === 0) {
+    return (baseProducts || []).filter((p) => !removedIds.has(p.id));
+  }
+
+  const storedMap = new Map();
+  for (const sp of stored) {
+    if (sp && sp.id && !removedIds.has(sp.id)) {
+      storedMap.set(sp.id, sp);
+    }
+  }
+
+  const merged = [];
+  for (const bp of (baseProducts || [])) {
+    if (removedIds.has(bp.id)) continue;
+    if (storedMap.has(bp.id)) {
+      merged.push(storedMap.get(bp.id));
+      storedMap.delete(bp.id);
+    } else {
+      merged.push(bp);
+    }
+  }
+
+  for (const customProd of storedMap.values()) {
+    merged.unshift(customProd);
+  }
+
+  return merged;
 }
 
 export function broadcastProductChange(product, action = 'update', extraData = {}) {
@@ -479,9 +507,9 @@ export function startLiveCatalogSync(onUpdate, intervalMs = 3500) {
           const currentHash = computeQuickHash(data.products);
           if (currentHash !== lastKnownHash) {
             lastKnownHash = currentHash;
-            // Server truth supersedes local cache
             reconcileWithServerProducts(data.products);
-            onUpdate(data.products);
+            const merged = mergeWithStoredProducts(data.products);
+            onUpdate(merged);
           }
         }
       }

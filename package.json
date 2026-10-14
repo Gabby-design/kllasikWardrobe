@@ -4,13 +4,15 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev.mjs",
+    "dev:standalone": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "sync:supabase": "node scripts/sync-to-supabase.mjs",
+    "sync:watch": "node scripts/sync-live.mjs watch",
     "sync:pull": "node scripts/sync-live.mjs pull",
-    "sync:push": "node scripts/sync-live.mjs push"
+    "sync:push": "node scripts/sync-live.mjs push",
+    "sync:supabase": "node scripts/sync-to-supabase.mjs"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.13.0",

@@ -65,6 +65,15 @@ export async function createProductAction(productData) {
       } catch {}
     })().catch(() => {});
 
+    // Auto-push to live host in background if running locally
+    if (!process.env.VERCEL) {
+      fetch('https://kllasik-wardrobe.vercel.app/api/admin/sync-catalog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: [newProduct] })
+      }).catch(() => {});
+    }
+
     try {
       revalidatePath('/', 'page');
       revalidatePath('/catalog', 'page');
@@ -140,6 +149,15 @@ export async function updateProductAction(productData) {
       } catch {}
     })().catch(() => {});
 
+    // Auto-push to live host in background if running locally
+    if (!process.env.VERCEL) {
+      fetch('https://kllasik-wardrobe.vercel.app/api/admin/sync-catalog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ products: [updatedProduct] })
+      }).catch(() => {});
+    }
+
     try {
       revalidatePath('/', 'page');
       revalidatePath('/catalog', 'page');
@@ -169,6 +187,13 @@ export async function deleteProductAction(productId) {
         }
       } catch {}
     })().catch(() => {});
+
+    // Auto-push removal to live host in background if running locally
+    if (!process.env.VERCEL) {
+      fetch(`https://kllasik-wardrobe.vercel.app/api/products?id=${encodeURIComponent(productId)}`, {
+        method: 'DELETE'
+      }).catch(() => {});
+    }
 
     try {
       revalidatePath('/', 'page');

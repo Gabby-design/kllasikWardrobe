@@ -1,1 +1,33 @@
-[]
+[
+  {
+    "id": "kwt-01",
+    "title": "Klasik Wonderland Textured Crochet Shirt",
+    "price": 35000,
+    "stock": 6,
+    "category": "T-Shirts",
+    "tag": "New Release",
+    "rating": 5,
+    "reviews": 94,
+    "description": "Crafted from textured pointelle crochet cotton knit with custom vintage script and baroque cross insignia. Features camp collar and luxury openwork weave drape.",
+    "gsm": "260 GSM Textured Knit",
+    "material": "100% Textured Pointelle Cotton",
+    "fit": "Relaxed Camp-Collar Fit",
+    "sizes": [
+      "M"
+    ],
+    "colors": [
+      {
+        "name": "Ecru Cream",
+        "hex": "#fdfbf7"
+      }
+    ],
+    "image": "/images/wonderland-shirt-front.jpg",
+    "fallbackImage": "/images/wonderland-shirt-front.jpg",
+    "gallery": [
+      "/images/wonderland-shirt-front.jpg",
+      "/images/wonderland-shirt-detail.jpg"
+    ],
+    "updatedAt": "2026-10-14T09:54:43.544Z",
+    "isCustom": true
+  }
+]

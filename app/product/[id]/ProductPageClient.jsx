@@ -31,7 +31,7 @@ export default function ProductPageClient({ initialProduct }) {
         }
       } catch {}
 
-      const stored = getSingleStoredProduct(initialProduct.id);
+      const stored = getSingleStoredProduct(initialProduct.id, initialProduct);
       if (stored) {
         setProduct((prev) => ({
           ...prev,

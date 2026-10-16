@@ -27,7 +27,8 @@ import {
   X,
   Save,
   SlidersHorizontal,
-  RefreshCw
+  RefreshCw,
+  RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createProductAction, deleteProductAction, updateProductAction } from '../../../app/actions/adminProducts';
@@ -42,7 +43,8 @@ import {
   updateStoredProductStock,
   getStoredCustomProducts,
   syncClientEditsToServer,
-  startLiveCatalogSync
+  startLiveCatalogSync,
+  resetToServerCatalog
 } from '../../utils/productSync.js';
 
 export function AdminDashboard({ initialProducts, initialOrders }) {
@@ -123,6 +125,17 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       router.refresh();
     } catch (err) {
       toast.error('JSON parse error: ' + err.message);
+    }
+  };
+
+  // Reset to authoritative server catalog
+  const handleResetToServerCatalog = () => {
+    if (confirm('Are you sure you want to discard all local edits and restore the authoritative server catalog?')) {
+      resetToServerCatalog();
+      toast.success('Local cache cleared! Restoring server catalog...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 400);
     }
   };
 
@@ -680,7 +693,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     };
 
     // 1. Instantly save to local storage & broadcast across all store tabs
-    saveStoredCustomProduct(payload);
+    saveStoredCustomProduct(payload, editingProduct);
     setProducts((prev) => prev.map((p) => (p.id === payload.id ? payload : p)));
 
     // 2. Persist to server & sync backend catalog
@@ -836,6 +849,16 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
             title="Paste and restore backup catalog JSON"
           >
             <span>Restore JSON</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResetToServerCatalog}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 px-3.5 py-2 rounded-full transition-all shadow-xs cursor-pointer"
+            title="Clear all local edits and restore fresh server catalog"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset to Server</span>
           </button>
 
           <Link

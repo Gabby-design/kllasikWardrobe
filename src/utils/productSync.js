@@ -2,12 +2,44 @@
 // Universal Live Synchronization Engine for Klasik Wardrobe
 // Ensures instant cross-device synchronization between Admin, Phone, and all client devices.
 
-const STORAGE_KEY = 'klasik_custom_products';
-const REMOVED_KEY = 'klasik_removed_products';
-const VERSION_KEY = 'klasik_catalog_version';
-const CHANNEL_NAME = 'klasik_products_channel';
-const DB_NAME = 'klasik_store_db';
-const DB_STORE = 'products';
+export const STORAGE_KEY = 'klasik_custom_products_v4';
+export const REMOVED_KEY = 'klasik_removed_products_v4';
+export const VERSION_KEY = 'klasik_catalog_version_v4';
+export const CHANNEL_NAME = 'klasik_products_channel_v4';
+export const DB_NAME = 'klasik_store_db_v4';
+export const DB_STORE = 'products';
+
+// One-time cache migration to invalidate obsolete client-side caches
+export function runStorageMigration() {
+  if (typeof window === 'undefined') return;
+  try {
+    const obsoleteKeys = [
+      'klasik_custom_products',
+      'klasik_custom_products_v1',
+      'klasik_custom_products_v2',
+      'klasik_custom_products_v3',
+      'klasik_removed_products',
+      'klasik_removed_products_v1',
+      'klasik_removed_products_v2',
+      'klasik_removed_products_v3',
+      'klasik_catalog_version',
+      'klasik_catalog_version_v1',
+      'klasik_catalog_version_v2',
+      'klasik_catalog_version_v3',
+      'klasik_removed_product_ids_v2',
+      'klasik_removed_product_ids_v3',
+    ];
+    for (const k of obsoleteKeys) {
+      try {
+        localStorage.removeItem(k);
+      } catch {}
+    }
+  } catch {}
+}
+
+if (typeof window !== 'undefined') {
+  runStorageMigration();
+}
 
 // Open IndexedDB safely
 function openDB() {
@@ -27,6 +59,67 @@ function openDB() {
       resolve(null);
     }
   });
+}
+
+// Computes a deterministic content version marker for a product
+export function computeProductVersion(product) {
+  if (!product) return '0';
+  if (product.catalogVersion) return String(product.catalogVersion);
+  if (product.updatedAt) return String(product.updatedAt);
+  const key = [
+    product.id || '',
+    product.title || product.name || '',
+    product.price ?? '',
+    product.image || '',
+    Array.isArray(product.gallery) ? product.gallery.join(',') : '',
+    product.description || '',
+    product.stock !== undefined ? product.stock : '',
+    product.gsm || '',
+    product.material || '',
+    product.fit || '',
+    Array.isArray(product.sizes) ? product.sizes.join(',') : '',
+    Array.isArray(product.colors) ? JSON.stringify(product.colors) : ''
+  ].join('::');
+
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) - hash) + key.charCodeAt(i);
+    hash |= 0;
+  }
+  return `v_${Math.abs(hash)}`;
+}
+
+// Determines if a locally stored edit is genuinely newer than server product
+export function isLocalEditNewer(localEdit, serverProduct) {
+  if (!localEdit) return false;
+  if (!serverProduct) return true; // Local custom product only
+
+  const serverVer = computeProductVersion(serverProduct);
+  const localBaseVer = localEdit.baseVersion;
+
+  // If local edit records baseVersion and server version has changed,
+  // the server has been updated with new code/assets -> DISCARD local edit
+  if (localBaseVer && localBaseVer !== serverVer) {
+    return false;
+  }
+
+  // If local edit has different image from server, server image always wins unless explicitly newer edit
+  if (localEdit.image && serverProduct.image && localEdit.image !== serverProduct.image) {
+    if (!localEdit.editedAt || (serverProduct.updatedAt && new Date(serverProduct.updatedAt) >= new Date(localEdit.editedAt))) {
+      return false;
+    }
+  }
+
+  // Check timestamp comparison if available
+  if (localEdit.editedAt && serverProduct.updatedAt) {
+    return new Date(localEdit.editedAt) > new Date(serverProduct.updatedAt);
+  }
+
+  if (localBaseVer && localBaseVer === serverVer && localEdit.editedAt) {
+    return true;
+  }
+
+  return false;
 }
 
 // Client-side image compression: optimized to keep size under 50KB to preserve localStorage quota
@@ -109,13 +202,13 @@ export function unmarkProductRemoved(productId) {
 export function getStoredCustomProducts() {
   if (typeof window === 'undefined') return [];
   try {
+    runStorageMigration();
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
 
     return parsed.map((p) => {
-      // Valid images include uploaded paths (/images/...), base64 data URLs, and external URLs
       const isDeadImage = (img) => !img || typeof img !== 'string' || img.startsWith('blob:');
       if (isDeadImage(p.image)) {
         const safeGalleryImg = Array.isArray(p.gallery) ? p.gallery.find((g) => !isDeadImage(g)) : null;
@@ -134,30 +227,32 @@ export function getStoredCustomProducts() {
   }
 }
 
-export function getSingleStoredProduct(productId) {
+export function getSingleStoredProduct(productId, serverProduct = null) {
   if (!productId) return null;
+  runStorageMigration();
   const list = getStoredCustomProducts();
-  return list.find((p) => p.id === productId) || null;
+  const found = list.find((p) => p.id === productId);
+  if (!found) return null;
+
+  if (serverProduct) {
+    if (!isLocalEditNewer(found, serverProduct)) {
+      // Stale local edit detected! Prune it from storage and return null so server product is used
+      removeStoredCustomProduct(productId);
+      return null;
+    }
+  }
+
+  return found;
 }
 
-// Reconciles server catalog without overwriting newer local user modifications
+// Reconciles server catalog with storage, permanently purging stale local edits
 export function reconcileWithServerProducts(serverProducts = []) {
   if (typeof window === 'undefined' || !Array.isArray(serverProducts) || serverProducts.length === 0) {
     return;
   }
   try {
-    const currentStored = getStoredCustomProducts();
-    const storedMap = new Map(currentStored.map((p) => [p.id, p]));
-
-    const reconciled = serverProducts.map((sp) => {
-      const local = storedMap.get(sp.id);
-      if (local && local.updatedAt && sp.updatedAt) {
-        return new Date(local.updatedAt) > new Date(sp.updatedAt) ? local : sp;
-      }
-      return local || sp;
-    });
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(reconciled));
+    runStorageMigration();
+    const reconciled = mergeWithStoredProducts(serverProducts);
     localStorage.setItem(VERSION_KEY, String(Date.now()));
 
     openDB().then((db) => {
@@ -173,22 +268,55 @@ export function reconcileWithServerProducts(serverProducts = []) {
   }
 }
 
-// Clear obsolete client cache if requested
+// Clear obsolete client cache and reset to pristine state
 export function clearObsoleteClientCache() {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(REMOVED_KEY);
     localStorage.removeItem(VERSION_KEY);
+    runStorageMigration();
   } catch {}
 }
 
-export function saveStoredCustomProduct(product) {
+// Discard all local product edits and restore authoritative server catalog
+export function resetToServerCatalog() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(REMOVED_KEY);
+    localStorage.removeItem(VERSION_KEY);
+    runStorageMigration();
+    openDB().then((db) => {
+      if (!db) return;
+      try {
+        const tx = db.transaction(DB_STORE, 'readwrite');
+        tx.objectStore(DB_STORE).clear();
+      } catch {}
+    }).catch(() => {});
+    broadcastProductChange(null, 'catalog_reset');
+  } catch (e) {
+    console.warn('Could not reset catalog:', e);
+  }
+}
+
+export function saveStoredCustomProduct(product, baseProduct = null) {
   if (typeof window === 'undefined' || !product || !product.id) return;
   try {
+    runStorageMigration();
     unmarkProductRemoved(product.id);
     const current = getStoredCustomProducts();
-    const updated = [product, ...current.filter((p) => p.id !== product.id)];
+    
+    const enriched = {
+      ...product,
+      editedAt: new Date().toISOString(),
+      baseVersion: baseProduct 
+        ? computeProductVersion(baseProduct) 
+        : (product.baseVersion || computeProductVersion(product)),
+      isCustom: true
+    };
+
+    const updated = [enriched, ...current.filter((p) => p.id !== product.id)];
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
@@ -201,11 +329,11 @@ export function saveStoredCustomProduct(product) {
       try {
         const tx = db.transaction(DB_STORE, 'readwrite');
         const store = tx.objectStore(DB_STORE);
-        store.put(product);
+        store.put(enriched);
       } catch {}
     }).catch(() => {});
 
-    broadcastProductChange(product, 'save');
+    broadcastProductChange(enriched, 'save');
   } catch (e) {
     console.warn('Could not save product to local storage:', e);
   }
@@ -232,9 +360,13 @@ export function removeStoredCustomProduct(productId) {
   } catch (e) {}
 }
 
-// Merges server products with stored custom products: Local user edits ALWAYS win over default items
+// SERVER AUTHORITATIVE MERGE:
+// Server catalog is the absolute source of truth for all server-defined items.
+// Local edits are only retained if genuinely newer than the current server product version.
 export function mergeWithStoredProducts(baseProducts = []) {
   if (typeof window === 'undefined') return baseProducts;
+
+  runStorageMigration();
 
   const stored = getStoredCustomProducts();
   const removedIds = new Set(getStoredRemovedProductIds());
@@ -243,27 +375,59 @@ export function mergeWithStoredProducts(baseProducts = []) {
     return (baseProducts || []).filter((p) => !removedIds.has(p.id));
   }
 
-  const storedMap = new Map();
-  for (const sp of stored) {
-    if (sp && sp.id && !removedIds.has(sp.id)) {
-      storedMap.set(sp.id, sp);
+  const serverMap = new Map();
+  for (const bp of (baseProducts || [])) {
+    if (bp && bp.id) {
+      serverMap.set(bp.id, bp);
     }
   }
 
+  const validLocalEdits = [];
+  const processedServerIds = new Set();
   const merged = [];
+
+  for (const sp of stored) {
+    if (!sp || !sp.id || removedIds.has(sp.id)) continue;
+
+    const serverItem = serverMap.get(sp.id);
+
+    if (serverItem) {
+      if (isLocalEditNewer(sp, serverItem)) {
+        // Genuinely newer edit: keep it
+        validLocalEdits.push(sp);
+      } else {
+        // Stale local edit: DISCARD it!
+      }
+    } else if (sp.isCustom) {
+      // Admin custom product created locally that does not exist on server
+      validLocalEdits.push(sp);
+    }
+  }
+
+  const validLocalMap = new Map(validLocalEdits.map((item) => [item.id, item]));
+
   for (const bp of (baseProducts || [])) {
     if (removedIds.has(bp.id)) continue;
-    if (storedMap.has(bp.id)) {
-      merged.push(storedMap.get(bp.id));
-      storedMap.delete(bp.id);
+    processedServerIds.add(bp.id);
+
+    if (validLocalMap.has(bp.id)) {
+      merged.push(validLocalMap.get(bp.id));
     } else {
       merged.push(bp);
     }
   }
 
-  for (const customProd of storedMap.values()) {
-    merged.unshift(customProd);
+  // Prepend any valid local custom products not present in server catalog
+  for (const customItem of validLocalEdits) {
+    if (!processedServerIds.has(customItem.id)) {
+      merged.unshift(customItem);
+    }
   }
+
+  // Persist the pruned valid list back to localStorage so stale items are wiped permanently
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(validLocalEdits));
+  } catch {}
 
   return merged;
 }

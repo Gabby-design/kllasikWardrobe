@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 
 const ALLOWED_PASSPHRASES = ['kllasik2026', 'klasik2026'];
 
@@ -18,11 +19,12 @@ export async function verifyAdminPassword(formData) {
     cookieStore.set('admin_auth', 'true', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/'
     });
     revalidatePath('/admin');
-    return { success: true };
+    redirect('/admin');
   } else {
     return { error: 'Incorrect administrator passphrase' };
   }

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { createAdminClient } from '../../utils/supabase/admin';
-import { getAllProducts } from '../../src/data/productsManager';
+import { getAuthoritativeProducts } from '../../src/lib/db';
 import { AdminDashboard } from '../../src/components/admin/AdminDashboard';
 import { AdminLoginForm } from '../../src/components/admin/AdminLoginForm';
 
@@ -31,8 +31,8 @@ export default async function AdminPage({ searchParams }) {
     return <AdminLoginForm />;
   }
 
-  // Load products
-  const products = getAllProducts();
+  // Load products directly from authoritative database
+  const products = await getAuthoritativeProducts();
 
   // Load orders (with graceful fallback if Supabase is offline)
   let orders = [];

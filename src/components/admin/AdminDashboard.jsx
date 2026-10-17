@@ -28,23 +28,18 @@ import {
   Save,
   SlidersHorizontal,
   RefreshCw,
-  RotateCcw
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { createProductAction, deleteProductAction, updateProductAction } from '../../../app/actions/adminProducts';
+import { createProductAction, deleteProductAction, updateProductAction, resetCatalogAction } from '../../../app/actions/adminProducts';
 import { logoutAdmin } from '../../../app/actions/adminAuth';
 import { KlasikLogo } from '../KlasikLogo';
 import { 
-  saveStoredCustomProduct, 
-  removeStoredCustomProduct, 
-  mergeWithStoredProducts, 
-  broadcastProductChange,
-  compressImageFile,
-  updateStoredProductStock,
-  getStoredCustomProducts,
-  syncClientEditsToServer,
   startLiveCatalogSync,
-  resetToServerCatalog
+  resetToServerCatalog,
+  runStorageMigration
 } from '../../utils/productSync.js';
 
 export function AdminDashboard({ initialProducts, initialOrders }) {
@@ -67,25 +62,32 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   // Quick inline stock updater & live push to all devices
   const handleQuickStockChange = async (prod, targetStock) => {
     const finalStock = Math.max(0, Number(targetStock || 0));
-    setProducts((prev) => prev.map((p) => (p.id === prod.id ? { ...p, stock: finalStock } : p)));
-    await updateStoredProductStock(prod.id, finalStock, prod);
-    toast.success(`Updated stock for "${prod.title}" to ${finalStock}! Live on all devices.`, { id: `quick-stock-${prod.id}` });
+    try {
+      const res = await updateProductAction({ ...prod, stock: finalStock });
+      if (res?.success) {
+        setProducts((prev) => prev.map((p) => (p.id === prod.id ? { ...p, stock: finalStock } : p)));
+        toast.success(`Updated stock for "${prod.title}" to ${finalStock}!`, { id: `quick-stock-${prod.id}` });
+      } else {
+        toast.error(res?.error || 'Could not update stock in database');
+      }
+    } catch (e) {
+      toast.error('Stock error: ' + e.message);
+    }
   };
 
-  // Manual one-click sync to push all local edits to code & all devices
+  // Manual one-click refresh from authoritative database
   const handleManualSyncToAllDevices = async () => {
     setManualSyncing(true);
     try {
-      const stored = getStoredCustomProducts();
-      const listToSync = (stored && stored.length > 0) ? stored : products;
-      const res = await syncClientEditsToServer(listToSync);
-      if (res?.success) {
-        toast.success(`Synchronized ${res.syncedProductsCount || listToSync.length} products to code & live devices!`, { duration: 4500 });
-        broadcastProductChange({}, 'refresh');
-        router.refresh();
-      } else {
-        toast.error('Sync notice: ' + (res?.error || 'Failed to sync'));
+      const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.products)) {
+          setProducts(data.products);
+          toast.success(`Refreshed ${data.products.length} products from database!`, { duration: 3000 });
+        }
       }
+      router.refresh();
     } catch (err) {
       toast.error('Sync notice: ' + err.message);
     } finally {
@@ -96,11 +98,9 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   // Export catalog JSON to clipboard
   const handleExportCatalog = () => {
     try {
-      const stored = getStoredCustomProducts();
-      const currentList = stored && stored.length > 0 ? stored : products;
-      const jsonStr = JSON.stringify(currentList, null, 2);
+      const jsonStr = JSON.stringify(products, null, 2);
       navigator.clipboard.writeText(jsonStr);
-      toast.success('Catalog JSON copied to clipboard! Ready to backup or transfer.', { duration: 4000 });
+      toast.success('Catalog JSON copied to clipboard! Ready to backup.', { duration: 4000 });
     } catch {
       toast.error('Could not copy to clipboard');
     }
@@ -116,43 +116,40 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
         toast.error('Invalid JSON: Must be an array of products');
         return;
       }
-      setProducts(parsed);
+      setLoading(true);
       for (const prod of parsed) {
-        saveStoredCustomProduct(prod);
+        if (prod && prod.id && prod.title) {
+          await createProductAction(prod);
+        }
       }
-      await syncClientEditsToServer(parsed);
-      toast.success(`Imported and synchronized ${parsed.length} products to live store!`, { duration: 4500 });
+      toast.success(`Imported and saved ${parsed.length} products to database!`, { duration: 4500 });
       router.refresh();
     } catch (err) {
-      toast.error('JSON parse error: ' + err.message);
+      toast.error('Import error: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   // Reset to authoritative server catalog
-  const handleResetToServerCatalog = () => {
-    if (confirm('Are you sure you want to discard all local edits and restore the authoritative server catalog?')) {
+  const handleResetToServerCatalog = async () => {
+    if (confirm('Are you sure you want to discard all overrides and restore the authoritative server catalog in the database?')) {
       resetToServerCatalog();
-      toast.success('Local cache cleared! Restoring server catalog...');
+      try {
+        await resetCatalogAction();
+      } catch {}
+      toast.success('Restoring server catalog from codebase...');
       setTimeout(() => {
         window.location.reload();
       }, 400);
     }
   };
 
-  // Hydrate and proactively sync local products on mount, plus continuous live polling
+  // Run storage migration on mount to wipe stale localStorage, plus continuous live polling
   useEffect(() => {
-    // 1. If this browser has local stored products from admin editing, auto-sync them to server
-    const stored = getStoredCustomProducts();
-    if (stored && stored.length > 0) {
-      setProducts((current) => mergeWithStoredProducts(current));
-      syncClientEditsToServer(stored).then((res) => {
-        if (res?.success) {
-          console.log('Local admin products synced to server:', res);
-        }
-      }).catch(() => {});
-    }
+    runStorageMigration();
 
-    // 2. Start continuous live sync across all devices
+    // Start continuous live sync across all devices
     const unsubscribe = startLiveCatalogSync((liveProducts) => {
       if (Array.isArray(liveProducts) && liveProducts.length > 0) {
         setProducts(liveProducts);
@@ -346,6 +343,21 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     toast.success('Preset added to product photos!');
   };
 
+  // Reorder gallery images for new product
+  const handleMoveNewGalleryImage = (idx, offset) => {
+    const targetIdx = idx + offset;
+    if (targetIdx < 0 || targetIdx >= gallery.length) return;
+    setGallery((prev) => {
+      const next = [...prev];
+      const temp = next[idx];
+      next[idx] = next[targetIdx];
+      next[targetIdx] = temp;
+      setImage(next[0]);
+      setPreviewActiveIndex(0);
+      return next;
+    });
+  };
+
   // Handle multi-image upload from device for new product
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -355,7 +367,6 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     try {
       const finalUrls = [];
       for (const f of files) {
-        let uploadedUrl = null;
         try {
           const fd = new FormData();
           fd.append('file', f);
@@ -363,18 +374,15 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
             method: 'POST',
             body: fd,
           });
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.url) {
-              uploadedUrl = data.url;
-            }
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data?.url) {
+            finalUrls.push(data.url);
+          } else {
+            toast.error(`Upload failed for ${f.name}: ${data?.error || 'Server error'}`);
           }
-        } catch {}
-
-        if (!uploadedUrl) {
-          uploadedUrl = await compressImageFile(f);
+        } catch (uploadErr) {
+          toast.error(`Upload error for ${f.name}: ${uploadErr.message}`);
         }
-        if (uploadedUrl) finalUrls.push(uploadedUrl);
       }
 
       if (finalUrls.length > 0) {
@@ -383,8 +391,8 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
         setPreviewActiveIndex(0);
         toast.success(
           finalUrls.length > 1
-            ? `${finalUrls.length} photos ready for product!`
-            : 'Photo ready for product!'
+            ? `${finalUrls.length} photos uploaded to Vercel Blob!`
+            : 'Photo uploaded to Vercel Blob!'
         );
       }
     } catch (err) {
@@ -501,77 +509,6 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     setNewProductColors((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // Real-time auto-save as admin edits garment fields
-  useEffect(() => {
-    if (!isEditModalOpen || !editingProduct || isInitialModalLoad.current) return;
-    if (!editTitle.trim() || !editPrice || editPrice <= 0) return;
-
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current);
-    }
-
-    setAutoSaveStatus('saving');
-
-    autoSaveTimerRef.current = setTimeout(async () => {
-      const payload = {
-        ...editingProduct,
-        id: editingProduct.id,
-        title: editTitle.trim(),
-        price: Number(editPrice),
-        category: editCategory,
-        stock: Number(editStock) || 0,
-        tag: editTag,
-        gsm: editGsm,
-        material: editMaterial,
-        fit: editFit,
-        sizes: editSizes,
-        colors: editColors.length > 0 ? editColors : [{ name: 'Standard', hex: '#111111', image: '' }],
-        image: editGallery[0] || editImage,
-        fallbackImage: editGallery[1] || editGallery[0] || editImage,
-        gallery: editGallery.length > 0 ? editGallery : [editImage],
-        description: editDescription,
-        isCustom: editingProduct.isCustom !== undefined ? editingProduct.isCustom : true,
-      };
-
-      // 1. Instantly persist to localStorage & broadcast across store tabs
-      saveStoredCustomProduct(payload);
-      setProducts((prev) => prev.map((p) => (p.id === payload.id ? payload : p)));
-
-      // 2. Persist to server in background and sync to backend catalog
-      try {
-        await updateProductAction(payload);
-        await syncClientEditsToServer([payload]);
-      } catch (err) {}
-
-      setAutoSaveStatus('saved');
-      setLastSavedTime(
-        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      );
-    }, 700);
-
-    return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
-      }
-    };
-  }, [
-    isEditModalOpen,
-    editingProduct,
-    editTitle,
-    editPrice,
-    editCategory,
-    editStock,
-    editTag,
-    editGsm,
-    editMaterial,
-    editFit,
-    editSizes,
-    editColors,
-    editImage,
-    editGallery,
-    editDescription,
-  ]);
-
   // Toggle size availability for edited product
   const toggleEditSize = (sz) => {
     if (editSizes.includes(sz)) {
@@ -585,7 +522,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     }
   };
 
-  // Handle multi-image upload from device for edited product (replaces old photos)
+  // Handle multi-image upload from device for edited product
   const handleEditFilesUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -594,7 +531,6 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     try {
       const finalUrls = [];
       for (const f of files) {
-        let uploadedUrl = null;
         try {
           const fd = new FormData();
           fd.append('file', f);
@@ -602,28 +538,26 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
             method: 'POST',
             body: fd,
           });
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.url) {
-              uploadedUrl = data.url;
-            }
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data?.url) {
+            finalUrls.push(data.url);
+          } else {
+            toast.error(`Upload failed for ${f.name}: ${data?.error || 'Server error'}`);
           }
-        } catch {}
-
-        if (!uploadedUrl) {
-          uploadedUrl = await compressImageFile(f);
+        } catch (uploadErr) {
+          toast.error(`Upload error for ${f.name}: ${uploadErr.message}`);
         }
-        if (uploadedUrl) finalUrls.push(uploadedUrl);
       }
 
       if (finalUrls.length > 0) {
-        // REPLACE old photos with newly uploaded photos
-        setEditGallery(finalUrls);
-        setEditImage(finalUrls[0]);
+        setEditGallery((prev) => [...prev, ...finalUrls]);
+        if (!editImage || editImage === '/images/hero-tee-black.png') {
+          setEditImage(finalUrls[0]);
+        }
         toast.success(
           finalUrls.length > 1
-            ? `${finalUrls.length} new photos set! Old photos replaced.`
-            : 'New photo set! Old photo replaced.'
+            ? `${finalUrls.length} new photos uploaded to Vercel Blob!`
+            : 'New photo uploaded to Vercel Blob!'
         );
       }
     } catch (err) {
@@ -631,6 +565,20 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     } finally {
       setUploadingEditGallery(false);
     }
+  };
+
+  // Move gallery image left or right in edit modal
+  const handleMoveGalleryImage = (idx, offset) => {
+    const targetIdx = idx + offset;
+    if (targetIdx < 0 || targetIdx >= editGallery.length) return;
+    setEditGallery((prev) => {
+      const next = [...prev];
+      const temp = next[idx];
+      next[idx] = next[targetIdx];
+      next[targetIdx] = temp;
+      setEditImage(next[0]);
+      return next;
+    });
   };
 
   const handleSetEditPrimaryImage = (idx) => {
@@ -661,6 +609,10 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
   const handleSaveEditProduct = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!editingProduct) return;
+    if (uploadingEditGallery) {
+      toast.error('Image is currently uploading. Please wait.');
+      return;
+    }
     if (!editTitle.trim()) {
       toast.error('Product title cannot be empty');
       return;
@@ -692,31 +644,33 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       isCustom: editingProduct.isCustom !== undefined ? editingProduct.isCustom : true,
     };
 
-    // 1. Instantly save to local storage & broadcast across all store tabs
-    saveStoredCustomProduct(payload, editingProduct);
-    setProducts((prev) => prev.map((p) => (p.id === payload.id ? payload : p)));
-
-    // 2. Persist to server & sync backend catalog
     try {
       const res = await updateProductAction(payload);
-      if (res && res.product) {
-        setProducts((prev) => prev.map((p) => (p.id === payload.id ? res.product : p)));
+      if (!res?.success) {
+        toast.error(res?.error || 'Failed to update product in database');
+        setSavingEdit(false);
+        return;
       }
-      await syncClientEditsToServer([payload]);
-    } catch (err) {
-      console.warn('Server sync notice:', err.message);
-    }
 
-    toast.success(`Saved "${payload.title}"! Live on website.`);
-    setIsEditModalOpen(false);
-    setEditingProduct(null);
-    setSavingEdit(false);
-    router.refresh();
+      setProducts((prev) => prev.map((p) => (p.id === payload.id ? (res.product || payload) : p)));
+      toast.success(`Saved "${payload.title}" to database! Live on website.`);
+      setIsEditModalOpen(false);
+      setEditingProduct(null);
+      setSavingEdit(false);
+      router.refresh();
+    } catch (err) {
+      toast.error('Save error: ' + err.message);
+      setSavingEdit(false);
+    }
   };
 
   // Submit new product
   const handleSubmitProduct = async (e) => {
     e.preventDefault();
+    if (uploadingImage) {
+      toast.error('Image is currently uploading. Please wait.');
+      return;
+    }
     if (!title.trim()) {
       toast.error('Please enter product title');
       return;
@@ -753,16 +707,17 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     };
 
     try {
-      const result = await createProductAction(productPayload);
-      const finalProduct = (result && result.product) 
-        ? result.product 
-        : { ...productPayload, id: `kwt-custom-${Date.now().toString().slice(-6)}` };
+      const res = await createProductAction(productPayload);
+      if (!res?.success) {
+        toast.error(res?.error || 'Failed to publish product to database');
+        setLoading(false);
+        return;
+      }
 
-      // 1. Instantly save to local storage & broadcast
-      saveStoredCustomProduct(finalProduct);
+      const finalProduct = res.product || { ...productPayload, id: `kwt-custom-${Date.now().toString().slice(-6)}` };
       setProducts([finalProduct, ...products]);
 
-      toast.success('Product published to live store!');
+      toast.success('Product published to database & live store!');
 
       // Reset form fields
       setTitle('');
@@ -785,16 +740,18 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       return;
     }
 
-    // 1. Remove from local storage & broadcast
-    removeStoredCustomProduct(productId);
-    setProducts((prev) => prev.filter((p) => p.id !== productId));
-    toast.success('Product removed from store');
-
     try {
-      await deleteProductAction(productId);
+      const res = await deleteProductAction(productId);
+      if (!res?.success) {
+        toast.error(res?.error || 'Failed to delete product from database');
+        return;
+      }
+
+      setProducts((prev) => prev.filter((p) => p.id !== productId));
+      toast.success('Product removed from database and live store');
       router.refresh();
     } catch (err) {
-      console.warn('Server delete notice:', err.message);
+      toast.error('Delete error: ' + err.message);
     }
   };
 
@@ -1360,16 +1317,38 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                             </button>
                           )}
 
-                          {/* Set Cover Button (for non-primary images) */}
-                          {idx !== 0 && (
-                            <button
-                              type="button"
-                              onClick={() => handleSetPrimaryImage(idx)}
-                              className="absolute bottom-2 left-2 right-2 bg-white/95 hover:bg-white text-[#7C3AED] text-[10px] font-bold py-1 px-2 rounded-full text-center shadow-xs transition-all cursor-pointer z-10"
-                            >
-                              Set as Cover
-                            </button>
-                          )}
+                          {/* Reorder & Cover Buttons */}
+                          <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1 z-10">
+                            {idx > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleMoveNewGalleryImage(idx, -1)}
+                                className="bg-black/75 hover:bg-black text-white p-1 rounded-full cursor-pointer transition-all"
+                                title="Move Left"
+                              >
+                                <ChevronLeft className="w-3 h-3" />
+                              </button>
+                            )}
+                            {idx !== 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleSetPrimaryImage(idx)}
+                                className="flex-1 bg-white/95 hover:bg-white text-[#7C3AED] text-[10px] font-bold py-1 px-1 rounded-full text-center shadow-xs transition-all cursor-pointer"
+                              >
+                                Cover
+                              </button>
+                            )}
+                            {idx < gallery.length - 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleMoveNewGalleryImage(idx, 1)}
+                                className="bg-black/75 hover:bg-black text-white p-1 rounded-full cursor-pointer transition-all ml-auto"
+                                title="Move Right"
+                              >
+                                <ChevronRight className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1436,13 +1415,18 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || uploadingImage}
                 className="w-full bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-sans text-sm font-bold py-4 px-8 rounded-full shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
               >
-                {loading ? (
+                {uploadingImage ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Publishing Product...</span>
+                    <span>Uploading Photo to Vercel Blob...</span>
+                  </>
+                ) : loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Publishing Product to Database...</span>
                   </>
                 ) : (
                   <>
@@ -1990,16 +1974,16 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#7C3AED]">
                     Product Editor &bull; ID: {editingProduct.id}
                   </span>
-                  {autoSaveStatus === 'saving' && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full animate-pulse">
+                  {savingEdit && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#7C3AED] bg-[#EDE9FE] border border-[#DDD6FE] px-2 py-0.5 rounded-full animate-pulse">
                       <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-                      <span>Auto-saving...</span>
+                      <span>Saving to Database...</span>
                     </span>
                   )}
-                  {autoSaveStatus === 'saved' && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                      <CheckCircle2 className="w-2.5 h-2.5" />
-                      <span>Saved automatically{lastSavedTime ? ` (${lastSavedTime})` : ''}</span>
+                  {uploadingEditGallery && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full animate-pulse">
+                      <RefreshCw className="w-2.5 h-2.5 animate-spin" />
+                      <span>Uploading to Vercel Blob...</span>
                     </span>
                   )}
                 </div>
@@ -2008,7 +1992,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <p className="text-xs text-gray-500">
-                    Changes save automatically and refresh the live storefront immediately.
+                    Click Save Changes below to write directly to the database and update the live storefront.
                   </p>
                   <Link
                     href={`/product/${editingProduct.id}`}
@@ -2499,16 +2483,38 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                             <X className="w-3 h-3" />
                           </button>
 
-                          {/* Set as Cover Button */}
-                          {idx !== 0 && (
-                            <button
-                              type="button"
-                              onClick={() => handleSetEditPrimaryImage(idx)}
-                              className="absolute bottom-2 left-2 right-2 bg-white/95 hover:bg-white text-[#7C3AED] text-[10px] font-bold py-1 px-2 rounded-full text-center shadow-xs transition-all cursor-pointer z-10"
-                            >
-                              Set as Cover
-                            </button>
-                          )}
+                          {/* Reorder & Set Cover Buttons */}
+                          <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1 z-10">
+                            {idx > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleMoveGalleryImage(idx, -1)}
+                                className="bg-black/75 hover:bg-black text-white p-1 rounded-full cursor-pointer transition-all"
+                                title="Move Left"
+                              >
+                                <ChevronLeft className="w-3 h-3" />
+                              </button>
+                            )}
+                            {idx !== 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleSetEditPrimaryImage(idx)}
+                                className="flex-1 bg-white/95 hover:bg-white text-[#7C3AED] text-[10px] font-bold py-1 px-1 rounded-full text-center shadow-xs transition-all cursor-pointer"
+                              >
+                                Cover
+                              </button>
+                            )}
+                            {idx < editGallery.length - 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleMoveGalleryImage(idx, 1)}
+                                className="bg-black/75 hover:bg-black text-white p-1 rounded-full cursor-pointer transition-all ml-auto"
+                                title="Move Right"
+                              >
+                                <ChevronRight className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2572,10 +2578,15 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={savingEdit}
+                  disabled={savingEdit || uploadingEditGallery}
                   className="inline-flex items-center gap-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold px-6 py-2.5 rounded-full shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-60"
                 >
-                  {savingEdit ? (
+                  {uploadingEditGallery ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Uploading Image...</span>
+                    </>
+                  ) : savingEdit ? (
                     <>
                       <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       <span>Saving Changes...</span>

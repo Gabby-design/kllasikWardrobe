@@ -2,7 +2,7 @@
 
 import { createAdminClient } from '../../utils/supabase/admin.js';
 import { sendOwnerOrderNotification, sendCustomerReceipt, DEFAULT_OWNER_EMAIL } from '../../lib/email.js';
-import { decrementProductStock } from '../../src/data/productsManager.js';
+import { decrementAuthoritativeStock } from '../../src/lib/db.js';
 
 export async function submitManualOrder(cart, customerForm, totalAmount) {
   console.log('--- NEW CHECKOUT INITIATED ---');
@@ -47,19 +47,19 @@ export async function submitManualOrder(cart, customerForm, totalAmount) {
       .select();
 
     if (dbError) {
-      console.warn('⚠️ Supabase order recording notice (RLS / Policy):', dbError.message);
+      console.warn('Supabase order recording notice (RLS / Policy):', dbError.message);
     } else if (data && data.length > 0) {
       orderId = data[0].id;
-      console.log('✅ Supabase Insert Successful! Order ID:', orderId);
+      console.log('Supabase Insert Successful! Order ID:', orderId);
     }
 
     console.log('3.5. Decrementing Stock...');
     for (const item of cart) {
       if (item.id) {
         try {
-          decrementProductStock(item.id, item.quantity || 1);
-        } catch (localErr) {
-          console.warn(`Local stock decrement notice for ${item.id}:`, localErr.message);
+          await decrementAuthoritativeStock(item.id, item.quantity || 1);
+        } catch (stockErr) {
+          console.warn(`Stock decrement notice for ${item.id}:`, stockErr.message);
         }
         try {
           const { error: stockError } = await supabase.rpc('decrement_stock', {

@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
-import fs from 'fs';
-import path from 'path';
 import { 
-  saveCustomProduct, 
-  getAllProducts, 
-  saveRemovedProductIds 
-} from '../../../../src/data/productsManager.js';
+  getAuthoritativeProducts, 
+  saveAuthoritativeProduct, 
+  deleteAuthoritativeProduct 
+} from '../../../../src/lib/db.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,8 +20,20 @@ export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
+async function isAdminAuthorized() {
+  const cookieStore = await cookies();
+  return cookieStore.get('admin_auth')?.value === 'true';
+}
+
 export async function POST(request) {
   try {
+    if (!(await isAdminAuthorized())) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Administrator authentication required' },
+        { status: 401, headers: CORS_HEADERS }
+      );
+    }
+
     const body = await request.json();
     const { products, removedIds } = body || {};
 
@@ -33,15 +44,21 @@ export async function POST(request) {
       );
     }
 
-    // 1. Process removed IDs if provided
+    // 1. Process removed IDs in authoritative database
     if (Array.isArray(removedIds)) {
-      saveRemovedProductIds(removedIds);
+      for (const id of removedIds) {
+        if (id) {
+          try {
+            await deleteAuthoritativeProduct(id);
+          } catch {}
+        }
+      }
     }
 
-    // 2. Save each product into productsManager
+    // 2. Save products in authoritative database
     for (const prod of products) {
       if (prod && prod.id && prod.title) {
-        saveCustomProduct({
+        await saveAuthoritativeProduct({
           ...prod,
           stock: prod.stock !== undefined ? Number(prod.stock) : 10,
           price: Number(prod.price || 0),
@@ -51,33 +68,18 @@ export async function POST(request) {
       }
     }
 
-    // 3. Persist directly to custom-products.json if writeable
-    const customFile = path.join(process.cwd(), 'src', 'data', 'custom-products.json');
-    try {
-      fs.writeFileSync(customFile, JSON.stringify(products, null, 2), 'utf-8');
-    } catch (fsErr) {
-      console.warn('custom-products.json write notice:', fsErr.message);
-    }
-
-    // 4. Revalidate all pages so Next.js renders the latest products immediately
+    // 3. Revalidate paths
     try {
       revalidatePath('/', 'page');
       revalidatePath('/catalog', 'page');
       revalidatePath('/admin', 'page');
-      for (const prod of products) {
-        if (prod?.id) {
-          revalidatePath(`/product/${prod.id}`, 'page');
-        }
-      }
-    } catch (revErr) {
-      console.warn('Revalidate notice:', revErr.message);
-    }
+    } catch {}
 
-    const all = getAllProducts();
+    const all = await getAuthoritativeProducts();
 
     return NextResponse.json({
       success: true,
-      message: 'Catalog synchronized successfully',
+      message: 'Catalog synchronized to authoritative database',
       count: all.length,
       syncedProductsCount: products.length,
       timestamp: Date.now()
@@ -94,13 +96,20 @@ export async function POST(request) {
 }
 
 export async function GET() {
-  const all = getAllProducts();
-  return NextResponse.json({
-    success: true,
-    count: all.length,
-    products: all,
-    timestamp: Date.now()
-  }, {
-    headers: CORS_HEADERS
-  });
+  try {
+    const all = await getAuthoritativeProducts();
+    return NextResponse.json({
+      success: true,
+      count: all.length,
+      products: all,
+      timestamp: Date.now()
+    }, {
+      headers: CORS_HEADERS
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { success: false, error: err.message },
+      { status: 500, headers: CORS_HEADERS }
+    );
+  }
 }

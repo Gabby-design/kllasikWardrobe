@@ -1,38 +1,32 @@
 // src/utils/productSync.js
-// Universal Live Synchronization Engine for Klasik Wardrobe
-// Ensures instant cross-device synchronization between Admin, Phone, and all client devices.
+// Client-side synchronization engine for Klasik Wardrobe.
+// Server/Database is the sole authority; local storage is NOT a source of truth.
 
 export const STORAGE_KEY = 'klasik_custom_products_v4';
 export const REMOVED_KEY = 'klasik_removed_products_v4';
 export const VERSION_KEY = 'klasik_catalog_version_v4';
 export const CHANNEL_NAME = 'klasik_products_channel_v4';
-export const DB_NAME = 'klasik_store_db_v4';
-export const DB_STORE = 'products';
 
-// One-time cache migration to invalidate obsolete client-side caches
+// One-time client cleanup: purges all legacy klasik_* keys from localStorage & IndexedDB
 export function runStorageMigration() {
   if (typeof window === 'undefined') return;
+
   try {
-    const obsoleteKeys = [
-      'klasik_custom_products',
-      'klasik_custom_products_v1',
-      'klasik_custom_products_v2',
-      'klasik_custom_products_v3',
-      'klasik_removed_products',
-      'klasik_removed_products_v1',
-      'klasik_removed_products_v2',
-      'klasik_removed_products_v3',
-      'klasik_catalog_version',
-      'klasik_catalog_version_v1',
-      'klasik_catalog_version_v2',
-      'klasik_catalog_version_v3',
-      'klasik_removed_product_ids_v2',
-      'klasik_removed_product_ids_v3',
-    ];
-    for (const k of obsoleteKeys) {
-      try {
-        localStorage.removeItem(k);
-      } catch {}
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('klasik_')) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {}
+
+  try {
+    if (window.indexedDB) {
+      ['klasik_store_db', 'klasik_store_db_v1', 'klasik_store_db_v2', 'klasik_store_db_v3', 'klasik_store_db_v4'].forEach((dbName) => {
+        try {
+          window.indexedDB.deleteDatabase(dbName);
+        } catch {}
+      });
     }
   } catch {}
 }
@@ -41,395 +35,46 @@ if (typeof window !== 'undefined') {
   runStorageMigration();
 }
 
-// Open IndexedDB safely
-function openDB() {
-  if (typeof window === 'undefined' || !window.indexedDB) return Promise.resolve(null);
-  return new Promise((resolve) => {
-    try {
-      const request = window.indexedDB.open(DB_NAME, 1);
-      request.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains(DB_STORE)) {
-          db.createObjectStore(DB_STORE, { keyPath: 'id' });
-        }
-      };
-      request.onsuccess = (e) => resolve(e.target.result);
-      request.onerror = () => resolve(null);
-    } catch {
-      resolve(null);
-    }
-  });
-}
-
-// Computes a deterministic content version marker for a product
-export function computeProductVersion(product) {
-  if (!product) return '0';
-  if (product.catalogVersion) return String(product.catalogVersion);
-  if (product.updatedAt) return String(product.updatedAt);
-  const key = [
-    product.id || '',
-    product.title || product.name || '',
-    product.price ?? '',
-    product.image || '',
-    Array.isArray(product.gallery) ? product.gallery.join(',') : '',
-    product.description || '',
-    product.stock !== undefined ? product.stock : '',
-    product.gsm || '',
-    product.material || '',
-    product.fit || '',
-    Array.isArray(product.sizes) ? product.sizes.join(',') : '',
-    Array.isArray(product.colors) ? JSON.stringify(product.colors) : ''
-  ].join('::');
-
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) {
-    hash = ((hash << 5) - hash) + key.charCodeAt(i);
-    hash |= 0;
-  }
-  return `v_${Math.abs(hash)}`;
-}
-
-// Determines if a locally stored edit is genuinely newer than server product
-export function isLocalEditNewer(localEdit, serverProduct) {
-  if (!localEdit) return false;
-  if (!serverProduct) return true; // Local custom product only
-
-  const serverVer = computeProductVersion(serverProduct);
-  const localBaseVer = localEdit.baseVersion;
-
-  // If local edit records baseVersion and server version has changed,
-  // the server has been updated with new code/assets -> DISCARD local edit
-  if (localBaseVer && localBaseVer !== serverVer) {
-    return false;
-  }
-
-  // If local edit has different image from server, server image always wins unless explicitly newer edit
-  if (localEdit.image && serverProduct.image && localEdit.image !== serverProduct.image) {
-    if (!localEdit.editedAt || (serverProduct.updatedAt && new Date(serverProduct.updatedAt) >= new Date(localEdit.editedAt))) {
-      return false;
-    }
-  }
-
-  // Check timestamp comparison if available
-  if (localEdit.editedAt && serverProduct.updatedAt) {
-    return new Date(localEdit.editedAt) > new Date(serverProduct.updatedAt);
-  }
-
-  if (localBaseVer && localBaseVer === serverVer && localEdit.editedAt) {
-    return true;
-  }
-
-  return false;
-}
-
-// Client-side image compression: optimized to keep size under 50KB to preserve localStorage quota
-export function compressImageFile(file, maxWidth = 800, maxHeight = 800, quality = 0.72) {
-  return new Promise((resolve) => {
-    if (typeof window === 'undefined' || !file || !file.type || !file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(file);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-
-        if (width > maxWidth || height > maxHeight) {
-          if (width > height) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          } else {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
-          }
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        resolve(dataUrl);
-      };
-      img.onerror = () => resolve(e.target.result);
-      img.src = e.target.result;
-    };
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
-}
-
-export function getStoredRemovedProductIds() {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(REMOVED_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-export function markProductRemoved(productId) {
-  if (typeof window === 'undefined' || !productId) return;
-  try {
-    const current = getStoredRemovedProductIds();
-    if (!current.includes(productId)) {
-      const updated = [...current, productId];
-      localStorage.setItem(REMOVED_KEY, JSON.stringify(updated));
-    }
-  } catch {}
-}
-
-export function unmarkProductRemoved(productId) {
-  if (typeof window === 'undefined' || !productId) return;
-  try {
-    const current = getStoredRemovedProductIds();
-    const updated = current.filter((id) => id !== productId);
-    localStorage.setItem(REMOVED_KEY, JSON.stringify(updated));
-  } catch {}
-}
-
-export function getStoredCustomProducts() {
-  if (typeof window === 'undefined') return [];
-  try {
-    runStorageMigration();
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.map((p) => {
-      const isDeadImage = (img) => !img || typeof img !== 'string' || img.startsWith('blob:');
-      if (isDeadImage(p.image)) {
-        const safeGalleryImg = Array.isArray(p.gallery) ? p.gallery.find((g) => !isDeadImage(g)) : null;
-        p.image = safeGalleryImg || (p.fallbackImage && !isDeadImage(p.fallbackImage) ? p.fallbackImage : '/images/media__1786370258071_2.jpg');
-      }
-      if (Array.isArray(p.gallery)) {
-        p.gallery = p.gallery.filter((g) => !isDeadImage(g));
-        if (p.gallery.length === 0 && p.image) {
-          p.gallery = [p.image];
-        }
-      }
-      return p;
-    });
-  } catch (e) {
-    return [];
-  }
+/**
+ * Server is single source of truth.
+ * Products loaded from server are returned directly.
+ */
+export function mergeWithStoredProducts(baseProducts = []) {
+  if (typeof window === 'undefined') return baseProducts;
+  runStorageMigration();
+  return Array.isArray(baseProducts) ? baseProducts : [];
 }
 
 export function getSingleStoredProduct(productId, serverProduct = null) {
-  if (!productId) return null;
-  runStorageMigration();
-  const list = getStoredCustomProducts();
-  const found = list.find((p) => p.id === productId);
-  if (!found) return null;
-
-  if (serverProduct) {
-    if (!isLocalEditNewer(found, serverProduct)) {
-      // Stale local edit detected! Prune it from storage and return null so server product is used
-      removeStoredCustomProduct(productId);
-      return null;
-    }
-  }
-
-  return found;
+  if (typeof window !== 'undefined') runStorageMigration();
+  return serverProduct || null;
 }
 
-// Reconciles server catalog with storage, permanently purging stale local edits
-export function reconcileWithServerProducts(serverProducts = []) {
-  if (typeof window === 'undefined' || !Array.isArray(serverProducts) || serverProducts.length === 0) {
-    return;
-  }
-  try {
-    runStorageMigration();
-    const reconciled = mergeWithStoredProducts(serverProducts);
-    localStorage.setItem(VERSION_KEY, String(Date.now()));
-
-    openDB().then((db) => {
-      if (!db) return;
-      try {
-        const tx = db.transaction(DB_STORE, 'readwrite');
-        const store = tx.objectStore(DB_STORE);
-        reconciled.forEach((p) => store.put(p));
-      } catch {}
-    }).catch(() => {});
-  } catch (e) {
-    console.warn('Reconcile cache notice:', e);
-  }
+export function getStoredCustomProducts() {
+  return [];
 }
 
-// Clear obsolete client cache and reset to pristine state
-export function clearObsoleteClientCache() {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(REMOVED_KEY);
-    localStorage.removeItem(VERSION_KEY);
-    runStorageMigration();
-  } catch {}
+export function getStoredRemovedProductIds() {
+  return [];
 }
 
-// Discard all local product edits and restore authoritative server catalog
-export function resetToServerCatalog() {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(REMOVED_KEY);
-    localStorage.removeItem(VERSION_KEY);
-    runStorageMigration();
-    openDB().then((db) => {
-      if (!db) return;
-      try {
-        const tx = db.transaction(DB_STORE, 'readwrite');
-        tx.objectStore(DB_STORE).clear();
-      } catch {}
-    }).catch(() => {});
-    broadcastProductChange(null, 'catalog_reset');
-  } catch (e) {
-    console.warn('Could not reset catalog:', e);
-  }
-}
-
-export function saveStoredCustomProduct(product, baseProduct = null) {
-  if (typeof window === 'undefined' || !product || !product.id) return;
-  try {
-    runStorageMigration();
-    unmarkProductRemoved(product.id);
-    const current = getStoredCustomProducts();
-    
-    const enriched = {
-      ...product,
-      editedAt: new Date().toISOString(),
-      baseVersion: baseProduct 
-        ? computeProductVersion(baseProduct) 
-        : (product.baseVersion || computeProductVersion(product)),
-      isCustom: true
-    };
-
-    const updated = [enriched, ...current.filter((p) => p.id !== product.id)];
-
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (quotaErr) {
-      console.warn('LocalStorage quota warning:', quotaErr);
-    }
-
-    openDB().then((db) => {
-      if (!db) return;
-      try {
-        const tx = db.transaction(DB_STORE, 'readwrite');
-        const store = tx.objectStore(DB_STORE);
-        store.put(enriched);
-      } catch {}
-    }).catch(() => {});
-
-    broadcastProductChange(enriched, 'save');
-  } catch (e) {
-    console.warn('Could not save product to local storage:', e);
-  }
+export function saveStoredCustomProduct(product) {
+  // Local storage does not store product data.
+  broadcastProductChange(product, 'update');
 }
 
 export function removeStoredCustomProduct(productId) {
-  if (typeof window === 'undefined' || !productId) return;
-  try {
-    markProductRemoved(productId);
-    const current = getStoredCustomProducts();
-    const updated = current.filter((p) => p.id !== productId);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-
-    openDB().then((db) => {
-      if (!db) return;
-      try {
-        const tx = db.transaction(DB_STORE, 'readwrite');
-        const store = tx.objectStore(DB_STORE);
-        store.delete(productId);
-      } catch {}
-    }).catch(() => {});
-
-    broadcastProductChange({ id: productId }, 'delete');
-  } catch (e) {}
+  // Local storage does not store product data.
+  broadcastProductChange({ id: productId }, 'delete');
 }
 
-// SERVER AUTHORITATIVE MERGE:
-// Server catalog is the absolute source of truth for all server-defined items.
-// Local edits are only retained if genuinely newer than the current server product version.
-export function mergeWithStoredProducts(baseProducts = []) {
-  if (typeof window === 'undefined') return baseProducts;
-
+export function clearObsoleteClientCache() {
   runStorageMigration();
+}
 
-  const stored = getStoredCustomProducts();
-  const removedIds = new Set(getStoredRemovedProductIds());
-
-  if (!stored || stored.length === 0) {
-    return (baseProducts || []).filter((p) => !removedIds.has(p.id));
-  }
-
-  const serverMap = new Map();
-  for (const bp of (baseProducts || [])) {
-    if (bp && bp.id) {
-      serverMap.set(bp.id, bp);
-    }
-  }
-
-  const validLocalEdits = [];
-  const processedServerIds = new Set();
-  const merged = [];
-
-  for (const sp of stored) {
-    if (!sp || !sp.id || removedIds.has(sp.id)) continue;
-
-    const serverItem = serverMap.get(sp.id);
-
-    if (serverItem) {
-      if (isLocalEditNewer(sp, serverItem)) {
-        // Genuinely newer edit: keep it
-        validLocalEdits.push(sp);
-      } else {
-        // Stale local edit: DISCARD it!
-      }
-    } else if (sp.isCustom) {
-      // Admin custom product created locally that does not exist on server
-      validLocalEdits.push(sp);
-    }
-  }
-
-  const validLocalMap = new Map(validLocalEdits.map((item) => [item.id, item]));
-
-  for (const bp of (baseProducts || [])) {
-    if (removedIds.has(bp.id)) continue;
-    processedServerIds.add(bp.id);
-
-    if (validLocalMap.has(bp.id)) {
-      merged.push(validLocalMap.get(bp.id));
-    } else {
-      merged.push(bp);
-    }
-  }
-
-  // Prepend any valid local custom products not present in server catalog
-  for (const customItem of validLocalEdits) {
-    if (!processedServerIds.has(customItem.id)) {
-      merged.unshift(customItem);
-    }
-  }
-
-  // Persist the pruned valid list back to localStorage so stale items are wiped permanently
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(validLocalEdits));
-  } catch {}
-
-  return merged;
+export function resetToServerCatalog() {
+  runStorageMigration();
+  broadcastProductChange(null, 'catalog_reset');
 }
 
 export function broadcastProductChange(product, action = 'update', extraData = {}) {
@@ -443,23 +88,21 @@ export function broadcastProductChange(product, action = 'update', extraData = {
     ...extraData,
   };
 
-  // Cross-tab BroadcastChannel
   try {
     if ('BroadcastChannel' in window) {
       const channel = new BroadcastChannel(CHANNEL_NAME);
       channel.postMessage(payload);
       channel.close();
     }
-  } catch (e) {}
+  } catch {}
 
-  // Same-tab CustomEvent
   try {
     window.dispatchEvent(
       new CustomEvent('klasik_products_updated', {
         detail: payload,
       })
     );
-  } catch (e) {}
+  } catch {}
 }
 
 export function broadcastStockAlert(product, previousStock = 1, message = '') {
@@ -470,13 +113,14 @@ export function broadcastStockAlert(product, previousStock = 1, message = '') {
   });
 }
 
-// Quick inline stock updater & live server persistence
+/**
+ * Update product stock via authoritative server API
+ */
 export async function updateStoredProductStock(productId, newStock, fallbackProduct = null) {
   if (typeof window === 'undefined' || !productId) return null;
   try {
     const finalStock = Math.max(0, Number(newStock ?? 0));
-    const stored = getSingleStoredProduct(productId);
-    const target = stored || fallbackProduct || { id: productId };
+    const target = fallbackProduct || { id: productId };
     const currentStock = target.stock !== undefined ? Number(target.stock) : 10;
 
     const updatedProduct = {
@@ -485,37 +129,16 @@ export async function updateStoredProductStock(productId, newStock, fallbackProd
       updatedAt: new Date().toISOString(),
     };
 
-    saveStoredCustomProduct(updatedProduct);
-
-    // Call server API immediately with no-store
-    try {
-      const stockPayload = JSON.stringify({
+    const res = await fetch('/api/products/stock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      body: JSON.stringify({
         productId,
         newStock: finalStock,
         action: 'set',
-      });
-
-      await fetch('/api/products/stock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-        body: stockPayload,
-      });
-
-      // If running on localhost, also push stock to Live Host in background
-      if (typeof window !== 'undefined' && (
-        window.location.hostname === 'localhost' || 
-        window.location.hostname === '127.0.0.1' ||
-        window.location.hostname.startsWith('192.168.')
-      )) {
-        fetch('https://kllasik-wardrobe.vercel.app/api/products/stock', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          cache: 'no-store',
-          body: stockPayload,
-        }).catch(() => {});
-      }
-    } catch {}
+      }),
+    });
 
     if (finalStock === 0) {
       broadcastStockAlert(updatedProduct, currentStock);
@@ -533,37 +156,32 @@ export async function updateStoredProductStock(productId, newStock, fallbackProd
   }
 }
 
+/**
+ * Decrement product stock via authoritative server API
+ */
 export async function decrementStoredProductStock(productId, quantity = 1, fallbackProduct = null) {
   if (typeof window === 'undefined' || !productId) return null;
   try {
-    const stored = getSingleStoredProduct(productId);
-    const target = stored || fallbackProduct;
-    if (!target) return null;
-
-    const currentStock = target.stock !== undefined ? Number(target.stock) : 10;
+    const currentStock = fallbackProduct?.stock !== undefined ? Number(fallbackProduct.stock) : 10;
     const newStock = Math.max(0, currentStock - Number(quantity || 1));
     const wasLastUnit = currentStock === 1 && newStock === 0;
 
     const updatedProduct = {
-      ...target,
+      ...(fallbackProduct || { id: productId }),
       stock: newStock,
       updatedAt: new Date().toISOString(),
     };
 
-    saveStoredCustomProduct(updatedProduct);
-
-    try {
-      fetch('/api/products/stock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-        body: JSON.stringify({
-          productId,
-          quantity,
-          action: 'decrement',
-        }),
-      }).catch(() => {});
-    } catch {}
+    fetch('/api/products/stock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      body: JSON.stringify({
+        productId,
+        quantity,
+        action: 'decrement',
+      }),
+    }).catch(() => {});
 
     if (wasLastUnit || newStock === 0) {
       broadcastStockAlert(updatedProduct, currentStock);
@@ -587,149 +205,67 @@ export async function decrementStoredProductStock(productId, quantity = 1, fallb
   }
 }
 
-// Push local edits from this browser to the backend server (and live host if running on localhost)
-export async function syncClientEditsToServer(products) {
-  if (typeof window === 'undefined') return { success: false, error: 'SSR' };
-  try {
-    const toSend = Array.isArray(products) && products.length > 0 
-      ? products 
-      : getStoredCustomProducts();
-
-    if (!toSend || toSend.length === 0) {
-      return { success: false, error: 'No custom products in local storage to sync' };
-    }
-
-    const removedIds = getStoredRemovedProductIds();
-    const payload = JSON.stringify({
-      products: toSend,
-      removedIds,
-    });
-
-    const isLocalhost = Boolean(
-      window.location.hostname === 'localhost' || 
-      window.location.hostname === '127.0.0.1' ||
-      window.location.hostname.startsWith('192.168.')
-    );
-
-    // 1. Primary sync to current host API
-    const res = await fetch('/api/admin/sync-catalog', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
-      body: payload,
-    });
-
-    // 2. If running locally, automatically sync to live production host in parallel
-    if (isLocalhost) {
-      fetch('https://kllasik-wardrobe.vercel.app/api/admin/sync-catalog', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-        body: payload,
-      }).catch(() => {});
-    }
-
-    if (res.ok) {
-      const data = await res.json();
-      return data;
-    }
-    return { success: false, error: `Server error: ${res.status}` };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
+// Deprecated push helper (no-op; admin actions write directly to database)
+export async function syncClientEditsToServer() {
+  return { success: true };
 }
 
-// UNIVERSAL LIVE SYNC: Continuously keeps any client (phone, tablet, laptop)
-// 100% in sync with the backend server via lightweight polling (every 3.5s)
-// plus immediate sync on tab focus or visibility change.
-export function startLiveCatalogSync(onUpdate, intervalMs = 3500) {
-  if (typeof window === 'undefined' || typeof onUpdate !== 'function') {
+/**
+ * Real-time storefront catalog synchronization:
+ * Subscribes to local tab broadcasts and polls the server API every 4s
+ * to ensure all devices display database updates within seconds.
+ */
+export function subscribeToProductChanges(callback) {
+  if (typeof window === 'undefined' || typeof callback !== 'function') {
     return () => {};
   }
 
-  let isPolling = false;
-  let lastKnownHash = '';
+  runStorageMigration();
 
-  const computeQuickHash = (items = []) => {
-    return items.map((p) => `${p.id}:${p.title}:${p.stock}:${p.price}`).join('|');
-  };
-
-  const executeSync = async () => {
-    if (isPolling) return;
-    if (document.hidden) return; // Save mobile battery when screen is locked or tab backgrounded
-
-    isPolling = true;
-    try {
-      const res = await fetch(`/api/products?t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache, no-store' },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data && Array.isArray(data.products) && data.products.length > 0) {
-          const currentHash = computeQuickHash(data.products);
-          if (currentHash !== lastKnownHash) {
-            lastKnownHash = currentHash;
-            reconcileWithServerProducts(data.products);
-            const merged = mergeWithStoredProducts(data.products);
-            onUpdate(merged);
-          }
-        }
-      }
-    } catch (err) {
-      // Network hiccup - ignore silently
-    } finally {
-      isPolling = false;
-    }
-  };
-
-  // 1. Initial sync immediately
-  executeSync();
-
-  // 2. Poll every intervalMs
-  const timer = setInterval(executeSync, intervalMs);
-
-  // 3. Immediate sync on visibility change (e.g. mobile owner unlocks phone or opens tab)
-  const handleVisibility = () => {
-    if (!document.hidden) {
-      executeSync();
-    }
-  };
-  document.addEventListener('visibilitychange', handleVisibility);
-
-  // 4. Immediate sync on window focus
-  window.addEventListener('focus', executeSync);
-
-  // 5. Cross-tab channel listener
   let channel = null;
   try {
     if ('BroadcastChannel' in window) {
       channel = new BroadcastChannel(CHANNEL_NAME);
       channel.onmessage = (event) => {
-        if (event.data?.type === 'products_updated') {
-          executeSync();
+        if (event?.data?.type === 'products_updated') {
+          callback(event.data);
         }
       };
     }
-  } catch (e) {}
+  } catch {}
 
-  // 6. Return comprehensive cleanup function
+  const handleCustomEvent = (event) => {
+    if (event?.detail?.type === 'products_updated') {
+      callback(event.detail);
+    }
+  };
+  window.addEventListener('klasik_products_updated', handleCustomEvent);
+
+  // Poll server every 4 seconds to sync remote changes from other devices
+  let pollInterval = setInterval(async () => {
+    if (document.hidden) return;
+    try {
+      const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.products)) {
+          callback({ products: data.products, action: 'poll_sync' });
+        }
+      }
+    } catch {}
+  }, 4000);
+
   return () => {
-    clearInterval(timer);
-    document.removeEventListener('visibilitychange', handleVisibility);
-    window.removeEventListener('focus', executeSync);
     if (channel) {
       try {
         channel.close();
-      } catch (e) {}
+      } catch {}
     }
+    window.removeEventListener('klasik_products_updated', handleCustomEvent);
+    clearInterval(pollInterval);
   };
 }
 
-// Backward compatible alias
-export function subscribeToProductChanges(onUpdate) {
-  return startLiveCatalogSync((products) => {
-    onUpdate({ type: 'products_updated', products });
-  });
+export function startLiveCatalogSync(onUpdate) {
+  return subscribeToProductChanges(onUpdate);
 }

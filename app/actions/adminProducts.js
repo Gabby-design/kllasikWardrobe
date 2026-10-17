@@ -1,17 +1,43 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getAllProducts, saveCustomProduct, removeCustomProduct, getCustomProducts } from '../../src/data/productsManager.js';
-import { createAdminClient } from '../../utils/supabase/admin.js';
+import { checkAdminSession } from './adminAuth.js';
+import { 
+  saveAuthoritativeProduct, 
+  deleteAuthoritativeProduct, 
+  resetDatabaseToCatalog,
+  validateProductImageUrls
+} from '../../src/lib/db.js';
+
+function revalidateAllProductPaths(productId) {
+  try {
+    revalidatePath('/', 'page');
+    revalidatePath('/catalog', 'page');
+    revalidatePath('/admin', 'page');
+    if (productId) {
+      revalidatePath(`/product/${productId}`, 'page');
+    }
+  } catch (err) {
+    console.warn('Revalidation notice:', err.message);
+  }
+}
 
 export async function createProductAction(productData) {
   try {
-    if (!productData || !productData.title || !productData.price) {
+    const isAuthed = await checkAdminSession();
+    if (!isAuthed) {
+      return { success: false, error: 'Unauthorized: Administrator authentication required' };
+    }
+
+    if (!productData || !productData.title || productData.price === undefined) {
       return { success: false, error: 'Product title and price are required' };
     }
 
     const id = productData.id || `kwt-custom-${Date.now().toString().slice(-6)}`;
-    
+    const gallery = Array.isArray(productData.gallery) && productData.gallery.length > 0
+      ? productData.gallery
+      : [productData.image?.trim() || '/images/hero-tee-black.png'];
+
     const newProduct = {
       id,
       title: productData.title.trim(),
@@ -30,58 +56,19 @@ export async function createProductAction(productData) {
       colors: Array.isArray(productData.colors) && productData.colors.length > 0
         ? productData.colors
         : [{ name: productData.colorName || 'Obsidian Black', hex: productData.colorHex || '#111111' }],
-      image: (Array.isArray(productData.gallery) && productData.gallery[0]) || productData.image?.trim() || '/images/hero-tee-black.png',
-      fallbackImage: (Array.isArray(productData.gallery) && productData.gallery[1]) || (Array.isArray(productData.gallery) && productData.gallery[0]) || productData.image?.trim() || '/images/hero-tee-black.png',
-      gallery: Array.isArray(productData.gallery) && productData.gallery.length > 0 
-        ? productData.gallery 
-        : [productData.image?.trim() || '/images/hero-tee-black.png'],
-      stock: productData.stock !== undefined ? Number(productData.stock) : 15,
+      image: gallery[0] || productData.image?.trim() || '/images/hero-tee-black.png',
+      fallbackImage: gallery[1] || gallery[0] || productData.image?.trim() || '/images/hero-tee-black.png',
+      gallery,
+      stock: productData.stock !== undefined ? Math.max(0, Number(productData.stock)) : 15,
       isCustom: true,
       createdAt: new Date().toISOString()
     };
 
-    const res = saveCustomProduct(newProduct);
-    if (!res.success) {
-      return { success: false, error: res.error };
-    }
+    validateProductImageUrls(newProduct);
+    const res = await saveAuthoritativeProduct(newProduct);
+    revalidateAllProductPaths(id);
 
-    // Non-blocking background sync to Supabase (never blocks or delays user save)
-    (async () => {
-      try {
-        const supabase = createAdminClient();
-        if (supabase) {
-          const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000));
-          const sync = supabase.from('products').upsert({
-            id: newProduct.id,
-            name: newProduct.title,
-            price: newProduct.price,
-            category: newProduct.category,
-            description: newProduct.description,
-            image_url: newProduct.image,
-            stock: newProduct.stock
-          });
-          await Promise.race([sync, timeout]);
-        }
-      } catch {}
-    })().catch(() => {});
-
-    // Auto-push to live host in background if running locally
-    if (!process.env.VERCEL) {
-      fetch('https://kllasik-wardrobe.vercel.app/api/admin/sync-catalog', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products: [newProduct] })
-      }).catch(() => {});
-    }
-
-    try {
-      revalidatePath('/', 'page');
-      revalidatePath('/catalog', 'page');
-      revalidatePath('/admin', 'page');
-      revalidatePath(`/product/${id}`, 'page');
-    } catch {}
-
-    return { success: true, product: newProduct };
+    return { success: true, product: res.product || newProduct };
   } catch (err) {
     console.error('createProductAction error:', err);
     return { success: false, error: err.message };
@@ -90,82 +77,53 @@ export async function createProductAction(productData) {
 
 export async function updateProductAction(productData) {
   try {
+    const isAuthed = await checkAdminSession();
+    if (!isAuthed) {
+      return { success: false, error: 'Unauthorized: Administrator authentication required' };
+    }
+
     if (!productData || !productData.id) {
       return { success: false, error: 'Product ID is required for editing' };
     }
-    if (!productData.title || !productData.price) {
+    if (!productData.title || productData.price === undefined) {
       return { success: false, error: 'Product title and price are required' };
     }
 
+    const gallery = Array.isArray(productData.gallery) && productData.gallery.length > 0
+      ? productData.gallery
+      : [productData.image?.trim() || '/images/hero-tee-black.png'];
+
     const updatedProduct = {
-      ...productData,
       id: productData.id,
       title: productData.title.trim(),
       price: Number(productData.price),
       category: productData.category || 'T-Shirts',
-      tag: productData.tag || 'Luxury Essential',
-      description: productData.description ? productData.description.trim() : '',
+      tag: productData.tag || 'Essential',
+      rating: productData.rating || 5.0,
+      reviews: productData.reviews || 24,
+      description: productData.description?.trim() || '',
       gsm: productData.gsm || '240 GSM Heavyweight',
       material: productData.material || '100% Combed Organic Cotton',
       fit: productData.fit || 'Oversized Drop-Shoulder',
-      sizes: Array.isArray(productData.sizes) && productData.sizes.length > 0
-        ? productData.sizes
-        : ['S', 'M', 'L', 'XL', 'XXL'],
+      sizes: Array.isArray(productData.sizes) && productData.sizes.length > 0 
+        ? productData.sizes 
+        : ['S', 'M', 'L', 'XL'],
       colors: Array.isArray(productData.colors) && productData.colors.length > 0
         ? productData.colors
         : [{ name: productData.colorName || 'Obsidian Black', hex: productData.colorHex || '#111111' }],
-      image: (Array.isArray(productData.gallery) && productData.gallery[0]) || productData.image?.trim() || '/images/hero-tee-black.png',
-      fallbackImage: (Array.isArray(productData.gallery) && productData.gallery[1]) || (Array.isArray(productData.gallery) && productData.gallery[0]) || productData.fallbackImage?.trim() || productData.image?.trim() || '/images/hero-tee-black.png',
-      gallery: Array.isArray(productData.gallery) && productData.gallery.length > 0
-        ? productData.gallery
-        : [productData.image?.trim() || '/images/hero-tee-black.png'],
-      stock: productData.stock !== undefined ? Number(productData.stock) : 10,
-      isCustom: productData.isCustom !== undefined ? productData.isCustom : true,
+      image: gallery[0] || productData.image || '/images/hero-tee-black.png',
+      fallbackImage: gallery[1] || gallery[0] || productData.image || '/images/hero-tee-black.png',
+      gallery,
+      stock: productData.stock !== undefined ? Math.max(0, Number(productData.stock)) : 10,
+      isCustom: true,
       updatedAt: new Date().toISOString()
     };
 
-    const res = saveCustomProduct(updatedProduct);
-    if (!res.success) {
-      return { success: false, error: res.error };
-    }
+    validateProductImageUrls(updatedProduct);
+    const res = await saveAuthoritativeProduct(updatedProduct);
+    revalidateAllProductPaths(productData.id);
 
-    // Non-blocking background sync to Supabase (never blocks or delays user save)
-    (async () => {
-      try {
-        const supabase = createAdminClient();
-        if (supabase) {
-          const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1000));
-          const sync = supabase.from('products').upsert({
-            id: updatedProduct.id,
-            name: updatedProduct.title,
-            price: updatedProduct.price,
-            category: updatedProduct.category,
-            description: updatedProduct.description,
-            image_url: updatedProduct.image,
-            stock: updatedProduct.stock
-          });
-          await Promise.race([sync, timeout]);
-        }
-      } catch {}
-    })().catch(() => {});
-
-    // Auto-push to live host in background if running locally
-    if (!process.env.VERCEL) {
-      fetch('https://kllasik-wardrobe.vercel.app/api/admin/sync-catalog', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ products: [updatedProduct] })
-      }).catch(() => {});
-    }
-
-    try {
-      revalidatePath('/', 'page');
-      revalidatePath('/catalog', 'page');
-      revalidatePath('/admin', 'page');
-      revalidatePath(`/product/${productData.id}`, 'page');
-    } catch {}
-
-    return { success: true, product: updatedProduct };
+    return { success: true, product: res.product || updatedProduct };
   } catch (err) {
     console.error('updateProductAction error:', err);
     return { success: false, error: err.message };
@@ -174,51 +132,37 @@ export async function updateProductAction(productData) {
 
 export async function deleteProductAction(productId) {
   try {
-    if (!productId) return { success: false, error: 'Product ID required' };
-    
-    const res = removeCustomProduct(productId);
-
-    // Non-blocking background sync to Supabase
-    (async () => {
-      try {
-        const supabase = createAdminClient();
-        if (supabase) {
-          await supabase.from('products').delete().eq('id', productId);
-        }
-      } catch {}
-    })().catch(() => {});
-
-    // Auto-push removal to live host in background if running locally
-    if (!process.env.VERCEL) {
-      fetch(`https://kllasik-wardrobe.vercel.app/api/products?id=${encodeURIComponent(productId)}`, {
-        method: 'DELETE'
-      }).catch(() => {});
+    const isAuthed = await checkAdminSession();
+    if (!isAuthed) {
+      return { success: false, error: 'Unauthorized: Administrator authentication required' };
     }
 
-    try {
-      revalidatePath('/', 'page');
-      revalidatePath('/catalog', 'page');
-      revalidatePath('/admin', 'page');
-      revalidatePath(`/product/${productId}`, 'page');
-    } catch {}
+    if (!productId) {
+      return { success: false, error: 'Product ID is required for deletion' };
+    }
 
-    return { success: true };
+    await deleteAuthoritativeProduct(productId);
+    revalidateAllProductPaths(productId);
+
+    return { success: true, id: productId };
   } catch (err) {
     console.error('deleteProductAction error:', err);
     return { success: false, error: err.message };
   }
 }
 
-export async function getAdminProductsAction() {
+export async function resetCatalogAction() {
   try {
-    const all = getAllProducts();
-    const custom = getCustomProducts();
-    return { 
-      success: true, 
-      products: all,
-      customCount: custom.length 
-    };
+    const isAuthed = await checkAdminSession();
+    if (!isAuthed) {
+      return { success: false, error: 'Unauthorized: Administrator authentication required' };
+    }
+
+    await resetDatabaseToCatalog();
+    revalidateAllProductPaths();
+
+    return { success: true };
   } catch (err) {
-    return { success: false, error: err.message, products: [] };
+    return { success: false, error: err.message };
   }
 }

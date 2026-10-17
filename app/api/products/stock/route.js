@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { decrementProductStock, updateProductStock, getProductById, getAllProducts } from '../../../../src/data/productsManager.js';
-import { createAdminClient } from '../../../../utils/supabase/admin.js';
+import { 
+  getAuthoritativeProductById, 
+  getAuthoritativeProducts, 
+  updateAuthoritativeStock, 
+  decrementAuthoritativeStock 
+} from '../../../../src/lib/db.js';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -27,25 +31,28 @@ export async function GET(request) {
     const productId = searchParams.get('productId');
 
     if (productId) {
-      const product = getProductById(productId);
+      const product = await getAuthoritativeProductById(productId);
       if (!product) {
         return NextResponse.json(
           { success: false, error: 'Product not found' },
           { status: 404, headers: NO_CACHE_HEADERS }
         );
       }
+      const stock = Number(product.stock !== undefined ? product.stock : 10);
       return NextResponse.json({
         success: true,
         productId,
-        stock: Number(product.stock !== undefined ? product.stock : 10),
-        isOutOfStock: Number(product.stock !== undefined ? product.stock : 10) <= 0,
+        stock,
+        isOutOfStock: stock <= 0,
       }, { headers: NO_CACHE_HEADERS });
     }
 
-    const all = getAllProducts();
+    const all = await getAuthoritativeProducts();
     const stockMap = {};
     for (const p of all) {
-      stockMap[p.id] = Number(p.stock !== undefined ? p.stock : 10);
+      if (p && p.id) {
+        stockMap[p.id] = Number(p.stock !== undefined ? p.stock : 10);
+      }
     }
 
     return NextResponse.json({
@@ -74,9 +81,9 @@ export async function POST(request) {
 
     let result;
     if (action === 'set' && newStock !== undefined) {
-      result = updateProductStock(productId, Number(newStock));
+      result = await updateAuthoritativeStock(productId, Number(newStock));
     } else {
-      result = decrementProductStock(productId, Number(quantity || 1));
+      result = await decrementAuthoritativeStock(productId, Number(quantity || 1));
     }
 
     if (!result || !result.product) {
@@ -85,26 +92,6 @@ export async function POST(request) {
         { status: 404, headers: NO_CACHE_HEADERS }
       );
     }
-
-    // Background sync to Supabase if connected
-    (async () => {
-      try {
-        const supabase = createAdminClient();
-        if (supabase) {
-          if (action === 'set' && newStock !== undefined) {
-            await supabase
-              .from('products')
-              .update({ stock: Number(newStock) })
-              .eq('id', productId);
-          } else {
-            await supabase.rpc('decrement_stock', {
-              p_id: productId,
-              qty: Number(quantity || 1),
-            });
-          }
-        }
-      } catch {}
-    })().catch(() => {});
 
     try {
       revalidatePath('/', 'page');

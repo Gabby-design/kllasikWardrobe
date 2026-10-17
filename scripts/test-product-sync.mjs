@@ -1,10 +1,14 @@
 // scripts/test-product-sync.mjs
-// Test suite for server-authoritative product sync, migration, and stale edit pruning
+// Test suite for server-authoritative product sync, database validation, and storage purging
 import assert from 'assert';
 
 // 1. Setup Global Mock Browser Environment
 const memoryStore = new Map();
 globalThis.localStorage = {
+  get length() {
+    return memoryStore.size;
+  },
+  key: (i) => Array.from(memoryStore.keys())[i] || null,
   getItem: (key) => memoryStore.get(key) || null,
   setItem: (key, val) => memoryStore.set(key, String(val)),
   removeItem: (key) => memoryStore.delete(key),
@@ -24,19 +28,16 @@ globalThis.document = {
 
 // 2. Import productSync methods
 const {
-  STORAGE_KEY,
-  REMOVED_KEY,
-  VERSION_KEY,
   runStorageMigration,
-  computeProductVersion,
-  isLocalEditNewer,
   mergeWithStoredProducts,
+  getSingleStoredProduct,
   getStoredCustomProducts,
   resetToServerCatalog
 } = await import('../src/utils/productSync.js');
 
+const { validateProductImageUrls } = await import('../src/lib/db.js');
+
 console.log('--- STARTING PRODUCT SYNC TEST SUITE ---');
-console.log('Active Storage Key:', STORAGE_KEY);
 
 const baseServerProducts = [
   {
@@ -55,133 +56,72 @@ const baseServerProducts = [
   }
 ];
 
-// TEST 1: No local edits returns the server products
-console.log('\n[TEST 1] No local edits returns server products');
+// TEST 1: Server products are authoritative and returned directly
+console.log('\n[TEST 1] Server products returned unaltered');
 memoryStore.clear();
 const res1 = mergeWithStoredProducts(baseServerProducts);
 assert.strictEqual(res1.length, 2, 'Should return exactly 2 server products');
 assert.strictEqual(res1[0].id, 'kwt-01');
 assert.strictEqual(res1[1].id, 'kwt-05');
 assert.strictEqual(res1[1].image, '/images/red-money-tee-front.jpg');
-console.log('✓ PASS: Server products returned unaltered when storage is empty');
+console.log('PASS: Server products returned unaltered');
 
-// TEST 2: A stale local edit (older than server or matching old baseVersion) is discarded and removed from storage
-console.log('\n[TEST 2] Stale local edit is discarded and purged');
-memoryStore.clear();
-const oldLocalEdit = {
-  id: 'kwt-05',
-  title: 'Old Sukuna Edit',
-  price: 30000,
-  image: '/images/old-sukuna.jpg',
-  baseVersion: 'v_old_version_9999',
-  editedAt: '2026-10-14T10:00:00.000Z',
-  isCustom: true
-};
-memoryStore.set(STORAGE_KEY, JSON.stringify([oldLocalEdit]));
-
-const res2 = mergeWithStoredProducts(baseServerProducts);
-const kwt05Result = res2.find(p => p.id === 'kwt-05');
-assert.strictEqual(kwt05Result.image, '/images/red-money-tee-front.jpg', 'Server image must win over stale local image');
-assert.strictEqual(kwt05Result.title, 'Klasik Money Bags Graphic Heavyweight Tee', 'Server title must win over stale local title');
-
-// Verify that the stale edit was purged from localStorage
-const storedAfterMerge = JSON.parse(memoryStore.get(STORAGE_KEY) || '[]');
-assert.strictEqual(storedAfterMerge.length, 0, 'Stale edit must be permanently purged from localStorage');
-console.log('✓ PASS: Stale edit discarded and wiped from localStorage');
-
-// TEST 3: A newer local edit is kept
-console.log('\n[TEST 3] Newer local edit is retained');
-memoryStore.clear();
-const kwt01ServerVer = computeProductVersion(baseServerProducts[0]);
-const freshLocalEdit = {
-  id: 'kwt-01',
-  title: 'Custom User Renamed Shirt',
-  price: 38000,
-  image: '/images/server-shirt-1.jpg',
-  baseVersion: kwt01ServerVer,
-  editedAt: '2026-10-16T16:00:00.000Z', // After server 12:00:00
-  isCustom: true
-};
-memoryStore.set(STORAGE_KEY, JSON.stringify([freshLocalEdit]));
-
-const res3 = mergeWithStoredProducts(baseServerProducts);
-const kwt01Result = res3.find(p => p.id === 'kwt-01');
-assert.strictEqual(kwt01Result.title, 'Custom User Renamed Shirt', 'Genuinely newer edit must be retained');
-assert.strictEqual(kwt01Result.price, 38000);
-console.log('✓ PASS: Genuinely newer edit retained');
-
-// TEST 4: A locally created product with no server counterpart is kept
-console.log('\n[TEST 4] Locally created product with no server counterpart is kept');
-memoryStore.clear();
-const localOnlyProduct = {
-  id: 'kwt-custom-999',
-  title: 'Brand New Admin Added Shirt',
-  price: 45000,
-  image: '/images/new-shirt.jpg',
-  isCustom: true,
-  editedAt: '2026-10-16T16:05:00.000Z'
-};
-memoryStore.set(STORAGE_KEY, JSON.stringify([localOnlyProduct]));
-
-const res4 = mergeWithStoredProducts(baseServerProducts);
-assert.strictEqual(res4.length, 3, 'Merged list should contain 2 server products + 1 custom product');
-const customFound = res4.find(p => p.id === 'kwt-custom-999');
-assert.ok(customFound, 'Local-only product should be present in merged list');
-console.log('✓ PASS: Locally created custom product kept');
-
-// TEST 5: A product removed from server has its local override removed
-console.log('\n[TEST 5] Product removed from server has local override removed');
-memoryStore.clear();
-const nonServerItem = {
-  id: 'kwt-deleted-from-server',
-  title: 'Deleted Item Override',
-  baseVersion: 'v_deleted',
-  editedAt: '2026-10-14T00:00:00.000Z'
-  // Note: isCustom is false or undefined (was once a server product)
-};
-memoryStore.set(STORAGE_KEY, JSON.stringify([nonServerItem]));
-const res5 = mergeWithStoredProducts(baseServerProducts);
-assert.strictEqual(res5.some(p => p.id === 'kwt-deleted-from-server'), false, 'Non-server item must not appear');
-console.log('✓ PASS: Stale override for removed product eliminated');
-
-// TEST 6: Old localStorage keys are wiped by migration
-console.log('\n[TEST 6] Old localStorage keys (v1, v2, v3) wiped by migration');
-memoryStore.clear();
-memoryStore.set('klasik_custom_products', '{"old":1}');
-memoryStore.set('klasik_custom_products_v2', '{"old":2}');
-memoryStore.set('klasik_custom_products_v3', '{"old":3}');
-memoryStore.set('klasik_removed_products', '[]');
-memoryStore.set('klasik_removed_products_v2', '[]');
-memoryStore.set('klasik_catalog_version_v2', '12345');
+// TEST 2: Legacy klasik_* storage keys are purged on migration
+console.log('\n[TEST 2] Purging legacy localStorage keys');
+memoryStore.set('klasik_custom_products_v3', JSON.stringify([{ id: 'old-sukuna' }]));
+memoryStore.set('klasik_custom_products_v4', JSON.stringify([{ id: 'stale-edit' }]));
+memoryStore.set('klasik_removed_products_v4', JSON.stringify(['kwt-01']));
+memoryStore.set('unrelated_key', 'keep_me');
 
 runStorageMigration();
 
-assert.strictEqual(memoryStore.has('klasik_custom_products'), false);
-assert.strictEqual(memoryStore.has('klasik_custom_products_v2'), false);
-assert.strictEqual(memoryStore.has('klasik_custom_products_v3'), false);
-assert.strictEqual(memoryStore.has('klasik_removed_products'), false);
-assert.strictEqual(memoryStore.has('klasik_removed_products_v2'), false);
-assert.strictEqual(memoryStore.has('klasik_catalog_version_v2'), false);
-console.log('✓ PASS: All legacy cache keys wiped cleanly');
+assert.strictEqual(memoryStore.has('klasik_custom_products_v3'), false, 'Legacy v3 key must be purged');
+assert.strictEqual(memoryStore.has('klasik_custom_products_v4'), false, 'Legacy v4 key must be purged');
+assert.strictEqual(memoryStore.has('klasik_removed_products_v4'), false, 'Removed products key must be purged');
+assert.strictEqual(memoryStore.get('unrelated_key'), 'keep_me', 'Unrelated keys preserved');
+console.log('PASS: All legacy klasik_* keys purged from localStorage');
 
-// TEST 7: Pre-seeded old v3 localStorage test (Simulating Master phone state)
-console.log('\n[TEST 7] Pre-seeded v3 localStorage simulation (Master device scenario)');
-memoryStore.clear();
-// Simulate Master device having old v3 key containing Sukuna
-memoryStore.set('klasik_custom_products_v3', JSON.stringify([{
-  id: 'kwt-05',
-  title: 'Old Sukuna Tee',
-  image: '/images/media__1786369649479.jpg'
-}]));
+// TEST 3: localStorage is NOT used as source of truth for products
+console.log('\n[TEST 3] Storage is not a source of truth');
+memoryStore.set('klasik_custom_products_v4', JSON.stringify([{ id: 'kwt-05', title: 'Hacked Title' }]));
+const res3 = mergeWithStoredProducts(baseServerProducts);
+const kwt05 = res3.find((p) => p.id === 'kwt-05');
+assert.strictEqual(kwt05.title, 'Klasik Money Bags Graphic Heavyweight Tee', 'Server product must override any local edit');
+console.log('PASS: Server catalog is sole source of truth');
 
-// When the site loads, mergeWithStoredProducts runs
-const res7 = mergeWithStoredProducts(baseServerProducts);
-const kwt05Sim = res7.find(p => p.id === 'kwt-05');
-assert.strictEqual(kwt05Sim.image, '/images/red-money-tee-front.jpg', 'Must show new red money tee image');
-assert.strictEqual(kwt05Sim.title, 'Klasik Money Bags Graphic Heavyweight Tee', 'Must show new title');
-assert.strictEqual(memoryStore.has('klasik_custom_products_v3'), false, 'Old v3 key must be completely eliminated');
-console.log('✓ PASS: Master device scenario completely resolved with zero revert');
+// TEST 4: getSingleStoredProduct returns serverProduct directly
+console.log('\n[TEST 4] Single product fetch delegates to server product');
+const single = getSingleStoredProduct('kwt-01', baseServerProducts[0]);
+assert.strictEqual(single.id, 'kwt-01');
+assert.strictEqual(single.title, 'Server Shirt 1');
+console.log('PASS: getSingleStoredProduct returns server product');
 
-console.log('\n======================================');
-console.log('ALL 7 UNIT TESTS PASSED SUCCESSFULLY!');
-console.log('======================================');
+// TEST 5: Image URL validation rejects data: and blob: URLs
+console.log('\n[TEST 5] Reject base64 data: and blob: URLs');
+assert.throws(() => {
+  validateProductImageUrls({
+    id: 'test',
+    image: 'data:image/jpeg;base64,/9j/4AAQSkZJRg...',
+    gallery: []
+  });
+}, /data: and blob: URLs are not allowed/);
+
+assert.throws(() => {
+  validateProductImageUrls({
+    id: 'test',
+    image: 'https://blob.vercel-storage.com/cover.jpg',
+    gallery: ['blob:http://localhost:3000/123-abc']
+  });
+}, /data: and blob: URLs are not allowed/);
+
+// Valid Vercel Blob and relative paths must pass
+assert.doesNotThrow(() => {
+  validateProductImageUrls({
+    id: 'test',
+    image: 'https://vufvxwhviwzbegaslaxg.public.blob.vercel-storage.com/product_123.jpg',
+    gallery: ['/images/hero-tee-black.png']
+  });
+});
+console.log('PASS: data: and blob: URLs strictly rejected, valid URLs accepted');
+
+console.log('\nALL PRODUCT SYNC TESTS PASSED SUCCESSFULLY.');

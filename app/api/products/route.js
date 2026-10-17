@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
-import { getAllProducts, saveCustomProduct, removeCustomProduct } from '../../../src/data/productsManager.js';
-import { createAdminClient } from '../../../utils/supabase/admin.js';
+import { cookies } from 'next/headers';
+import { 
+  getAuthoritativeProducts, 
+  saveAuthoritativeProduct, 
+  deleteAuthoritativeProduct 
+} from '../../../src/lib/db.js';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -14,64 +18,17 @@ const NO_CACHE_HEADERS = {
   'Expires': '0',
 };
 
+async function isAdminAuthorized() {
+  const cookieStore = await cookies();
+  return cookieStore.get('admin_auth')?.value === 'true';
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
 
-    let products = getAllProducts();
-
-    // Fast-check Supabase with 400ms timeout
-    try {
-      const supabase = createAdminClient();
-      if (supabase) {
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 400)
-        );
-
-        const fetchPromise = supabase
-          .from('products')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        const result = await Promise.race([fetchPromise, timeoutPromise]);
-        const { data, error } = result || {};
-
-        if (!error && data && data.length > 0) {
-          const dbItems = data.map((p) => {
-            const staticMatch = products.find(sp => sp.id === p.id);
-            return {
-              id: p.id,
-              name: p.name || p.title || staticMatch?.title,
-              title: p.name || p.title || staticMatch?.title,
-              price: Number(p.price || staticMatch?.price || 0),
-              description: p.description || staticMatch?.description,
-              stock: p.stock !== undefined ? p.stock : (staticMatch?.stock ?? 10),
-              image: p.image_url || staticMatch?.image || '/images/hero-tee-black.png',
-              fallbackImage: p.image_url || staticMatch?.fallbackImage || '/images/hero-tee-black.png',
-              gallery: (Array.isArray(p.gallery) && p.gallery.length > 0)
-                ? p.gallery 
-                : (staticMatch?.gallery || (p.image_url ? [p.image_url] : ['/images/hero-tee-black.png'])),
-              brand: p.brand || staticMatch?.brand || 'Klasik Wardrobe',
-              category: p.category || staticMatch?.category || 'T-Shirts',
-              gsm: p.gsm || staticMatch?.gsm || '240 GSM Heavyweight',
-              material: p.material || staticMatch?.material || '100% Combed Organic Cotton',
-              fit: p.fit || staticMatch?.fit || 'Oversized Drop-Shoulder',
-              sizes: p.sizes || staticMatch?.sizes || ['S', 'M', 'L', 'XL', 'XXL'],
-              colors: p.color 
-                ? [{ name: p.color, hex: '#111111' }] 
-                : (staticMatch?.colors || [{ name: 'Obsidian Black', hex: '#111111' }]),
-              tag: p.tag || staticMatch?.tag || 'New Drop',
-              isCustom: true
-            };
-          });
-          const existingIds = new Set(dbItems.map(d => d.id));
-          products = [...dbItems, ...products.filter(p => !existingIds.has(p.id))];
-        }
-      }
-    } catch {
-      // Supabase unavailable; local manager verified products used
-    }
+    let products = await getAuthoritativeProducts();
 
     if (category && category !== 'ALL' && category !== 'All') {
       products = products.filter(
@@ -89,7 +46,7 @@ export async function GET(request) {
   } catch (error) {
     console.error('API /api/products error:', error);
     return NextResponse.json(
-      { success: false, products: getAllProducts(), error: error.message },
+      { success: false, products: [], error: error.message },
       { status: 500, headers: NO_CACHE_HEADERS }
     );
   }
@@ -97,13 +54,24 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    if (!(await isAdminAuthorized())) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Administrator authentication required' },
+        { status: 401, headers: NO_CACHE_HEADERS }
+      );
+    }
+
     const body = await request.json();
-    if (!body || !body.title || !body.price) {
+    if (!body || !body.title || body.price === undefined) {
       return NextResponse.json(
         { success: false, error: 'Product title and price are required' },
         { status: 400, headers: NO_CACHE_HEADERS }
       );
     }
+
+    const gallery = Array.isArray(body.gallery) && body.gallery.length > 0
+      ? body.gallery
+      : [body.image?.trim() || '/images/hero-tee-black.png'];
 
     const newProduct = {
       id: body.id || `kwt-${Date.now().toString().slice(-5)}`,
@@ -113,21 +81,21 @@ export async function POST(request) {
       tag: body.tag || 'New Drop',
       rating: body.rating || 5.0,
       reviews: body.reviews || 1,
-      description: body.description?.trim() || 'Heavyweight luxury streetwear garment crafted with dropped shoulder silhouette.',
+      description: body.description?.trim() || '',
       gsm: body.gsm || '240 GSM Heavyweight',
       material: body.material || '100% Combed Organic Cotton',
       fit: body.fit || 'Oversized Drop-Shoulder',
       sizes: Array.isArray(body.sizes) && body.sizes.length > 0 ? body.sizes : ['S', 'M', 'L', 'XL', 'XXL'],
       colors: Array.isArray(body.colors) && body.colors.length > 0 ? body.colors : [{ name: body.colorName || 'Obsidian Black', hex: body.colorHex || '#111111' }],
-      image: body.image || '/images/hero-tee-black.png',
-      fallbackImage: body.fallbackImage || body.image || '/images/hero-tee-black.png',
-      gallery: Array.isArray(body.gallery) && body.gallery.length > 0 ? body.gallery : [body.image || '/images/hero-tee-black.png'],
-      stock: body.stock !== undefined ? Number(body.stock) : 15,
+      image: gallery[0] || body.image || '/images/hero-tee-black.png',
+      fallbackImage: gallery[1] || gallery[0] || body.image || '/images/hero-tee-black.png',
+      gallery,
+      stock: body.stock !== undefined ? Math.max(0, Number(body.stock)) : 15,
       isCustom: true,
       createdAt: new Date().toISOString()
     };
 
-    saveCustomProduct(newProduct);
+    await saveAuthoritativeProduct(newProduct);
 
     try {
       revalidatePath('/', 'page');
@@ -151,6 +119,13 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
+    if (!(await isAdminAuthorized())) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Administrator authentication required' },
+        { status: 401, headers: NO_CACHE_HEADERS }
+      );
+    }
+
     const body = await request.json();
     if (!body || !body.id) {
       return NextResponse.json(
@@ -159,6 +134,10 @@ export async function PUT(request) {
       );
     }
 
+    const gallery = Array.isArray(body.gallery) && body.gallery.length > 0
+      ? body.gallery
+      : [body.image?.trim() || '/images/hero-tee-black.png'];
+
     const updatedProduct = {
       ...body,
       id: body.id,
@@ -166,11 +145,14 @@ export async function PUT(request) {
       price: Number(body.price || 0),
       category: body.category || 'T-Shirts',
       tag: body.tag || 'Luxury Essential',
-      stock: body.stock !== undefined ? Number(body.stock) : 10,
+      image: gallery[0] || body.image || '/images/hero-tee-black.png',
+      fallbackImage: gallery[1] || gallery[0] || body.image || '/images/hero-tee-black.png',
+      gallery,
+      stock: body.stock !== undefined ? Math.max(0, Number(body.stock)) : 10,
       updatedAt: new Date().toISOString()
     };
 
-    saveCustomProduct(updatedProduct);
+    await saveAuthoritativeProduct(updatedProduct);
 
     try {
       revalidatePath('/', 'page');
@@ -194,6 +176,13 @@ export async function PUT(request) {
 
 export async function DELETE(request) {
   try {
+    if (!(await isAdminAuthorized())) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Administrator authentication required' },
+        { status: 401, headers: NO_CACHE_HEADERS }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -201,7 +190,7 @@ export async function DELETE(request) {
       return NextResponse.json({ success: false, error: 'Product ID required' }, { status: 400, headers: NO_CACHE_HEADERS });
     }
 
-    removeCustomProduct(id);
+    await deleteAuthoritativeProduct(id);
 
     try {
       revalidatePath('/', 'page');

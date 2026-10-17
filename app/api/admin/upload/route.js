@@ -1,11 +1,17 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import fs from 'fs';
 import path from 'path';
-import { createAdminClient } from '../../../../utils/supabase/admin';
+import { put } from '@vercel/blob';
 
 export const dynamic = 'force-dynamic';
 
-async function processSingleFile(file, supabase) {
+async function isAdminAuthorized() {
+  const cookieStore = await cookies();
+  return cookieStore.get('admin_auth')?.value === 'true';
+}
+
+async function processSingleFile(file) {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
@@ -14,38 +20,25 @@ async function processSingleFile(file, supabase) {
   const base = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
   const safeName = `product_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${base}${ext}`;
 
-  let finalImageUrl = null;
-  let storageBackend = 'memory';
-
-  // 1. Attempt Supabase Storage ('products' bucket) with 500ms timeout race
-  if (supabase) {
+  // 1. Primary: Vercel Blob storage (Production CDN)
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
     try {
-      const uploadPromise = supabase.storage
-        .from('products')
-        .upload(safeName, buffer, {
-          contentType: file.type || 'image/jpeg',
-          upsert: true,
-        });
-      const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve({ error: 'timeout' }), 500));
-      const { data, error } = await Promise.race([uploadPromise, timeoutPromise]);
-
-      if (!error && data) {
-        const { data: publicUrlData } = supabase.storage
-          .from('products')
-          .getPublicUrl(safeName);
-
-        if (publicUrlData?.publicUrl) {
-          finalImageUrl = publicUrlData.publicUrl;
-          storageBackend = 'supabase';
-        }
+      const blob = await put(safeName, buffer, {
+        access: 'public',
+        contentType: file.type || 'image/jpeg',
+        token: process.env.BLOB_READ_WRITE_TOKEN
+      });
+      if (blob?.url) {
+        return { url: blob.url, fileName: safeName, storage: 'vercel-blob' };
       }
-    } catch (e) {
-      console.warn('Supabase upload notice:', e.message);
+    } catch (blobErr) {
+      console.error('Vercel Blob upload failed:', blobErr.message);
+      throw new Error(`Vercel Blob upload failed: ${blobErr.message}`);
     }
   }
 
-  // 2. Local FS fallback (only in local dev where public/images is statically served by next dev)
-  if (!finalImageUrl && !process.env.VERCEL) {
+  // 2. Local filesystem fallback (Local development only, when not running on Vercel)
+  if (!process.env.VERCEL) {
     try {
       const uploadDir = path.join(process.cwd(), 'public', 'images');
       if (!fs.existsSync(uploadDir)) {
@@ -53,28 +46,27 @@ async function processSingleFile(file, supabase) {
       }
       const localFilePath = path.join(uploadDir, safeName);
       fs.writeFileSync(localFilePath, buffer);
-      finalImageUrl = `/images/${safeName}`;
-      storageBackend = 'local';
+      return { url: `/images/${safeName}`, fileName: safeName, storage: 'local-fs' };
     } catch (fsErr) {
-      console.warn('Local FS skipped:', fsErr.message);
+      console.error('Local filesystem upload failed:', fsErr.message);
+      throw new Error(`Local filesystem upload failed: ${fsErr.message}`);
     }
   }
 
-  // 3. Inline Data URI fallback
-  if (!finalImageUrl) {
-    const mime = file.type || 'image/jpeg';
-    finalImageUrl = `data:${mime};base64,${buffer.toString('base64')}`;
-    storageBackend = 'inline-data';
-  }
-
-  return { url: finalImageUrl, fileName: safeName, storage: storageBackend };
+  // 3. In production, missing BLOB_READ_WRITE_TOKEN is an error. Never fall back to base64.
+  throw new Error('BLOB_READ_WRITE_TOKEN environment variable is missing on Vercel.');
 }
 
 export async function POST(request) {
   try {
-    const formData = await request.formData();
+    if (!(await isAdminAuthorized())) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Administrator authentication required' },
+        { status: 401 }
+      );
+    }
 
-    // Gather all files from 'files' or 'file'
+    const formData = await request.formData();
     const files = [
       ...formData.getAll('files'),
       ...formData.getAll('file'),
@@ -84,17 +76,12 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'No file uploaded' }, { status: 400 });
     }
 
-    let supabase = null;
-    try {
-      supabase = createAdminClient();
-    } catch {
-      // Supabase is optional
-    }
-
     const results = [];
     for (const file of files) {
-      const res = await processSingleFile(file, supabase);
-      results.push(res);
+      if (file && typeof file.arrayBuffer === 'function') {
+        const res = await processSingleFile(file);
+        results.push(res);
+      }
     }
 
     const urls = results.map((r) => r.url);

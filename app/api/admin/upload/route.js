@@ -28,6 +28,19 @@ async function isAdminAuthorized() {
   }
 }
 
+function getBlobToken() {
+  if (process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
+    return process.env.BLOB_READ_WRITE_TOKEN.trim();
+  }
+  const matchingKey = Object.keys(process.env).find(
+    (key) => (key.endsWith('_READ_WRITE_TOKEN') || key.includes('BLOB_READ_WRITE')) && process.env[key]?.trim()
+  );
+  if (matchingKey) {
+    return process.env[matchingKey].trim();
+  }
+  return null;
+}
+
 async function processSingleFile(file, blobToken) {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
@@ -130,9 +143,9 @@ export async function POST(request) {
       );
     }
 
-    const blobToken = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+    const blobToken = getBlobToken();
     if (!blobToken && Boolean(process.env.VERCEL)) {
-      const errMsg = 'Vercel Blob storage is not connected: BLOB_READ_WRITE_TOKEN is missing in Vercel environment variables. Create a Blob store in your Vercel Dashboard (Storage -> Create Database -> Blob) and redeploy.';
+      const errMsg = 'Vercel Blob storage is not connected: BLOB_READ_WRITE_TOKEN is missing in Vercel environment variables. Check your Vercel Project -> Storage -> Blob Store -> Connected Projects, or add BLOB_READ_WRITE_TOKEN under Settings -> Environment Variables, then redeploy.';
       console.error(`[Upload API] 500 Configuration Error: ${errMsg}`);
       return NextResponse.json(
         { success: false, error: errMsg },

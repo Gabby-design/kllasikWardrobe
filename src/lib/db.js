@@ -11,8 +11,21 @@ let redisClient = null;
 export function getRedis() {
   if (redisClient) return redisClient;
 
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+  let url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  let token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+  if (!url || !token) {
+    const urlKey = Object.keys(process.env).find(
+      (k) => (k.endsWith('_REST_API_URL') || k.endsWith('_KV_URL') || k.includes('REDIS_REST_URL')) && process.env[k]?.trim()
+    );
+    const tokenKey = Object.keys(process.env).find(
+      (k) => (k.endsWith('_REST_API_TOKEN') || k.endsWith('_KV_TOKEN') || k.includes('REDIS_REST_TOKEN')) && process.env[k]?.trim()
+    );
+    if (urlKey && tokenKey) {
+      url = process.env[urlKey].trim();
+      token = process.env[tokenKey].trim();
+    }
+  }
 
   if (url && token) {
     try {

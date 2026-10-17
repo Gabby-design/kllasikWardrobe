@@ -38,6 +38,10 @@ The owner's global rules live in `~/.agents/rules/` and are **pointed to, never 
 
 ## 5. Security and data handling
 
+- **No credential testing against live production**: Never forge admin cookies, session tokens, or credentials, and never execute test requests with credentials against the live production site. Test locally or with a throwaway preview deployment instead.
+- **Zero secret disclosure**: Never print secret values, API tokens, or passphrases in chat, summaries, logs, or commit diffs. Mask all secrets before sharing.
+- **Strict startup enforcement**: `ADMIN_SESSION_SECRET` and `ADMIN_PASSPHRASE` have zero hardcoded defaults in code. The application strictly refuses to start or build without `ADMIN_SESSION_SECRET` configured in the environment.
+
 ## 6. Dependencies
 
 ## 7. Testing expectations

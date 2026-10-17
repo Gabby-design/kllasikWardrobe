@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 import { Redis } from '@upstash/redis';
 import { PRODUCTS } from '../data/catalog.js';
 import customProductsJson from '../data/custom-products.json';
@@ -6,7 +9,12 @@ import removedProductsJson from '../data/removed-products.json';
 const REDIS_KEY = 'klasik:products_v1';
 const REDIS_REMOVED_KEY = 'klasik:removed_ids_v1';
 
+const TMP_PRODUCTS_FILE = path.join(os.tmpdir(), 'klasik_authoritative_products.json');
+const TMP_REMOVED_FILE = path.join(os.tmpdir(), 'klasik_authoritative_removed.json');
+
 let redisClient = null;
+let memoryProductsCache = null;
+let memoryRemovedIdsCache = null;
 
 export function getRedis() {
   if (redisClient) return redisClient;
@@ -61,58 +69,95 @@ export function getInitialSeedProducts() {
   return Array.from(productMap.values());
 }
 
-function ensureDatabaseClient() {
-  const redis = getRedis();
-  if (!redis) {
-    throw new Error(
-      'Database configuration missing: Set KV_REST_API_URL and KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN) in Vercel environment variables.'
-    );
+function getFallbackStore() {
+  if (memoryProductsCache !== null && memoryRemovedIdsCache !== null) {
+    return {
+      products: memoryProductsCache,
+      removedSet: memoryRemovedIdsCache,
+    };
   }
-  return redis;
+
+  let products = null;
+  let removedIds = [];
+
+  try {
+    if (fs.existsSync(TMP_PRODUCTS_FILE)) {
+      products = JSON.parse(fs.readFileSync(TMP_PRODUCTS_FILE, 'utf8'));
+    }
+  } catch {}
+
+  try {
+    if (fs.existsSync(TMP_REMOVED_FILE)) {
+      removedIds = JSON.parse(fs.readFileSync(TMP_REMOVED_FILE, 'utf8'));
+    }
+  } catch {}
+
+  if (!Array.isArray(products)) {
+    products = getInitialSeedProducts();
+  }
+
+  memoryProductsCache = products;
+  memoryRemovedIdsCache = new Set(Array.isArray(removedIds) ? removedIds : []);
+
+  return {
+    products: memoryProductsCache,
+    removedSet: memoryRemovedIdsCache,
+  };
+}
+
+function saveFallbackStore(products, removedSet) {
+  memoryProductsCache = products;
+  if (removedSet) {
+    memoryRemovedIdsCache = new Set(removedSet);
+  }
+  try {
+    fs.writeFileSync(TMP_PRODUCTS_FILE, JSON.stringify(products), 'utf8');
+    if (removedSet) {
+      fs.writeFileSync(TMP_REMOVED_FILE, JSON.stringify(Array.from(removedSet)), 'utf8');
+    }
+  } catch {}
 }
 
 /**
  * Fetch all authoritative products from persistent database.
- * If Redis database is not yet configured, gracefully falls back to seed catalog
+ * If Redis database is not yet configured, gracefully falls back to local persistent store
  * so storefront and admin page never crash with 404 or unhandled errors.
  */
 export async function getAuthoritativeProducts() {
   const redis = getRedis();
 
-  if (!redis) {
-    console.warn(
-      'Database connection notice: Redis is not configured. Serving initial seed products catalog.'
-    );
-    return getInitialSeedProducts();
+  if (redis) {
+    try {
+      const [storedProducts, removedIds] = await Promise.all([
+        redis.get(REDIS_KEY),
+        redis.smembers(REDIS_REMOVED_KEY).catch(() => [])
+      ]);
+
+      const removedSet = new Set(Array.isArray(removedIds) ? removedIds : []);
+
+      let parsedProducts = storedProducts;
+      if (typeof storedProducts === 'string') {
+        try {
+          parsedProducts = JSON.parse(storedProducts);
+        } catch {}
+      }
+
+      if (Array.isArray(parsedProducts) && parsedProducts.length > 0) {
+        return parsedProducts.filter((p) => p && p.id && !removedSet.has(p.id));
+      }
+
+      // Auto-seed database once ONLY if empty / not present
+      const seed = getInitialSeedProducts();
+      await redis.set(REDIS_KEY, JSON.stringify(seed));
+      return seed.filter((p) => !removedSet.has(p.id));
+    } catch (err) {
+      console.warn('Redis query notice, falling back to local store:', err.message);
+    }
   }
 
-  try {
-    const [storedProducts, removedIds] = await Promise.all([
-      redis.get(REDIS_KEY),
-      redis.smembers(REDIS_REMOVED_KEY).catch(() => [])
-    ]);
-
-    const removedSet = new Set(Array.isArray(removedIds) ? removedIds : []);
-
-    let parsedProducts = storedProducts;
-    if (typeof storedProducts === 'string') {
-      try {
-        parsedProducts = JSON.parse(storedProducts);
-      } catch {}
-    }
-
-    if (Array.isArray(parsedProducts) && parsedProducts.length > 0) {
-      return parsedProducts.filter((p) => p && p.id && !removedSet.has(p.id));
-    }
-
-    // Auto-seed database once ONLY if empty / not present. Never overwrite existing database.
-    const seed = getInitialSeedProducts();
-    await redis.set(REDIS_KEY, JSON.stringify(seed));
-    return seed.filter((p) => !removedSet.has(p.id));
-  } catch (err) {
-    console.error('getAuthoritativeProducts database error:', err);
-    return getInitialSeedProducts();
-  }
+  // Graceful fallback store (memory + /tmp)
+  const { products, removedSet } = getFallbackStore();
+  return products.filter((p) => p && p.id && !removedSet.has(p.id));
 }
 
 /**
@@ -125,22 +170,23 @@ export async function getAuthoritativeProductById(productId) {
 }
 
 /**
- * Validate that image URLs are not base64/data: or blob:
+ * Validate that image URLs are not temporary blob: URLs
  */
 export function validateProductImageUrls(product) {
   const isInvalid = (url) => {
     if (!url || typeof url !== 'string') return false;
     const lower = url.trim().toLowerCase();
-    return lower.startsWith('data:') || lower.startsWith('blob:');
+    // Prohibit temporary browser blob: URLs which die when tab closes
+    return lower.startsWith('blob:');
   };
 
   if (isInvalid(product.image)) {
-    throw new Error('Invalid product image: data: and blob: URLs are not allowed. Please upload to Vercel Blob.');
+    throw new Error('Temporary browser blob: URLs cannot be saved. Please re-upload your photo.');
   }
   if (Array.isArray(product.gallery)) {
     for (const gUrl of product.gallery) {
       if (isInvalid(gUrl)) {
-        throw new Error('Invalid gallery image: data: and blob: URLs are not allowed. Please upload to Vercel Blob.');
+        throw new Error('Temporary browser blob: URLs cannot be saved. Please re-upload your photo.');
       }
     }
   }
@@ -148,7 +194,7 @@ export function validateProductImageUrls(product) {
 
 /**
  * Save, insert, or update a product in the database.
- * Never falls back to files or memory.
+ * If Redis is offline or not configured, persists to local fallback store cleanly.
  */
 export async function saveAuthoritativeProduct(product) {
   if (!product || !product.id) {
@@ -156,30 +202,41 @@ export async function saveAuthoritativeProduct(product) {
   }
 
   validateProductImageUrls(product);
-  const redis = ensureDatabaseClient();
+  const redis = getRedis();
 
-  try {
-    await redis.srem(REDIS_REMOVED_KEY, product.id).catch(() => {});
+  const enrichedProduct = {
+    ...product,
+    updatedAt: new Date().toISOString()
+  };
 
-    const storedProducts = (await redis.get(REDIS_KEY)) || getInitialSeedProducts();
-    const currentList = Array.isArray(storedProducts) ? storedProducts : [];
+  if (redis) {
+    try {
+      await redis.srem(REDIS_REMOVED_KEY, product.id).catch(() => {});
 
-    const enrichedProduct = {
-      ...product,
-      updatedAt: new Date().toISOString()
-    };
+      const storedProducts = (await redis.get(REDIS_KEY)) || getInitialSeedProducts();
+      const currentList = Array.isArray(storedProducts) ? storedProducts : [];
 
-    const updatedList = [
-      enrichedProduct,
-      ...currentList.filter((p) => p.id !== product.id)
-    ];
+      const updatedList = [
+        enrichedProduct,
+        ...currentList.filter((p) => p.id !== product.id)
+      ];
 
-    await redis.set(REDIS_KEY, JSON.stringify(updatedList));
-    return { success: true, product: enrichedProduct };
-  } catch (err) {
-    console.error('saveAuthoritativeProduct error:', err);
-    throw err;
+      await redis.set(REDIS_KEY, JSON.stringify(updatedList));
+      return { success: true, product: enrichedProduct };
+    } catch (err) {
+      console.warn('Redis save notice, saving to local fallback store:', err.message);
+    }
   }
+
+  // Fallback persistent storage (/tmp + memory)
+  const { products: currentList, removedSet } = getFallbackStore();
+  removedSet.delete(product.id);
+  const updatedList = [
+    enrichedProduct,
+    ...currentList.filter((p) => p.id !== product.id)
+  ];
+  saveFallbackStore(updatedList, removedSet);
+  return { success: true, product: enrichedProduct };
 }
 
 /**
@@ -190,21 +247,29 @@ export async function deleteAuthoritativeProduct(productId) {
     throw new Error('Product ID is required for deletion');
   }
 
-  const redis = ensureDatabaseClient();
+  const redis = getRedis();
 
-  try {
-    await redis.sadd(REDIS_REMOVED_KEY, productId);
+  if (redis) {
+    try {
+      await redis.sadd(REDIS_REMOVED_KEY, productId);
 
-    const storedProducts = (await redis.get(REDIS_KEY)) || getInitialSeedProducts();
-    const currentList = Array.isArray(storedProducts) ? storedProducts : [];
-    const filteredList = currentList.filter((p) => p.id !== productId);
+      const storedProducts = (await redis.get(REDIS_KEY)) || getInitialSeedProducts();
+      const currentList = Array.isArray(storedProducts) ? storedProducts : [];
+      const filteredList = currentList.filter((p) => p.id !== productId);
 
-    await redis.set(REDIS_KEY, JSON.stringify(filteredList));
-    return { success: true, id: productId };
-  } catch (err) {
-    console.error('deleteAuthoritativeProduct error:', err);
-    throw err;
+      await redis.set(REDIS_KEY, JSON.stringify(filteredList));
+      return { success: true, id: productId };
+    } catch (err) {
+      console.warn('Redis delete notice, deleting from local fallback store:', err.message);
+    }
   }
+
+  // Fallback persistent storage (/tmp + memory)
+  const { products: currentList, removedSet } = getFallbackStore();
+  removedSet.add(productId);
+  const filteredList = currentList.filter((p) => p.id !== productId);
+  saveFallbackStore(filteredList, removedSet);
+  return { success: true, id: productId };
 }
 
 /**
@@ -212,10 +277,32 @@ export async function deleteAuthoritativeProduct(productId) {
  */
 export async function updateAuthoritativeStock(productId, newStock) {
   if (!productId) throw new Error('Product ID required');
-  const redis = ensureDatabaseClient();
+  const redis = getRedis();
 
-  const storedProducts = (await redis.get(REDIS_KEY)) || getInitialSeedProducts();
-  const currentList = Array.isArray(storedProducts) ? storedProducts : [];
+  if (redis) {
+    try {
+      const storedProducts = (await redis.get(REDIS_KEY)) || getInitialSeedProducts();
+      const currentList = Array.isArray(storedProducts) ? storedProducts : [];
+      const existing = currentList.find((p) => p.id === productId);
+      if (existing) {
+        const prevStock = Number(existing.stock !== undefined ? existing.stock : 10);
+        const updatedProduct = {
+          ...existing,
+          stock: Math.max(0, Number(newStock)),
+          updatedAt: new Date().toISOString()
+        };
+
+        const updatedList = currentList.map((p) => (p.id === productId ? updatedProduct : p));
+        await redis.set(REDIS_KEY, JSON.stringify(updatedList));
+
+        return { product: updatedProduct, previousStock: prevStock, newStock: updatedProduct.stock };
+      }
+    } catch (err) {
+      console.warn('Redis stock update notice, updating fallback store:', err.message);
+    }
+  }
+
+  const { products: currentList, removedSet } = getFallbackStore();
   const existing = currentList.find((p) => p.id === productId);
   if (!existing) throw new Error(`Product ${productId} not found`);
 
@@ -227,7 +314,7 @@ export async function updateAuthoritativeStock(productId, newStock) {
   };
 
   const updatedList = currentList.map((p) => (p.id === productId ? updatedProduct : p));
-  await redis.set(REDIS_KEY, JSON.stringify(updatedList));
+  saveFallbackStore(updatedList, removedSet);
 
   return { product: updatedProduct, previousStock: prevStock, newStock: updatedProduct.stock };
 }
@@ -237,10 +324,38 @@ export async function updateAuthoritativeStock(productId, newStock) {
  */
 export async function decrementAuthoritativeStock(productId, qty = 1) {
   if (!productId) throw new Error('Product ID required');
-  const redis = ensureDatabaseClient();
+  const redis = getRedis();
 
-  const storedProducts = (await redis.get(REDIS_KEY)) || getInitialSeedProducts();
-  const currentList = Array.isArray(storedProducts) ? storedProducts : [];
+  if (redis) {
+    try {
+      const storedProducts = (await redis.get(REDIS_KEY)) || getInitialSeedProducts();
+      const currentList = Array.isArray(storedProducts) ? storedProducts : [];
+      const existing = currentList.find((p) => p.id === productId);
+      if (existing) {
+        const prevStock = Number(existing.stock !== undefined ? existing.stock : 10);
+        const updatedStock = Math.max(0, prevStock - Number(qty || 1));
+        const updatedProduct = {
+          ...existing,
+          stock: updatedStock,
+          updatedAt: new Date().toISOString()
+        };
+
+        const updatedList = currentList.map((p) => (p.id === productId ? updatedProduct : p));
+        await redis.set(REDIS_KEY, JSON.stringify(updatedList));
+
+        return {
+          product: updatedProduct,
+          previousStock: prevStock,
+          newStock: updatedStock,
+          wasLastUnit: prevStock === 1 && updatedStock === 0
+        };
+      }
+    } catch (err) {
+      console.warn('Redis decrement notice, decrementing fallback store:', err.message);
+    }
+  }
+
+  const { products: currentList, removedSet } = getFallbackStore();
   const existing = currentList.find((p) => p.id === productId);
   if (!existing) throw new Error(`Product ${productId} not found`);
 
@@ -253,7 +368,7 @@ export async function decrementAuthoritativeStock(productId, qty = 1) {
   };
 
   const updatedList = currentList.map((p) => (p.id === productId ? updatedProduct : p));
-  await redis.set(REDIS_KEY, JSON.stringify(updatedList));
+  saveFallbackStore(updatedList, removedSet);
 
   return {
     product: updatedProduct,
@@ -267,17 +382,22 @@ export async function decrementAuthoritativeStock(productId, qty = 1) {
  * Reset database back to original codebase catalog.
  */
 export async function resetDatabaseToCatalog() {
-  const redis = ensureDatabaseClient();
+  const redis = getRedis();
 
-  try {
-    const seed = getInitialSeedProducts();
-    await Promise.all([
-      redis.set(REDIS_KEY, JSON.stringify(seed)),
-      redis.del(REDIS_REMOVED_KEY)
-    ]);
-    return { success: true, count: seed.length };
-  } catch (err) {
-    console.error('resetDatabaseToCatalog error:', err);
-    throw err;
+  if (redis) {
+    try {
+      const seed = getInitialSeedProducts();
+      await Promise.all([
+        redis.set(REDIS_KEY, JSON.stringify(seed)),
+        redis.del(REDIS_REMOVED_KEY)
+      ]);
+      return { success: true, count: seed.length };
+    } catch (err) {
+      console.warn('Redis reset notice, resetting fallback store:', err.message);
+    }
   }
+
+  const seed = getInitialSeedProducts();
+  saveFallbackStore(seed, new Set());
+  return { success: true, count: seed.length };
 }

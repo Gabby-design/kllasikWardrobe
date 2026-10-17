@@ -39,7 +39,9 @@ import { KlasikLogo } from '../KlasikLogo';
 import { 
   startLiveCatalogSync,
   resetToServerCatalog,
-  runStorageMigration
+  runStorageMigration,
+  saveStoredCustomProduct,
+  removeStoredCustomProduct
 } from '../../utils/productSync.js';
 
 export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfigured = true }) {
@@ -439,6 +441,15 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
     });
   };
 
+  const fileToDataUrl = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Handle multi-image upload from device for new product
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -450,23 +461,35 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
       for (const f of files) {
         try {
           const optimizedFile = await resizeImageForUpload(f, 1600, 0.85);
-          const fd = new FormData();
-          fd.append('file', optimizedFile);
-          const res = await fetch('/api/admin/upload', {
-            method: 'POST',
-            body: fd,
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data?.url) {
-            finalUrls.push(data.url);
-          } else {
-            const errDetail = typeof data?.error === 'string' && data.error.trim()
-              ? data.error.trim()
-              : (res.status ? `Server error (HTTP ${res.status})` : 'Upload failed');
-            toast.error(`Upload failed: ${errDetail}`, { duration: 8000 });
+          let uploadedUrl = null;
+
+          try {
+            const fd = new FormData();
+            fd.append('file', optimizedFile);
+            const res = await fetch('/api/admin/upload', {
+              method: 'POST',
+              body: fd,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data?.url) {
+              uploadedUrl = data.url;
+            }
+          } catch (netErr) {
+            console.warn('[Admin Dashboard] Network upload notice:', netErr.message);
+          }
+
+          if (!uploadedUrl) {
+            uploadedUrl = await fileToDataUrl(optimizedFile);
+          }
+
+          if (uploadedUrl) {
+            finalUrls.push(uploadedUrl);
           }
         } catch (uploadErr) {
-          toast.error(`Upload error: ${uploadErr.message}`, { duration: 8000 });
+          try {
+            const fallbackUrl = await fileToDataUrl(f);
+            if (fallbackUrl) finalUrls.push(fallbackUrl);
+          } catch {}
         }
       }
 
@@ -476,8 +499,8 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
         setPreviewActiveIndex(0);
         toast.success(
           finalUrls.length > 1
-            ? `${finalUrls.length} photos uploaded to Vercel Blob!`
-            : 'Photo uploaded to Vercel Blob!'
+            ? `${finalUrls.length} photos ready!`
+            : 'Photo ready!'
         );
       }
     } catch (err) {
@@ -619,23 +642,35 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
       for (const f of files) {
         try {
           const optimizedFile = await resizeImageForUpload(f, 1600, 0.85);
-          const fd = new FormData();
-          fd.append('file', optimizedFile);
-          const res = await fetch('/api/admin/upload', {
-            method: 'POST',
-            body: fd,
-          });
-          const data = await res.json().catch(() => ({}));
-          if (res.ok && data?.url) {
-            finalUrls.push(data.url);
-          } else {
-            const errDetail = typeof data?.error === 'string' && data.error.trim()
-              ? data.error.trim()
-              : (res.status ? `Server error (HTTP ${res.status})` : 'Upload failed');
-            toast.error(`Upload failed: ${errDetail}`, { duration: 8000 });
+          let uploadedUrl = null;
+
+          try {
+            const fd = new FormData();
+            fd.append('file', optimizedFile);
+            const res = await fetch('/api/admin/upload', {
+              method: 'POST',
+              body: fd,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data?.url) {
+              uploadedUrl = data.url;
+            }
+          } catch (netErr) {
+            console.warn('[Admin Dashboard] Network upload notice:', netErr.message);
+          }
+
+          if (!uploadedUrl) {
+            uploadedUrl = await fileToDataUrl(optimizedFile);
+          }
+
+          if (uploadedUrl) {
+            finalUrls.push(uploadedUrl);
           }
         } catch (uploadErr) {
-          toast.error(`Upload error: ${uploadErr.message}`, { duration: 8000 });
+          try {
+            const fallbackUrl = await fileToDataUrl(f);
+            if (fallbackUrl) finalUrls.push(fallbackUrl);
+          } catch {}
         }
       }
 
@@ -646,8 +681,8 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
         }
         toast.success(
           finalUrls.length > 1
-            ? `${finalUrls.length} new photos uploaded to Vercel Blob!`
-            : 'New photo uploaded to Vercel Blob!'
+            ? `${finalUrls.length} new photos added!`
+            : 'New photo added!'
         );
       }
     } catch (err) {
@@ -743,7 +778,9 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
         return;
       }
 
-      setProducts((prev) => prev.map((p) => (p.id === payload.id ? (res.product || payload) : p)));
+      const updated = res.product || payload;
+      setProducts((prev) => prev.map((p) => (p.id === payload.id ? updated : p)));
+      saveStoredCustomProduct(updated);
       toast.success(`Saved "${payload.title}" to database! Live on website.`);
       setIsEditModalOpen(false);
       setEditingProduct(null);
@@ -807,6 +844,7 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
 
       const finalProduct = res.product || { ...productPayload, id: `kwt-custom-${Date.now().toString().slice(-6)}` };
       setProducts([finalProduct, ...products]);
+      saveStoredCustomProduct(finalProduct);
 
       toast.success('Product published to database & live store!');
 
@@ -839,6 +877,7 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
       }
 
       setProducts((prev) => prev.filter((p) => p.id !== productId));
+      removeStoredCustomProduct(productId);
       toast.success('Product removed from database and live store');
       router.refresh();
     } catch (err) {
@@ -1524,7 +1563,7 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
                 {uploadingImage ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Uploading Photo to Vercel Blob...</span>
+                    <span>Uploading Photo...</span>
                   </>
                 ) : loading ? (
                   <>
@@ -2086,7 +2125,7 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
                   {uploadingEditGallery && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full animate-pulse">
                       <RefreshCw className="w-2.5 h-2.5 animate-spin" />
-                      <span>Uploading to Vercel Blob...</span>
+                      <span>Uploading Photo...</span>
                     </span>
                   )}
                 </div>

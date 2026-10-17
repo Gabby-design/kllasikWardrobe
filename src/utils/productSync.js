@@ -1,22 +1,29 @@
 // src/utils/productSync.js
-// Client-side synchronization engine for Klasik Wardrobe.
-// Server/Database is the sole authority; local storage is NOT a source of truth.
+// Dual-resilient client-side synchronization engine for Klasik Wardrobe.
+// Server/Database is authoritative, with seamless local client caching for instant offline/ephemeral resilience.
 
-export const STORAGE_KEY = 'klasik_custom_products_v4';
-export const REMOVED_KEY = 'klasik_removed_products_v4';
-export const VERSION_KEY = 'klasik_catalog_version_v4';
-export const CHANNEL_NAME = 'klasik_products_channel_v4';
+export const STORAGE_KEY = 'klasik_custom_products_v5';
+export const REMOVED_KEY = 'klasik_removed_products_v5';
+export const VERSION_KEY = 'klasik_catalog_version_v5';
+export const CHANNEL_NAME = 'klasik_products_channel_v5';
 
-// One-time client cleanup: purges all legacy klasik_* keys from localStorage & IndexedDB
+// Purges legacy obsolete keys from older storage versions
 export function runStorageMigration() {
   if (typeof window === 'undefined') return;
 
   try {
-    for (let i = localStorage.length - 1; i >= 0; i--) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('klasik_')) {
-        localStorage.removeItem(key);
-      }
+    const legacyKeys = [
+      'klasik_custom_products_v1',
+      'klasik_custom_products_v2',
+      'klasik_custom_products_v3',
+      'klasik_custom_products_v4',
+      'klasik_removed_products_v1',
+      'klasik_removed_products_v2',
+      'klasik_removed_products_v3',
+      'klasik_removed_products_v4',
+    ];
+    for (const key of legacyKeys) {
+      localStorage.removeItem(key);
     }
   } catch {}
 
@@ -35,37 +42,84 @@ if (typeof window !== 'undefined') {
   runStorageMigration();
 }
 
-/**
- * Server is single source of truth.
- * Products loaded from server are returned directly.
- */
-export function mergeWithStoredProducts(baseProducts = []) {
-  if (typeof window === 'undefined') return baseProducts;
-  runStorageMigration();
-  return Array.isArray(baseProducts) ? baseProducts : [];
-}
-
-export function getSingleStoredProduct(productId, serverProduct = null) {
-  if (typeof window !== 'undefined') runStorageMigration();
-  return serverProduct || null;
-}
-
 export function getStoredCustomProducts() {
-  return [];
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
 }
 
 export function getStoredRemovedProductIds() {
-  return [];
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(REMOVED_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
 }
 
 export function saveStoredCustomProduct(product) {
-  // Local storage does not store product data.
+  if (typeof window === 'undefined' || !product || !product.id) return;
+  try {
+    const existing = getStoredCustomProducts();
+    const updated = [product, ...existing.filter((p) => p.id !== product.id)];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    const currentRemoved = getStoredRemovedProductIds().filter((id) => id !== product.id);
+    localStorage.setItem(REMOVED_KEY, JSON.stringify(currentRemoved));
+  } catch {}
   broadcastProductChange(product, 'update');
 }
 
 export function removeStoredCustomProduct(productId) {
-  // Local storage does not store product data.
+  if (typeof window === 'undefined' || !productId) return;
+  try {
+    const existing = getStoredCustomProducts();
+    const updated = existing.filter((p) => p.id !== productId);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    const currentRemoved = Array.from(new Set([...getStoredRemovedProductIds(), productId]));
+    localStorage.setItem(REMOVED_KEY, JSON.stringify(currentRemoved));
+  } catch {}
   broadcastProductChange({ id: productId }, 'delete');
+}
+
+/**
+ * Merges server products with any locally saved updates
+ */
+export function mergeWithStoredProducts(baseProducts = []) {
+  if (typeof window === 'undefined') return baseProducts;
+  try {
+    const custom = getStoredCustomProducts();
+    const removedSet = new Set(getStoredRemovedProductIds());
+    const productMap = new Map();
+
+    for (const p of (Array.isArray(baseProducts) ? baseProducts : [])) {
+      if (p && p.id && !removedSet.has(p.id)) {
+        productMap.set(p.id, { ...p });
+      }
+    }
+
+    for (const p of custom) {
+      if (p && p.id && !removedSet.has(p.id)) {
+        const prev = productMap.get(p.id) || {};
+        productMap.set(p.id, { ...prev, ...p });
+      }
+    }
+
+    return Array.from(productMap.values());
+  } catch {
+    return Array.isArray(baseProducts) ? baseProducts : [];
+  }
+}
+
+export function getSingleStoredProduct(productId, serverProduct = null) {
+  if (typeof window === 'undefined') return serverProduct || null;
+  const custom = getStoredCustomProducts();
+  const match = custom.find((p) => p.id === productId);
+  return match || serverProduct || null;
 }
 
 export function clearObsoleteClientCache() {
@@ -73,7 +127,12 @@ export function clearObsoleteClientCache() {
 }
 
 export function resetToServerCatalog() {
-  runStorageMigration();
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(REMOVED_KEY);
+    } catch {}
+  }
   broadcastProductChange(null, 'catalog_reset');
 }
 

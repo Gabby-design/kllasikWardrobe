@@ -5,7 +5,11 @@ export function getAdminSessionSecret() {
   if (!secret || !secret.trim()) {
     throw new Error('ADMIN_SESSION_SECRET environment variable is missing. Set ADMIN_SESSION_SECRET in Vercel and local environment.');
   }
-  return secret.trim();
+  let clean = secret.trim();
+  if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+    clean = clean.slice(1, -1).trim();
+  }
+  return clean;
 }
 
 export function getAdminPassphrase() {
@@ -13,7 +17,11 @@ export function getAdminPassphrase() {
   if (!passphrase || !passphrase.trim()) {
     throw new Error('ADMIN_PASSPHRASE environment variable is missing. Set ADMIN_PASSPHRASE in Vercel and local environment.');
   }
-  return passphrase.trim();
+  let clean = passphrase.trim();
+  if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+    clean = clean.slice(1, -1).trim();
+  }
+  return clean;
 }
 
 export function verifyAdminPassphrase(input) {

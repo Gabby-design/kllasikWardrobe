@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useCartStore } from '../../../src/store/cartStore';
 import toast from 'react-hot-toast';
-import { ShoppingBag, Plus, Minus } from 'lucide-react';
+import { ShoppingBag, Plus, Minus, Heart } from 'lucide-react';
 import { decrementStoredProductStock } from '../../../src/utils/productSync';
+import { useWishlistStore } from '../../../src/store/wishlistStore';
 
 export default function AddToCartSection({ 
   product, 
@@ -23,6 +24,18 @@ export default function AddToCartSection({
   });
   const [quantity, setQuantity] = useState(1);
   const { addToCart, setIsCartOpen } = useCartStore();
+  const { wishlist, toggleWishlist } = useWishlistStore();
+
+  const isFavorited = Array.isArray(wishlist) && wishlist.some((item) => item.id === product.id);
+
+  const handleToggleWishlist = () => {
+    const added = toggleWishlist(product);
+    if (added) {
+      toast.success(`Saved "${product.title}" to your favorites!`);
+    } else {
+      toast.success(`Removed "${product.title}" from favorites`);
+    }
+  };
 
   useEffect(() => {
     if (!availableSizes.includes(selectedSize)) {
@@ -188,13 +201,13 @@ export default function AddToCartSection({
         </div>
       </div>
 
-      {/* Desktop Add to Cart Button */}
-      <div className="hidden md:block pt-2">
+      {/* Desktop Add to Cart & Wishlist Buttons */}
+      <div className="hidden md:flex items-center gap-3 pt-2">
         <button
           type="button"
           disabled={isSoldOut}
           onClick={handleAdd}
-          className={`w-full bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-sans text-sm font-bold py-3.5 px-6 rounded-full transition-all duration-300 flex items-center justify-center gap-2 shadow-md active:scale-[0.98] cursor-pointer ${
+          className={`flex-1 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-sans text-sm font-bold py-3.5 px-6 rounded-full transition-all duration-300 flex items-center justify-center gap-2 shadow-md active:scale-[0.98] cursor-pointer ${
             isSoldOut ? 'opacity-50 cursor-not-allowed pointer-events-none bg-gray-400 hover:bg-gray-400' : ''
           }`}
         >
@@ -207,6 +220,16 @@ export default function AddToCartSection({
               : `Add to Bag • ${formatPrice(totalPrice)}`}
           </span>
         </button>
+
+        <button
+          type="button"
+          onClick={handleToggleWishlist}
+          aria-label="Save to Wishlist"
+          title="Save to Wishlist"
+          className="w-12 h-12 rounded-full border border-black/[0.08] bg-[#EDEDEF]/60 hover:bg-[#EDE9FE] flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95 flex-shrink-0"
+        >
+          <Heart className={`w-5 h-5 transition-colors ${isFavorited ? 'fill-[#7C3AED] text-[#7C3AED]' : 'text-gray-500 hover:text-[#7C3AED]'}`} />
+        </button>
       </div>
 
       {/* Phone Sticky Floating Bottom Bar */}
@@ -216,17 +239,28 @@ export default function AddToCartSection({
           <span className="text-sm font-bold text-[#111111] mt-0.5">{formatPrice(totalPrice)}</span>
         </div>
 
-        <button
-          type="button"
-          disabled={isSoldOut}
-          onClick={handleAdd}
-          className={`bg-[#7C3AED] hover:bg-[#6D28D9] text-white px-5 py-2.5 rounded-full font-sans text-xs font-bold flex items-center gap-2 shadow-md active:scale-95 transition-all cursor-pointer ${
-            isSoldOut ? 'opacity-50 cursor-not-allowed pointer-events-none bg-gray-400' : ''
-          }`}
-        >
-          <ShoppingBag className="w-4 h-4" />
-          <span>{isSoldOut ? 'Sold Out' : (isLastPiece ? 'Claim Last Unit' : 'Add to Cart')}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleToggleWishlist}
+            aria-label="Save to Wishlist"
+            className="w-9 h-9 rounded-full bg-[#EDEDEF] text-gray-500 hover:text-[#7C3AED] flex items-center justify-center transition-all cursor-pointer active:scale-95"
+          >
+            <Heart className={`w-4 h-4 transition-colors ${isFavorited ? 'fill-[#7C3AED] text-[#7C3AED]' : 'text-gray-500'}`} />
+          </button>
+
+          <button
+            type="button"
+            disabled={isSoldOut}
+            onClick={handleAdd}
+            className={`bg-[#7C3AED] hover:bg-[#6D28D9] text-white px-5 py-2.5 rounded-full font-sans text-xs font-bold flex items-center gap-2 shadow-md active:scale-95 transition-all cursor-pointer ${
+              isSoldOut ? 'opacity-50 cursor-not-allowed pointer-events-none bg-gray-400' : ''
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>{isSoldOut ? 'Sold Out' : (isLastPiece ? 'Claim Last Unit' : 'Add to Cart')}</span>
+          </button>
+        </div>
       </div>
 
     </div>

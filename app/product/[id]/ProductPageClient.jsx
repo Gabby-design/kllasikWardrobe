@@ -7,6 +7,8 @@ import AddToCartSection from './AddToCartSection';
 import ProductGallerySlider from './ProductGallerySlider';
 import { Navbar } from '../../../src/components/Navbar';
 import { CartDrawer } from '../../../src/components/CartDrawer';
+import { WishlistDrawer } from '../../../src/components/WishlistDrawer';
+import { BottomNav } from '../../../src/components/BottomNav';
 import { subscribeToProductChanges } from '../../../src/utils/productSync';
 import toast from 'react-hot-toast';
 
@@ -74,6 +76,7 @@ export default function ProductPageClient({ initialProduct }) {
           </div>
         </main>
         <CartDrawer />
+        <WishlistDrawer />
       </div>
     );
   }
@@ -209,7 +212,9 @@ export default function ProductPageClient({ initialProduct }) {
         </div>
       </main>
 
+      <BottomNav />
       <CartDrawer />
+      <WishlistDrawer />
     </div>
   );
 }

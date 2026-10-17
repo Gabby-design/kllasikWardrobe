@@ -1,9 +1,10 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, X, CheckCircle, Plus, Minus, ArrowUpRight } from 'lucide-react';
+import { ShoppingBag, X, CheckCircle, Plus, Minus, ArrowUpRight, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { subscribeToProductChanges } from '../utils/productSync';
+import { useWishlistStore } from '../store/wishlistStore';
 
 export function QuickViewModal({
   quickViewProduct,
@@ -20,6 +21,8 @@ export function QuickViewModal({
   const [quantity, setQuantity] = useState(1);
   const [activeSlideIdx, setActiveSlideIdx] = useState(0);
   const galleryScrollRef = useRef(null);
+  const toggleWishlist = useWishlistStore((state) => state.toggleWishlist);
+  const isInWishlist = useWishlistStore((state) => state.isInWishlist(quickViewProduct?.id));
 
   const gallery = quickViewProduct?.gallery && quickViewProduct.gallery.filter(Boolean).length > 0 
     ? quickViewProduct.gallery.filter(Boolean) 
@@ -380,29 +383,44 @@ export function QuickViewModal({
 
             </div>
 
-            {/* Add to Cart Button (In-flow, scrolls naturally with the card) */}
+            {/* Add to Cart Button & Wishlist Toggle */}
             <div className="pt-2">
-              <button
-                type="button"
-                disabled={quickViewProduct.stock <= 0}
-                className={`w-full bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-sans text-sm font-bold py-3.5 px-6 rounded-full transition-all duration-300 flex items-center justify-center gap-2 shadow-md active:scale-[0.98] cursor-pointer ${
-                  quickViewProduct.stock <= 0 ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''
-                }`}
-                onClick={() => {
-                  if (quickViewProduct.stock <= 0) return;
-                  for (let i = 0; i < quantity; i++) {
-                    handleAddToCart(quickViewProduct, quickViewSize, quickViewColor);
-                  }
-                  setQuickViewProduct(null);
-                }}
-              >
-                <ShoppingBag className="w-4 h-4" />
-                <span>
-                  {quickViewProduct.stock <= 0 
-                    ? 'Sold Out' 
-                    : `Add to Cart • ${formatPrice(totalPrice)}`}
-                </span>
-              </button>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  disabled={quickViewProduct.stock <= 0}
+                  className={`flex-1 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-sans text-sm font-bold py-3.5 px-6 rounded-full transition-all duration-300 flex items-center justify-center gap-2 shadow-md active:scale-[0.98] cursor-pointer ${
+                    quickViewProduct.stock <= 0 ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''
+                  }`}
+                  onClick={() => {
+                    if (quickViewProduct.stock <= 0) return;
+                    for (let i = 0; i < quantity; i++) {
+                      handleAddToCart(quickViewProduct, quickViewSize, quickViewColor);
+                    }
+                    setQuickViewProduct(null);
+                  }}
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>
+                    {quickViewProduct.stock <= 0 
+                      ? 'Sold Out' 
+                      : `Add to Cart • ${formatPrice(totalPrice)}`}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => toggleWishlist(quickViewProduct)}
+                  aria-label={isInWishlist ? 'Remove from favorites' : 'Add to favorites'}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center border transition-all cursor-pointer active:scale-95 shrink-0 ${
+                    isInWishlist
+                      ? 'bg-purple-50 border-[#7C3AED] text-[#7C3AED]'
+                      : 'bg-[#EDEDEF] border-black/[0.06] text-gray-700 hover:text-[#7C3AED] hover:bg-purple-50'
+                  }`}
+                >
+                  <Heart className={`w-5 h-5 ${isInWishlist ? 'fill-[#7C3AED] text-[#7C3AED]' : ''}`} />
+                </button>
+              </div>
 
               <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-black/[0.04] text-xs">
                 <Link

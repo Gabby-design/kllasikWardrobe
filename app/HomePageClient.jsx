@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { QuickViewModal } from '../src/components/QuickViewModal';
 import { SizeGuideModal } from '../src/components/SizeGuideModal';
 import { CartDrawer } from '../src/components/CartDrawer';
+import { WishlistDrawer } from '../src/components/WishlistDrawer';
 import { Navbar } from '../src/components/Navbar';
 import { ProductGrid } from '../src/components/ProductGrid';
 import { BottomNav } from '../src/components/BottomNav';
@@ -445,6 +446,7 @@ export function HomePageClient({ initialProducts, initialError }) {
       />
 
       <CartDrawer />
+      <WishlistDrawer />
 
     </div>
   );

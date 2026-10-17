@@ -3,12 +3,14 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { KlasikLogo } from './KlasikLogo';
 import { useCartStore } from '../store/cartStore';
+import { useWishlistStore } from '../store/wishlistStore';
 import { usePathname, useRouter } from 'next/navigation';
-import { Search, ShoppingBag, Sparkles, X, Ruler, SlidersHorizontal } from 'lucide-react';
+import { Search, ShoppingBag, Heart, Sparkles, X, Ruler, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function Navbar({ searchQuery = '', setSearchQuery, setIsSizeGuideOpen }) {
   const { cartItemCount, setIsCartOpen } = useCartStore();
+  const { wishlistItemCount, setIsWishlistOpen } = useWishlistStore();
   const [mounted, setMounted] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isPhoneSearchOpen, setIsPhoneSearchOpen] = useState(false);
@@ -25,6 +27,7 @@ export function Navbar({ searchQuery = '', setSearchQuery, setIsSizeGuideOpen })
   }, []);
 
   const itemCount = mounted ? cartItemCount() : 0;
+  const wishCount = mounted ? wishlistItemCount() : 0;
 
   const handleFilterClick = () => {
     if (pathname === '/') {
@@ -125,6 +128,22 @@ export function Navbar({ searchQuery = '', setSearchQuery, setIsSizeGuideOpen })
                 aria-label="Toggle Search"
               >
                 {isPhoneSearchOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+              </button>
+
+              {/* Round Wishlist Button with Purple Count Badge */}
+              <button 
+                type="button"
+                className="relative w-10 h-10 rounded-full bg-[#EDEDEF] hover:bg-[#EDE9FE] text-[#111111] hover:text-[#7C3AED] flex items-center justify-center transition-colors active:scale-95 cursor-pointer shadow-xs" 
+                onClick={() => setIsWishlistOpen(true)}
+                aria-label="View Favorites"
+                title="Favorites"
+              >
+                <Heart className={`w-4 h-4 transition-colors ${wishCount > 0 ? 'fill-[#7C3AED] text-[#7C3AED]' : ''}`} />
+                {wishCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-[#7C3AED] text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-xs">
+                    {wishCount}
+                  </span>
+                )}
               </button>
 
               {/* Round Bag Button with Purple Count Badge */}

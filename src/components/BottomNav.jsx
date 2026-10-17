@@ -1,26 +1,34 @@
 "use client";
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Layers, Heart, ShoppingBag } from 'lucide-react';
 import { useCartStore } from '../store/cartStore';
+import { useWishlistStore } from '../store/wishlistStore';
 
 export function BottomNav() {
   const pathname = usePathname();
   const { cartItemCount, setIsCartOpen } = useCartStore();
-  const count = cartItemCount();
+  const { wishlistItemCount, setIsWishlistOpen } = useWishlistStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const bagCount = mounted ? cartItemCount() : 0;
+  const wishCount = mounted ? wishlistItemCount() : 0;
 
   const navItems = [
     { label: 'Collection', href: '/', icon: Layers },
-    { label: 'Wishlist', href: '#catalog-products-section', icon: Heart, isWishlist: true },
-    { label: 'Bag', href: '#cart', icon: ShoppingBag, isCart: true, badge: count },
+    { label: 'Wishlist', href: '#wishlist', icon: Heart, isWishlist: true, badge: wishCount },
+    { label: 'Bag', href: '#cart', icon: ShoppingBag, isCart: true, badge: bagCount },
   ];
 
   const handleWishlistClick = (e) => {
     e.preventDefault();
-    const el = document.getElementById('catalog-products-section') || document.getElementById('catalog-main') || document.getElementById('catalog');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    setIsWishlistOpen(true);
   };
 
   return (
@@ -40,9 +48,9 @@ export function BottomNav() {
                 aria-label="Open Shopping Bag"
               >
                 <Icon className="w-5 h-5" />
-                {count > 0 && (
+                {bagCount > 0 && (
                   <span className="absolute top-1 right-1 bg-[#7C3AED] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
-                    {count}
+                    {bagCount}
                   </span>
                 )}
               </button>
@@ -55,10 +63,15 @@ export function BottomNav() {
                 key={item.label}
                 type="button"
                 onClick={handleWishlistClick}
-                className="flex items-center justify-center p-2.5 text-gray-500 hover:text-[#7C3AED] transition-colors cursor-pointer"
-                aria-label="Wishlist"
+                className="relative flex items-center justify-center p-2.5 text-gray-500 hover:text-[#7C3AED] transition-colors cursor-pointer"
+                aria-label="View Favorites"
               >
                 <Icon className="w-5 h-5" />
+                {wishCount > 0 && (
+                  <span className="absolute top-1 right-1 bg-[#7C3AED] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
+                    {wishCount}
+                  </span>
+                )}
               </button>
             );
           }

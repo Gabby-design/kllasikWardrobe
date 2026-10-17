@@ -3,6 +3,8 @@ import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, Plus, ArrowRight, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { useWishlistStore } from '../store/wishlistStore';
+import toast from 'react-hot-toast';
 
 function CardImageDisplay({ 
   images = [], 
@@ -123,14 +125,16 @@ export function ProductGrid({
   handleBuyNow,
   showCategoryFilter = true
 }) {
-  const [wishlist, setWishlist] = useState({});
+  const { wishlist, toggleWishlist } = useWishlistStore();
 
-  const toggleWishlist = (productId, e) => {
-    e.stopPropagation();
-    setWishlist(prev => ({
-      ...prev,
-      [productId]: !prev[productId]
-    }));
+  const handleToggleWishlist = (product, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const added = toggleWishlist(product);
+    if (added) {
+      toast.success(`Saved "${product.title}" to your favorites!`);
+    } else {
+      toast.success(`Removed "${product.title}" from favorites`);
+    }
   };
 
   const categoryCards = [
@@ -271,7 +275,7 @@ export function ProductGrid({
                 ? savedSize
                 : (availableSizes.includes('L') ? 'L' : availableSizes[0]);
               const currentColor = getSelectedColor ? getSelectedColor(product) : product.colors?.[0]?.name;
-              const isFavorited = Boolean(wishlist[product.id]);
+              const isFavorited = Array.isArray(wishlist) && wishlist.some((item) => item.id === product.id);
               const tagText = product.tag || (product.category === 'Executive' ? 'Exclusive' : 'New Arrival');
 
               const handleOpenDetails = () => {
@@ -300,7 +304,7 @@ export function ProductGrid({
                       tagText={tagText}
                       isSoldOut={product.stock <= 0}
                       isFavorited={isFavorited}
-                      onToggleWishlist={(e) => toggleWishlist(product.id, e)}
+                      onToggleWishlist={(e) => handleToggleWishlist(product, e)}
                       onOpenDetails={handleOpenDetails}
                     />
 

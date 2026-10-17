@@ -30,10 +30,16 @@ import {
   RefreshCw,
   RotateCcw,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  BarChart3,
+  Users,
+  UserCheck,
+  Activity,
+  Globe,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createProductAction, deleteProductAction, updateProductAction, resetCatalogAction } from '../../../app/actions/adminProducts';
+import { getLiveAnalyticsAction } from '../../../app/actions/adminAnalytics';
 import { logoutAdmin } from '../../../app/actions/adminAuth';
 import { KlasikLogo } from '../KlasikLogo';
 import { 
@@ -42,9 +48,15 @@ import {
   runStorageMigration
 } from '../../utils/productSync.js';
 
-export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfigured = true }) {
+export function AdminDashboard({
+  initialProducts,
+  initialOrders,
+  isDatabaseConfigured = true,
+  initialAnalytics = null,
+  initialAnalyticsError = null,
+}) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('new-product'); // 'new-product' | 'catalog' | 'orders'
+  const [activeTab, setActiveTab] = useState('new-product'); // 'new-product' | 'catalog' | 'orders' | 'analytics'
   const [products, setProducts] = useState(initialProducts || []);
   const [orders, setOrders] = useState(initialOrders || []);
   const [loading, setLoading] = useState(false);
@@ -52,6 +64,46 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
   const [uploadingImage, setUploadingImage] = useState(false);
   const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all' | 'critical' | 'low' | 'sold-out' | 'in-stock'
   const [catalogSearch, setCatalogSearch] = useState('');
+
+  // Visitor & Traffic Analytics State
+  const [analytics, setAnalytics] = useState(initialAnalytics);
+  const [analyticsError, setAnalyticsError] = useState(initialAnalyticsError);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
+  const fetchLiveAnalytics = async (showToast = false) => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await getLiveAnalyticsAction();
+      if (res?.success && res?.data) {
+        setAnalytics(res.data);
+        setAnalyticsError(null);
+        if (showToast) toast.success('Analytics updated');
+      } else {
+        const err = res?.error || 'Failed to load analytics';
+        setAnalyticsError(err);
+        if (showToast) toast.error(err);
+      }
+    } catch (err) {
+      const msg = err.message || 'Error updating analytics';
+      setAnalyticsError(msg);
+      if (showToast) toast.error(msg);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  // Auto-refresh every 60 seconds only while the analytics tab is visible
+  useEffect(() => {
+    if (activeTab !== 'analytics') return;
+
+    const intervalId = setInterval(() => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        fetchLiveAnalytics(false);
+      }
+    }, 60000);
+
+    return () => clearInterval(intervalId);
+  }, [activeTab]);
 
   // Auto-Save & Synchronization State
   const [autoSaveStatus, setAutoSaveStatus] = useState('idle'); // 'saving' | 'saved' | 'idle'
@@ -1035,6 +1087,28 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
         >
           <ShoppingBag className="w-3.5 h-3.5" />
           <span>Customer Orders ({orders.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('analytics');
+            if (!analytics) fetchLiveAnalytics(false);
+          }}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === 'analytics'
+              ? 'bg-[#7C3AED] text-white shadow-md'
+              : 'text-gray-600 hover:text-[#111111]'
+          }`}
+        >
+          <BarChart3 className="w-3.5 h-3.5" />
+          <span>Analytics</span>
+          {analytics?.onlineNow > 0 && (
+            <span className="flex items-center gap-1 bg-emerald-500/20 text-emerald-600 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {analytics.onlineNow} live
+            </span>
+          )}
         </button>
       </div>
  
@@ -2099,6 +2173,335 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
                 Orders placed via WhatsApp chat directly with the store owner.
               </p>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 4: VISITOR & TRAFFIC ANALYTICS */}
+      {activeTab === 'analytics' && (
+        <div className="space-y-6">
+          {/* Header Controls */}
+          <div className="bg-white rounded-[24px] border border-black/[0.04] p-6 shadow-[0_8px_24px_rgba(17,17,17,0.06)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#7C3AED]">
+                  Live Store Telemetry &bull; Africa/Lagos Timezone
+                </span>
+                {analytics?.onlineNow > 0 && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>{analytics.onlineNow} Online Now</span>
+                  </span>
+                )}
+              </div>
+              <h3 className="font-bold text-xl text-[#111111]">Visitor & Traffic Analytics</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Real-time unique visitors, cumulative page views, and store activity.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 self-stretch sm:self-auto justify-between sm:justify-end">
+              <span className="text-[11px] text-gray-400 font-mono">
+                {analytics?.lastUpdated
+                  ? `Updated ${new Date(analytics.lastUpdated).toLocaleTimeString('en-GB')}`
+                  : 'Awaiting sync'}
+              </span>
+              <button
+                type="button"
+                onClick={() => fetchLiveAnalytics(true)}
+                disabled={analyticsLoading}
+                className="flex items-center gap-2 bg-[#111111] hover:bg-[#222222] text-white text-xs font-semibold px-4 py-2 rounded-full transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${analyticsLoading ? 'animate-spin' : ''}`} />
+                <span>{analyticsLoading ? 'Refreshing...' : 'Refresh'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Error Banner when Redis is unavailable (Requirement 1) */}
+          {analyticsError && (
+            <div className="p-6 rounded-[20px] bg-red-50 border border-red-200 text-red-900 flex items-start gap-3 shadow-sm">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-sm block">Analytics unavailable: {analyticsError}</span>
+                <span className="text-xs text-red-700 block mt-1">
+                  Ensure Upstash Redis is active and environment variables (KV_REST_API_URL / KV_REST_API_TOKEN) are configured.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* 4 Primary KPI Metric Cards (Requirement 5 & 7) */}
+          {analytics && !analyticsError && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. All-Time Unique Visitors */}
+                <div className="bg-white rounded-[20px] p-5 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)] relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                      All-Time Unique Visitors
+                    </span>
+                    <span className="w-8 h-8 rounded-full bg-[#EDE9FE] flex items-center justify-center text-[#7C3AED]">
+                      <Users className="w-4 h-4" />
+                    </span>
+                  </div>
+                  <div className="text-3xl font-extrabold text-[#111111] tracking-tight">
+                    {(analytics.totalVisitors || 0).toLocaleString()}
+                  </div>
+                  <span className="text-[11px] text-gray-500 font-medium block mt-1">
+                    Distinct visitors across all time
+                  </span>
+                </div>
+
+                {/* 2. Today's Unique Visitors (Exact Label Required) */}
+                <div className="bg-white rounded-[20px] p-5 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)] relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold tracking-wider text-purple-600 uppercase">
+                      Today&apos;s Unique Visitors
+                    </span>
+                    <span className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
+                      <UserCheck className="w-4 h-4" />
+                    </span>
+                  </div>
+                  <div className="text-3xl font-extrabold text-purple-600 tracking-tight">
+                    {(analytics.todayVisitors || 0).toLocaleString()}
+                  </div>
+                  <span className="text-[11px] text-gray-500 font-medium block mt-1">
+                    Active visitors today (Lagos UTC+1)
+                  </span>
+                </div>
+
+                {/* 3. Total Page Views */}
+                <div className="bg-white rounded-[20px] p-5 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)] relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                      Total Page Views
+                    </span>
+                    <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-700">
+                      <Layers className="w-4 h-4" />
+                    </span>
+                  </div>
+                  <div className="text-3xl font-extrabold text-[#111111] tracking-tight">
+                    {(analytics.totalPageViews || 0).toLocaleString()}
+                  </div>
+                  <span className="text-[11px] text-gray-500 font-medium block mt-1">
+                    Cumulative store impressions
+                  </span>
+                </div>
+
+                {/* 4. Today's Page Views */}
+                <div className="bg-white rounded-[20px] p-5 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)] relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold tracking-wider text-emerald-600 uppercase">
+                      Today&apos;s Page Views
+                    </span>
+                    <span className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+                      <Activity className="w-4 h-4" />
+                    </span>
+                  </div>
+                  <div className="text-3xl font-extrabold text-emerald-600 tracking-tight">
+                    {(analytics.todayPageViews || 0).toLocaleString()}
+                  </div>
+                  <span className="text-[11px] text-gray-500 font-medium block mt-1">
+                    Store impressions today
+                  </span>
+                </div>
+              </div>
+
+              {/* 7-Day Trend Chart & History Table */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* 7-Day Bar Chart Visualizer */}
+                <div className="lg:col-span-7 bg-white rounded-[24px] border border-black/[0.04] p-6 shadow-[0_8px_24px_rgba(17,17,17,0.06)]">
+                  <div className="flex items-center justify-between mb-6 pb-3 border-b border-black/[0.04]">
+                    <div>
+                      <h4 className="font-bold text-sm text-[#111111]">7-Day Traffic Activity</h4>
+                      <p className="text-xs text-gray-400">Daily unique visitors and page impressions</p>
+                    </div>
+                    <div className="flex items-center gap-4 text-[11px] font-semibold">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#7C3AED]" />
+                        <span className="text-gray-600">Visitors</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#DDD6FE]" />
+                        <span className="text-gray-600">Views</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Visual CSS Bar Chart */}
+                  {Array.isArray(analytics.history) && analytics.history.length > 0 ? (
+                    <div className="space-y-4">
+                      {analytics.history.map((day, idx) => {
+                        const maxViews = Math.max(
+                          1,
+                          ...analytics.history.map((d) => d.pageViews || 0)
+                        );
+                        const viewsPct = Math.min(100, Math.round(((day.pageViews || 0) / maxViews) * 100));
+                        const visitorsPct = Math.min(100, Math.round(((day.visitors || 0) / maxViews) * 100));
+
+                        return (
+                          <div key={day.date || idx} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className={`font-semibold ${day.label === 'Today' ? 'text-[#7C3AED]' : 'text-gray-700'}`}>
+                                {day.label}
+                              </span>
+                              <div className="flex items-center gap-3 text-[11px] font-mono">
+                                <span className="text-[#7C3AED] font-bold">{day.visitors || 0} visitors</span>
+                                <span className="text-gray-400">&bull;</span>
+                                <span className="text-gray-600">{day.pageViews || 0} views</span>
+                              </div>
+                            </div>
+                            <div className="h-3 w-full bg-gray-100 rounded-full overflow-hidden flex">
+                              <div
+                                style={{ width: `${visitorsPct}%` }}
+                                className="bg-[#7C3AED] h-full rounded-full transition-all duration-500"
+                                title={`${day.visitors} unique visitors`}
+                              />
+                              <div
+                                style={{ width: `${Math.max(0, viewsPct - visitorsPct)}%` }}
+                                className="bg-[#DDD6FE] h-full transition-all duration-500"
+                                title={`${day.pageViews} page views`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-xs text-gray-400">No history available yet.</div>
+                  )}
+                </div>
+
+                {/* 7-Day History Table */}
+                <div className="lg:col-span-5 bg-white rounded-[24px] border border-black/[0.04] p-6 shadow-[0_8px_24px_rgba(17,17,17,0.06)] flex flex-col justify-between">
+                  <div>
+                    <h4 className="font-bold text-sm text-[#111111] mb-1">Traffic Breakdown</h4>
+                    <p className="text-xs text-gray-400 mb-4 pb-3 border-b border-black/[0.04]">
+                      Detailed metrics per day (Lagos Time)
+                    </p>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-black/[0.06] text-gray-400 font-bold uppercase text-[10px]">
+                            <th className="py-2.5">Date</th>
+                            <th className="py-2.5 text-right">Visitors</th>
+                            <th className="py-2.5 text-right">Views</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-black/[0.04]">
+                          {Array.isArray(analytics.history) &&
+                            analytics.history.map((day, idx) => (
+                              <tr key={day.date || idx} className="hover:bg-gray-50/80">
+                                <td className={`py-2.5 font-medium ${day.label === 'Today' ? 'text-[#7C3AED] font-bold' : 'text-gray-700'}`}>
+                                  {day.label}
+                                </td>
+                                <td className="py-2.5 text-right font-mono font-semibold text-[#7C3AED]">
+                                  {day.visitors || 0}
+                                </td>
+                                <td className="py-2.5 text-right font-mono font-semibold text-gray-700">
+                                  {day.pageViews || 0}
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Top Pages (Last 7 Days) & Country Breakdown */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Top Pages */}
+                <div className="lg:col-span-7 bg-white rounded-[24px] border border-black/[0.04] p-6 shadow-[0_8px_24px_rgba(17,17,17,0.06)]">
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-black/[0.04]">
+                    <div>
+                      <h4 className="font-bold text-sm text-[#111111]">Top Pages (Last 7 Days)</h4>
+                      <p className="text-xs text-gray-400">Most visited catalog sections and garments</p>
+                    </div>
+                    <span className="text-[11px] font-bold text-[#7C3AED] bg-[#EDE9FE] px-2.5 py-1 rounded-full">
+                      {(analytics.topPages || []).length} Recorded
+                    </span>
+                  </div>
+
+                  {Array.isArray(analytics.topPages) && analytics.topPages.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-black/[0.06] text-gray-400 font-bold uppercase text-[10px]">
+                            <th className="py-2.5 w-12">#</th>
+                            <th className="py-2.5">Path</th>
+                            <th className="py-2.5 text-right">Views</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-black/[0.04]">
+                          {analytics.topPages.map((item, idx) => (
+                            <tr key={item.path || idx} className="hover:bg-gray-50/80">
+                              <td className="py-2.5 text-gray-400 font-mono text-[11px] font-bold">
+                                #{idx + 1}
+                              </td>
+                              <td className="py-2.5 font-mono text-gray-800 text-[11px] max-w-[280px] truncate">
+                                <Link
+                                  href={item.path}
+                                  target="_blank"
+                                  className="hover:text-[#7C3AED] hover:underline"
+                                >
+                                  {item.path}
+                                </Link>
+                              </td>
+                              <td className="py-2.5 text-right font-mono font-bold text-[#111111]">
+                                {item.views.toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-xs text-gray-400">
+                      No page traffic recorded yet.
+                    </div>
+                  )}
+                </div>
+
+                {/* Country Breakdown */}
+                <div className="lg:col-span-5 bg-white rounded-[24px] border border-black/[0.04] p-6 shadow-[0_8px_24px_rgba(17,17,17,0.06)]">
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-black/[0.04]">
+                    <div>
+                      <h4 className="font-bold text-sm text-[#111111]">Visitor Locations</h4>
+                      <p className="text-xs text-gray-400">Geographic origin today (Edge header)</p>
+                    </div>
+                    <Globe className="w-4 h-4 text-purple-400" />
+                  </div>
+
+                  {analytics.countries && Object.keys(analytics.countries).length > 0 ? (
+                    <div className="space-y-2">
+                      {Object.entries(analytics.countries)
+                        .sort(([, a], [, b]) => Number(b) - Number(a))
+                        .map(([country, count]) => (
+                          <div
+                            key={country}
+                            className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 hover:bg-gray-100/70 transition-colors text-xs"
+                          >
+                            <span className="font-mono font-bold text-gray-800 tracking-wider">
+                              {country}
+                            </span>
+                            <span className="font-mono font-semibold text-[#7C3AED]">
+                              {Number(count).toLocaleString()} hits
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-xs text-gray-400">
+                      No country telemetry logged today.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}

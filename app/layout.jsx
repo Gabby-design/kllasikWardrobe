@@ -1,8 +1,10 @@
+import { Suspense } from 'react';
 import '../src/index.css';
 import { ToastProvider } from './ToastProvider';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Footer } from '../src/components/Footer';
 import { Analytics } from '@vercel/analytics/react';
+import { VisitorTracker } from '../src/components/VisitorTracker';
 
 export const metadata = {
   title: 'Klasik Wardrobe | Heavyweight Luxury Streetwear Essentials',
@@ -21,6 +23,9 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body suppressHydrationWarning className="bg-[#F7F7F8] text-[#111111] font-sans antialiased">
+        <Suspense fallback={null}>
+          <VisitorTracker />
+        </Suspense>
         <ToastProvider />
         <div id="root" className="min-h-screen flex flex-col">
           {children}

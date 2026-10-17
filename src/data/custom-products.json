@@ -3,13 +3,12 @@
     "id": "kwt-01",
     "title": "Klasik Wonderland Textured Crochet Shirt",
     "price": 35000,
-    "stock": 6,
     "category": "T-Shirts",
     "tag": "New Release",
     "rating": 5,
     "reviews": 94,
     "description": "Crafted from textured pointelle crochet cotton knit with custom vintage script and baroque cross insignia. Features camp collar and luxury openwork weave drape.",
-    "gsm": "260 GSM Textured Knit",
+    "gsm": "200 GSM Textured Knit",
     "material": "100% Textured Pointelle Cotton",
     "fit": "Relaxed Camp-Collar Fit",
     "sizes": [
@@ -18,16 +17,88 @@
     "colors": [
       {
         "name": "Ecru Cream",
-        "hex": "#fdfbf7"
+        "hex": "#fdfbf7",
+        "image": ""
       }
     ],
     "image": "/images/wonderland-shirt-front.jpg",
-    "fallbackImage": "/images/wonderland-shirt-front.jpg",
+    "fallbackImage": "/images/wonderland-shirt-detail.jpg",
     "gallery": [
       "/images/wonderland-shirt-front.jpg",
       "/images/wonderland-shirt-detail.jpg"
     ],
-    "updatedAt": "2026-10-14T09:54:43.544Z",
-    "isCustom": true
+    "stock": 5,
+    "isCustom": true,
+    "updatedAt": "2026-10-17T13:55:37.108Z"
+  },
+  {
+    "id": "kwt-03",
+    "title": "Klasik Contrast Denim Collar Silk Shirt",
+    "price": 35000,
+    "category": "T-Shirts",
+    "tag": "New Release",
+    "rating": 5,
+    "reviews": 74,
+    "description": "Tailored short-sleeve shirt crafted from breathable unbleached natural linen with contrasting vintage washed denim collar. Features tonal buttons, clean straight hem, and relaxed dropped-shoulder streetwear cut.",
+    "gsm": "Silk",
+    "material": "Natural Flax Linen with Washed Denim Collar",
+    "fit": "Relaxed Boxy Short-Sleeve Fit",
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "colors": [
+      {
+        "name": "Oatmeal & Washed Denim",
+        "hex": "#e8e4dc",
+        "image": ""
+      }
+    ],
+    "image": "/images/linen-denim-collar-shirt-front.jpg",
+    "fallbackImage": "/images/linen-denim-collar-shirt-detail.jpg",
+    "gallery": [
+      "/images/linen-denim-collar-shirt-front.jpg",
+      "/images/linen-denim-collar-shirt-detail.jpg"
+    ],
+    "stock": 6,
+    "isCustom": true,
+    "updatedAt": "2026-10-17T13:53:32.267Z"
+  },
+  {
+    "id": "kwt-06",
+    "title": "Klasik Colorblock Striped Pique Polo Shirt",
+    "price": 35000,
+    "category": "T-Shirts",
+    "tag": "New Drop",
+    "rating": 5,
+    "reviews": 68,
+    "description": "Tailored short-sleeve polo shirt featuring a retro tri-tone vertical panel design in obsidian black, optical white, and heather grey. Crafted from breathable heavyweight cotton honeycomb pique knit with ribbed collar and tonal button placket.",
+    "gsm": "180 GSM",
+    "material": "100% Combed Pique Cotton",
+    "fit": "Relaxed Boxy Polo Fit",
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "colors": [
+      {
+        "name": "Black / White / Grey",
+        "hex": "#111111",
+        "image": ""
+      }
+    ],
+    "image": "/images/polo-colorblock-stripe-front.jpg",
+    "fallbackImage": "/images/polo-colorblock-stripe-detail.jpg",
+    "gallery": [
+      "/images/polo-colorblock-stripe-front.jpg",
+      "/images/polo-colorblock-stripe-detail.jpg"
+    ],
+    "stock": 6,
+    "isCustom": true,
+    "updatedAt": "2026-10-17T13:51:58.187Z"
   }
 ]

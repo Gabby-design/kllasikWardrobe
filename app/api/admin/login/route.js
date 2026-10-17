@@ -4,6 +4,27 @@ import {
   createAdminSessionToken,
 } from '../../../../src/lib/auth';
 
+export async function GET(req) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const key = searchParams.get('key') || searchParams.get('passphrase') || searchParams.get('p') || '';
+
+    if (key && verifyAdminPassphrase(key)) {
+      const sessionToken = createAdminSessionToken();
+      const res = NextResponse.redirect(new URL('/admin', req.url));
+      res.cookies.set('admin_auth', sessionToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7,
+        path: '/',
+      });
+      return res;
+    }
+  } catch {}
+  return NextResponse.redirect(new URL('/admin', req.url));
+}
+
 export async function POST(req) {
   try {
     const body = await req.json().catch(() => ({}));

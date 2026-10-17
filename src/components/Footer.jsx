@@ -103,8 +103,10 @@ export function Footer() {
 
       {/* Copyright & Security Stamp */}
       <div className="max-w-7xl mx-auto border-t border-white/[0.08] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 font-sans text-xs text-gray-500">
-        <div>
-          &copy; {new Date().getFullYear()} Klasik Wardrobe Nigeria. All rights reserved.
+        <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-3 text-center sm:text-left">
+          <span>&copy; {new Date().getFullYear()} Klasik Wardrobe Nigeria. All rights reserved.</span>
+          <span className="hidden sm:inline text-gray-600">•</span>
+          <span className="text-[11px] text-gray-400">We count visits anonymously to improve the store.</span>
         </div>
         <div className="flex items-center gap-3 text-[11px]">
           <span className="flex items-center gap-1 text-purple-300">

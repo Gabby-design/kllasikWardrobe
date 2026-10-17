@@ -3,6 +3,7 @@ import { checkAdminSession } from '../actions/adminAuth';
 import { verifyAdminPassphrase, createAdminSessionToken } from '../../src/lib/auth';
 import { createAdminClient } from '../../utils/supabase/admin';
 import { getAuthoritativeProducts } from '../../src/lib/db';
+import { getAnalyticsMetrics } from '../../src/lib/analytics';
 import { AdminDashboard } from '../../src/components/admin/AdminDashboard';
 import { AdminLoginForm } from '../../src/components/admin/AdminLoginForm';
 
@@ -60,6 +61,15 @@ export default async function AdminPage({ searchParams }) {
     console.warn('Orders query notice:', err.message);
   }
 
+  // Load initial analytics metrics
+  let initialAnalytics = null;
+  let initialAnalyticsError = null;
+  try {
+    initialAnalytics = await getAnalyticsMetrics();
+  } catch (err) {
+    initialAnalyticsError = err.message || 'Analytics service unavailable';
+  }
+
   const isDbConfigured = Boolean(
     (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL) &&
     (process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN)
@@ -70,6 +80,8 @@ export default async function AdminPage({ searchParams }) {
       initialProducts={products}
       initialOrders={orders}
       isDatabaseConfigured={isDbConfigured}
+      initialAnalytics={initialAnalytics}
+      initialAnalyticsError={initialAnalyticsError}
     />
   );
 }

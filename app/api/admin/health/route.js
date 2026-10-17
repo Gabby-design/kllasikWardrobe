@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server.js';
 import { cookies } from 'next/headers.js';
 import { verifyAdminSessionToken, verifyAdminPassphrase } from '../../../../src/lib/auth.js';
 import { getRedis, REDIS_HASH_KEY, parseRedisProduct } from '../../../../src/lib/db.js';
+import { getAnalyticsMetrics } from '../../../../src/lib/analytics.js';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -69,6 +70,22 @@ export async function GET(request) {
     redisConnected = false;
   }
 
+  let analytics = null;
+  if (redisConnected) {
+    try {
+      const metrics = await getAnalyticsMetrics();
+      analytics = {
+        totalVisitors: metrics.totalVisitors,
+        todayVisitors: metrics.todayVisitors,
+        totalPageViews: metrics.totalPageViews,
+        todayPageViews: metrics.todayPageViews,
+        onlineNow: metrics.onlineNow,
+      };
+    } catch (err) {
+      analytics = { error: err.message || 'Analytics unavailable' };
+    }
+  }
+
   const blobEnvPresent = Boolean(
     process.env.BLOB_READ_WRITE_TOKEN?.trim() ||
     Object.keys(process.env).some(
@@ -85,5 +102,6 @@ export async function GET(request) {
     blobEnvPresent,
     vercelEnv,
     VERCEL_ENV: vercelEnv,
+    analytics,
   });
 }

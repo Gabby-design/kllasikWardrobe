@@ -5,21 +5,21 @@
 ## Current Position
 
 - Owner: **Master** (address as Master across all sessions)
-- State: Modern soft-rounded e-commerce UI/UX redesign complete across Mobile, Tablet, and Desktop.
-- Active Focus: Mobile responsiveness parity, transparent hero & lookbook t-shirt assets, verification on Vercel production server.
+- State: Production database and catalog synchronization operational. Upstash Redis (`klasik:products_v2` hash) and Vercel Blob storage connected.
+- Active Focus: Production verification complete. Cross-device catalog synchronization verified.
 
 ## Fixed Decisions
 
 - Brand: Klasik Wardrobe (never change).
 - Primary Accent: Purple `#7C3AED` / `#6D28D9` / `#EDE9FE`.
 - Background: `#F7F7F8` soft off-white, cards `#FFFFFF` rounded-3xl (`24px`), images `#EDEDEF` rounded-2xl (`20px`).
-- Fixed Catalog Pricing: ₦30k, ₦35k, ₦40k preserved across all views and checkout.
-- Hero Carousel: Auto-slides every 5s, Black -> Purple -> White, touch/drag gesture support, strictly 3 dots, zero arrow buttons.
-- Hero & Look Assets: 100% transparent cutouts without background pixels.
+- Catalog Database: Upstash Redis hash `klasik:products_v2` with read-back verification; no local `/tmp` or browser `localStorage` fallback storage.
 
 ## Architecture
 
 - Framework: Next.js 16 with Turbopack, Tailwind CSS, Framer Motion, Zustand cart store, Lucide icons.
+- Database: Upstash Redis (`KV_REST_API_URL`, `KV_REST_API_TOKEN`) with atomic stock management and verified write read-back.
+- Media Storage: Vercel Blob (`BLOB_READ_WRITE_TOKEN`).
 
 ## Features
 

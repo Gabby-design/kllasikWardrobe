@@ -171,6 +171,35 @@ export async function getAuthoritativeProducts() {
     }
   }
 
+  // Deterministic sorting:
+  // 1. Newly created custom products not in base catalog appear first (newest createdAt first)
+  // 2. Base catalog products in canonical catalog.js sequence (kwt-01 through kwt-12 first)
+  const catalogOrderMap = new Map();
+  if (Array.isArray(PRODUCTS)) {
+    PRODUCTS.forEach((prod, index) => {
+      if (prod?.id) catalogOrderMap.set(prod.id, index);
+    });
+  }
+
+  products.sort((a, b) => {
+    const orderA = catalogOrderMap.has(a.id) ? catalogOrderMap.get(a.id) : -1;
+    const orderB = catalogOrderMap.has(b.id) ? catalogOrderMap.get(b.id) : -1;
+
+    // Both are custom admin products not in static catalog
+    if (orderA === -1 && orderB === -1) {
+      const timeA = new Date(a.createdAt || a.updatedAt || 0).getTime();
+      const timeB = new Date(b.createdAt || b.updatedAt || 0).getTime();
+      return timeB - timeA;
+    }
+    // Only A is custom -> A comes first
+    if (orderA === -1) return -1;
+    // Only B is custom -> B comes first
+    if (orderB === -1) return 1;
+
+    // Both are in catalog -> preserve catalog.js order
+    return orderA - orderB;
+  });
+
   return products;
 }
 
@@ -220,8 +249,6 @@ export async function saveAuthoritativeProduct(product) {
     throw new Error(`Write verification failed: Product ${product.id} could not be verified in Redis after saving.`);
   }
 
-  // Attach success and product properties for dual compatibility
-  Object.assign(verified, { success: true, product: verified });
   return verified;
 }
 

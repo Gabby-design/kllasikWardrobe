@@ -1,29 +1,25 @@
 import crypto from 'crypto';
 
-const DEFAULT_SESSION_SECRET = 'c8d9e7a6b5f41324567890abcdef1234567890abcdef1234567890abcdef1234';
-const DEFAULT_PASSPHRASES = ['klasik2026', 'kllasik2026'];
-
 export function getAdminSessionSecret() {
   const secret = process.env.ADMIN_SESSION_SECRET;
-  if (secret && secret.trim()) {
-    return secret.trim();
+  if (!secret || !secret.trim()) {
+    throw new Error('ADMIN_SESSION_SECRET environment variable is missing. Set ADMIN_SESSION_SECRET in Vercel and local environment.');
   }
-  return DEFAULT_SESSION_SECRET;
+  return secret.trim();
 }
 
 export function getAdminPassphrase() {
   const passphrase = process.env.ADMIN_PASSPHRASE;
-  if (passphrase && passphrase.trim()) {
-    return passphrase.trim();
+  if (!passphrase || !passphrase.trim()) {
+    throw new Error('ADMIN_PASSPHRASE environment variable is missing. Set ADMIN_PASSPHRASE in Vercel and local environment.');
   }
-  return DEFAULT_PASSPHRASES[0];
+  return passphrase.trim();
 }
 
 export function verifyAdminPassphrase(input) {
   if (!input || typeof input !== 'string') return false;
   const configured = getAdminPassphrase();
-  const trimmed = input.trim();
-  return trimmed === configured || DEFAULT_PASSPHRASES.includes(trimmed);
+  return input.trim() === configured;
 }
 
 export function createAdminSessionToken() {
@@ -31,7 +27,7 @@ export function createAdminSessionToken() {
   const payload = JSON.stringify({
     role: 'admin',
     iat: Date.now(),
-    exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+    exp: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
   });
   const base64Payload = Buffer.from(payload, 'utf8').toString('base64url');
   const signature = crypto.createHmac('sha256', secret).update(base64Payload).digest('base64url');

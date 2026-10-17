@@ -42,7 +42,7 @@ import {
   runStorageMigration
 } from '../../utils/productSync.js';
 
-export function AdminDashboard({ initialProducts, initialOrders }) {
+export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfigured = true }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('new-product'); // 'new-product' | 'catalog' | 'orders'
   const [products, setProducts] = useState(initialProducts || []);
@@ -131,17 +131,28 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     }
   };
 
-  // Reset to authoritative server catalog
+  // Reset to authoritative server catalog (requires exact typed confirmation)
   const handleResetToServerCatalog = async () => {
-    if (confirm('Are you sure you want to discard all overrides and restore the authoritative server catalog in the database?')) {
+    const typed = window.prompt(
+      'DANGER: This will restore the base codebase catalog into the database. All custom products or edits made in the admin will be reverted.\n\nType "RESET CATALOG" to proceed:'
+    );
+    if (typed === 'RESET CATALOG') {
       resetToServerCatalog();
       try {
-        await resetCatalogAction();
-      } catch {}
-      toast.success('Restoring server catalog from codebase...');
-      setTimeout(() => {
-        window.location.reload();
-      }, 400);
+        const res = await resetCatalogAction('RESET CATALOG');
+        if (res?.success) {
+          toast.success('Restoring server catalog from codebase...');
+          setTimeout(() => {
+            window.location.reload();
+          }, 400);
+        } else {
+          toast.error(res?.error || 'Failed to reset catalog');
+        }
+      } catch (err) {
+        toast.error('Reset error: ' + err.message);
+      }
+    } else if (typed !== null) {
+      toast.error('Reset aborted: Confirmation text did not match "RESET CATALOG".');
     }
   };
 
@@ -150,9 +161,14 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     runStorageMigration();
 
     // Start continuous live sync across all devices
-    const unsubscribe = startLiveCatalogSync((liveProducts) => {
-      if (Array.isArray(liveProducts) && liveProducts.length > 0) {
-        setProducts(liveProducts);
+    const unsubscribe = startLiveCatalogSync((eventOrData) => {
+      const liveList = Array.isArray(eventOrData)
+        ? eventOrData
+        : Array.isArray(eventOrData?.products)
+        ? eventOrData.products
+        : null;
+      if (liveList && liveList.length > 0) {
+        setProducts(liveList);
       }
     });
 
@@ -358,6 +374,71 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
     });
   };
 
+  // Resize and compress image in browser (max ~1600px, JPEG 0.85)
+  // Ensures phone camera photos (10-20MB) never exceed Vercel 4.5MB request limit
+  const resizeImageForUpload = (file, maxDimension = 1600, quality = 0.85) => {
+    if (!file || typeof window === 'undefined') return Promise.resolve(file);
+    if (!file.type || !file.type.startsWith('image/')) return Promise.resolve(file);
+    if (file.type === 'image/svg+xml' || file.type === 'image/gif') return Promise.resolve(file);
+
+    return new Promise((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        let { width, height } = img;
+
+        if (width <= maxDimension && height <= maxDimension && file.size < 1.5 * 1024 * 1024) {
+          return resolve(file);
+        }
+
+        if (width > height) {
+          if (width > maxDimension) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          }
+        } else {
+          if (height > maxDimension) {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, width);
+        canvas.height = Math.max(1, height);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(file);
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return resolve(file);
+            const cleanName = file.name ? file.name.replace(/\.[^/.]+$/, '') : 'product_photo';
+            const optimized = new File([blob], `${cleanName}.jpg`, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(optimized);
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+      };
+
+      img.src = objectUrl;
+    });
+  };
+
   // Handle multi-image upload from device for new product
   const handleFileUpload = async (e) => {
     const files = Array.from(e.target.files || []);
@@ -368,8 +449,9 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       const finalUrls = [];
       for (const f of files) {
         try {
+          const optimizedFile = await resizeImageForUpload(f, 1600, 0.85);
           const fd = new FormData();
-          fd.append('file', f);
+          fd.append('file', optimizedFile);
           const res = await fetch('/api/admin/upload', {
             method: 'POST',
             body: fd,
@@ -378,10 +460,11 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
           if (res.ok && data?.url) {
             finalUrls.push(data.url);
           } else {
-            toast.error(`Upload failed for ${f.name}: ${data?.error || 'Server error'}`);
+            const errDetail = data?.error || res.statusText || 'Server error';
+            toast.error(`Upload failed for ${f.name}: ${errDetail}`, { duration: 6000 });
           }
         } catch (uploadErr) {
-          toast.error(`Upload error for ${f.name}: ${uploadErr.message}`);
+          toast.error(`Upload error for ${f.name}: ${uploadErr.message}`, { duration: 6000 });
         }
       }
 
@@ -399,6 +482,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       toast.error('Upload notice: ' + err.message);
     } finally {
       setUploadingImage(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -532,8 +616,9 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       const finalUrls = [];
       for (const f of files) {
         try {
+          const optimizedFile = await resizeImageForUpload(f, 1600, 0.85);
           const fd = new FormData();
-          fd.append('file', f);
+          fd.append('file', optimizedFile);
           const res = await fetch('/api/admin/upload', {
             method: 'POST',
             body: fd,
@@ -542,10 +627,11 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
           if (res.ok && data?.url) {
             finalUrls.push(data.url);
           } else {
-            toast.error(`Upload failed for ${f.name}: ${data?.error || 'Server error'}`);
+            const errDetail = data?.error || res.statusText || 'Server error';
+            toast.error(`Upload failed for ${f.name}: ${errDetail}`, { duration: 6000 });
           }
         } catch (uploadErr) {
-          toast.error(`Upload error for ${f.name}: ${uploadErr.message}`);
+          toast.error(`Upload error for ${f.name}: ${uploadErr.message}`, { duration: 6000 });
         }
       }
 
@@ -564,6 +650,7 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
       toast.error('Upload notice: ' + err.message);
     } finally {
       setUploadingEditGallery(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -908,6 +995,18 @@ export function AdminDashboard({ initialProducts, initialOrders }) {
           <span>Customer Orders ({orders.length})</span>
         </button>
       </div>
+ 
+       {!isDatabaseConfigured && (
+         <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-3 shadow-sm">
+           <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+           <div>
+             <span className="font-bold block">Database Not Connected on Vercel</span>
+             <p className="mt-0.5 text-amber-800">
+               The store is displaying fallback catalog products. To save additions, edits, and deletions across all devices, configure <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono">KV_REST_API_URL</code> and <code className="bg-amber-100 px-1.5 py-0.5 rounded font-mono">KV_REST_API_TOKEN</code> in your Vercel Project Settings and redeploy.
+             </p>
+           </div>
+         </div>
+       )}
 
       {/* TAB 1: ADD NEW PRODUCT FORM */}
       {activeTab === 'new-product' && (

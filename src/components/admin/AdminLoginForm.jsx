@@ -103,7 +103,7 @@ export function AdminLoginForm() {
               </button>
             </div>
             <p className="text-[11px] text-gray-400 mt-1.5 pl-2">
-              Passphrase: <span className="font-mono text-gray-600 font-semibold">kllasik2026</span>
+              Enter the administrator passphrase configured in your environment.
             </p>
           </div>
 

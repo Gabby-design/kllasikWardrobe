@@ -241,9 +241,7 @@ export function subscribeToProductChanges(callback) {
   };
   window.addEventListener('klasik_products_updated', handleCustomEvent);
 
-  // Poll server every 4 seconds to sync remote changes from other devices
-  let pollInterval = setInterval(async () => {
-    if (document.hidden) return;
+  const fetchLatestProducts = async () => {
     try {
       const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
       if (res.ok) {
@@ -253,7 +251,22 @@ export function subscribeToProductChanges(callback) {
         }
       }
     } catch {}
-  }, 4000);
+  };
+
+  const handleVisibilityOrFocus = () => {
+    if (typeof document !== 'undefined' && !document.hidden) {
+      fetchLatestProducts();
+    }
+  };
+
+  window.addEventListener('focus', handleVisibilityOrFocus);
+  document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+  // Poll server every 45 seconds to protect Upstash quota while maintaining freshness
+  const pollInterval = setInterval(() => {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    fetchLatestProducts();
+  }, 45000);
 
   return () => {
     if (channel) {
@@ -262,6 +275,8 @@ export function subscribeToProductChanges(callback) {
       } catch {}
     }
     window.removeEventListener('klasik_products_updated', handleCustomEvent);
+    window.removeEventListener('focus', handleVisibilityOrFocus);
+    document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     clearInterval(pollInterval);
   };
 }

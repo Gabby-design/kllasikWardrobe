@@ -1,5 +1,7 @@
 import { Redis } from '@upstash/redis';
 import { PRODUCTS } from '../data/catalog.js';
+import customProductsJson from '../data/custom-products.json';
+import removedProductsJson from '../data/removed-products.json';
 
 const REDIS_KEY = 'klasik:products_v1';
 const REDIS_REMOVED_KEY = 'klasik:removed_ids_v1';
@@ -24,8 +26,26 @@ export function getRedis() {
 }
 
 export function getInitialSeedProducts() {
-  const catalogList = Array.isArray(PRODUCTS) ? [...PRODUCTS] : [];
-  return catalogList;
+  const baseList = Array.isArray(PRODUCTS) ? [...PRODUCTS] : [];
+  const customList = Array.isArray(customProductsJson) ? customProductsJson : [];
+  const removedSet = new Set(Array.isArray(removedProductsJson) ? removedProductsJson : []);
+
+  const productMap = new Map();
+
+  for (const item of baseList) {
+    if (item && item.id && !removedSet.has(item.id)) {
+      productMap.set(item.id, { ...item });
+    }
+  }
+
+  for (const item of customList) {
+    if (item && item.id && !removedSet.has(item.id)) {
+      const existing = productMap.get(item.id) || {};
+      productMap.set(item.id, { ...existing, ...item });
+    }
+  }
+
+  return Array.from(productMap.values());
 }
 
 function ensureDatabaseClient() {
@@ -40,19 +60,16 @@ function ensureDatabaseClient() {
 
 /**
  * Fetch all authoritative products from persistent database.
- * In production, throws clear error if database is not configured.
- * In local development, falls back to seed catalog for viewing only.
+ * If Redis database is not yet configured, gracefully falls back to seed catalog
+ * so storefront and admin page never crash with 404 or unhandled errors.
  */
 export async function getAuthoritativeProducts() {
   const redis = getRedis();
-  const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL);
 
   if (!redis) {
-    if (isProduction) {
-      throw new Error(
-        'Database connection unavailable: KV_REST_API_URL and KV_REST_API_TOKEN must be configured in Vercel environment variables.'
-      );
-    }
+    console.warn(
+      'Database connection notice: Redis is not configured. Serving initial seed products catalog.'
+    );
     return getInitialSeedProducts();
   }
 
@@ -64,19 +81,23 @@ export async function getAuthoritativeProducts() {
 
     const removedSet = new Set(Array.isArray(removedIds) ? removedIds : []);
 
-    if (Array.isArray(storedProducts) && storedProducts.length > 0) {
-      return storedProducts.filter((p) => p && p.id && !removedSet.has(p.id));
+    let parsedProducts = storedProducts;
+    if (typeof storedProducts === 'string') {
+      try {
+        parsedProducts = JSON.parse(storedProducts);
+      } catch {}
     }
 
-    // Auto-seed database if empty
+    if (Array.isArray(parsedProducts) && parsedProducts.length > 0) {
+      return parsedProducts.filter((p) => p && p.id && !removedSet.has(p.id));
+    }
+
+    // Auto-seed database once ONLY if empty / not present. Never overwrite existing database.
     const seed = getInitialSeedProducts();
     await redis.set(REDIS_KEY, JSON.stringify(seed));
     return seed.filter((p) => !removedSet.has(p.id));
   } catch (err) {
     console.error('getAuthoritativeProducts database error:', err);
-    if (isProduction) {
-      throw new Error(`Database query failed: ${err.message}`);
-    }
     return getInitialSeedProducts();
   }
 }

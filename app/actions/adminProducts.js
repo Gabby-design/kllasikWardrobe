@@ -151,11 +151,18 @@ export async function deleteProductAction(productId) {
   }
 }
 
-export async function resetCatalogAction() {
+export async function resetCatalogAction(confirmationText) {
   try {
     const isAuthed = await checkAdminSession();
     if (!isAuthed) {
       return { success: false, error: 'Unauthorized: Administrator authentication required' };
+    }
+
+    if (confirmationText !== 'RESET CATALOG') {
+      return {
+        success: false,
+        error: 'Confirmation required: Exact confirmation string "RESET CATALOG" must be provided to reset catalog.',
+      };
     }
 
     await resetDatabaseToCatalog();

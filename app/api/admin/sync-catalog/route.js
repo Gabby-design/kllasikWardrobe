@@ -20,9 +20,12 @@ export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
+import { verifyAdminSessionToken } from '../../../../src/lib/auth';
+
 async function isAdminAuthorized() {
   const cookieStore = await cookies();
-  return cookieStore.get('admin_auth')?.value === 'true';
+  const token = cookieStore.get('admin_auth')?.value;
+  return verifyAdminSessionToken(token);
 }
 
 export async function POST(request) {

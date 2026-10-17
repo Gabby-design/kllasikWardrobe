@@ -18,9 +18,12 @@ const NO_CACHE_HEADERS = {
   'Expires': '0',
 };
 
+import { verifyAdminSessionToken } from '../../../src/lib/auth';
+
 async function isAdminAuthorized() {
   const cookieStore = await cookies();
-  return cookieStore.get('admin_auth')?.value === 'true';
+  const token = cookieStore.get('admin_auth')?.value;
+  return verifyAdminSessionToken(token);
 }
 
 export async function GET(request) {

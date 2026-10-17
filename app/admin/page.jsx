@@ -1,4 +1,6 @@
 import { cookies } from 'next/headers';
+import { checkAdminSession } from '../actions/adminAuth';
+import { verifyAdminPassphrase, createAdminSessionToken } from '../../src/lib/auth';
 import { createAdminClient } from '../../utils/supabase/admin';
 import { getAuthoritativeProducts } from '../../src/lib/db';
 import { AdminDashboard } from '../../src/components/admin/AdminDashboard';
@@ -10,29 +12,35 @@ export default async function AdminPage({ searchParams }) {
   const cookieStore = await cookies();
   const sp = await searchParams;
   const key = sp?.key || sp?.passphrase || sp?.p;
-  
-  const isKeyValid = key && ['kllasik2026', 'klasik2026'].includes(key.trim());
-  
-  if (isKeyValid) {
+
+  if (key) {
     try {
-      cookieStore.set('admin_auth', 'true', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/'
-      });
+      if (verifyAdminPassphrase(key)) {
+        const sessionToken = createAdminSessionToken();
+        cookieStore.set('admin_auth', sessionToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/',
+        });
+      }
     } catch {}
   }
 
-  const isAuthenticated = isKeyValid || cookieStore.get('admin_auth')?.value === 'true';
+  const isAuthenticated = await checkAdminSession();
 
   if (!isAuthenticated) {
     return <AdminLoginForm />;
   }
 
-  // Load products directly from authoritative database
-  const products = await getAuthoritativeProducts();
+  // Load products directly from authoritative database (safe fallback)
+  let products = [];
+  try {
+    products = await getAuthoritativeProducts();
+  } catch (err) {
+    console.warn('Authoritative products query notice:', err.message);
+  }
 
   // Load orders (with graceful fallback if Supabase is offline)
   let orders = [];
@@ -52,7 +60,16 @@ export default async function AdminPage({ searchParams }) {
     console.warn('Orders query notice:', err.message);
   }
 
+  const isDbConfigured = Boolean(
+    (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL) &&
+    (process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN)
+  );
+
   return (
-    <AdminDashboard initialProducts={products} initialOrders={orders} />
+    <AdminDashboard
+      initialProducts={products}
+      initialOrders={orders}
+      isDatabaseConfigured={isDbConfigured}
+    />
   );
 }

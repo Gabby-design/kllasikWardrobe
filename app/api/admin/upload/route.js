@@ -6,9 +6,12 @@ import { put } from '@vercel/blob';
 
 export const dynamic = 'force-dynamic';
 
+import { verifyAdminSessionToken } from '../../../../src/lib/auth';
+
 async function isAdminAuthorized() {
   const cookieStore = await cookies();
-  return cookieStore.get('admin_auth')?.value === 'true';
+  const token = cookieStore.get('admin_auth')?.value;
+  return verifyAdminSessionToken(token);
 }
 
 async function processSingleFile(file) {

@@ -460,11 +460,13 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
           if (res.ok && data?.url) {
             finalUrls.push(data.url);
           } else {
-            const errDetail = data?.error || res.statusText || 'Server error';
-            toast.error(`Upload failed for ${f.name}: ${errDetail}`, { duration: 6000 });
+            const errDetail = typeof data?.error === 'string' && data.error.trim()
+              ? data.error.trim()
+              : (res.status ? `Server error (HTTP ${res.status})` : 'Upload failed');
+            toast.error(`Upload failed: ${errDetail}`, { duration: 8000 });
           }
         } catch (uploadErr) {
-          toast.error(`Upload error for ${f.name}: ${uploadErr.message}`, { duration: 6000 });
+          toast.error(`Upload error: ${uploadErr.message}`, { duration: 8000 });
         }
       }
 
@@ -627,11 +629,13 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
           if (res.ok && data?.url) {
             finalUrls.push(data.url);
           } else {
-            const errDetail = data?.error || res.statusText || 'Server error';
-            toast.error(`Upload failed for ${f.name}: ${errDetail}`, { duration: 6000 });
+            const errDetail = typeof data?.error === 'string' && data.error.trim()
+              ? data.error.trim()
+              : (res.status ? `Server error (HTTP ${res.status})` : 'Upload failed');
+            toast.error(`Upload failed: ${errDetail}`, { duration: 8000 });
           }
         } catch (uploadErr) {
-          toast.error(`Upload error for ${f.name}: ${uploadErr.message}`, { duration: 6000 });
+          toast.error(`Upload error: ${uploadErr.message}`, { duration: 8000 });
         }
       }
 

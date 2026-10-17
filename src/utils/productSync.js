@@ -1,39 +1,54 @@
 // src/utils/productSync.js
-// Dual-resilient client-side synchronization engine for Klasik Wardrobe.
-// Server/Database is authoritative, with seamless local client caching for instant offline/ephemeral resilience.
+// Client-side synchronization engine for Klasik Wardrobe.
+// Server/Database is the single authoritative source of truth.
+// LocalStorage caching of products is strictly removed to prevent device-specific state.
 
-export const STORAGE_KEY = 'klasik_custom_products_v5';
-export const REMOVED_KEY = 'klasik_removed_products_v5';
-export const VERSION_KEY = 'klasik_catalog_version_v5';
 export const CHANNEL_NAME = 'klasik_products_channel_v5';
 
-// Purges legacy obsolete keys from older storage versions
+/**
+ * One-time cleanup: deletes every klasik_* key from localStorage and IndexedDB.
+ */
 export function runStorageMigration() {
   if (typeof window === 'undefined') return;
 
   try {
-    const legacyKeys = [
-      'klasik_custom_products_v1',
-      'klasik_custom_products_v2',
-      'klasik_custom_products_v3',
-      'klasik_custom_products_v4',
-      'klasik_removed_products_v1',
-      'klasik_removed_products_v2',
-      'klasik_removed_products_v3',
-      'klasik_removed_products_v4',
-    ];
-    for (const key of legacyKeys) {
-      localStorage.removeItem(key);
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('klasik_')) {
+        keysToRemove.push(key);
+      }
+    }
+    for (const k of keysToRemove) {
+      localStorage.removeItem(k);
     }
   } catch {}
 
   try {
-    if (window.indexedDB) {
-      ['klasik_store_db', 'klasik_store_db_v1', 'klasik_store_db_v2', 'klasik_store_db_v3', 'klasik_store_db_v4'].forEach((dbName) => {
+    if (window.indexedDB && window.indexedDB.databases) {
+      window.indexedDB.databases().then((dbs) => {
+        dbs.forEach((db) => {
+          if (db.name && db.name.startsWith('klasik_')) {
+            try {
+              window.indexedDB.deleteDatabase(db.name);
+            } catch {}
+          }
+        });
+      }).catch(() => {});
+    } else if (window.indexedDB) {
+      const knownDbs = [
+        'klasik_store_db',
+        'klasik_store_db_v1',
+        'klasik_store_db_v2',
+        'klasik_store_db_v3',
+        'klasik_store_db_v4',
+        'klasik_store_db_v5',
+      ];
+      for (const name of knownDbs) {
         try {
-          window.indexedDB.deleteDatabase(dbName);
+          window.indexedDB.deleteDatabase(name);
         } catch {}
-      });
+      }
     }
   } catch {}
 }
@@ -42,84 +57,11 @@ if (typeof window !== 'undefined') {
   runStorageMigration();
 }
 
-export function getStoredCustomProducts() {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function getStoredRemovedProductIds() {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(REMOVED_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveStoredCustomProduct(product) {
-  if (typeof window === 'undefined' || !product || !product.id) return;
-  try {
-    const existing = getStoredCustomProducts();
-    const updated = [product, ...existing.filter((p) => p.id !== product.id)];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    const currentRemoved = getStoredRemovedProductIds().filter((id) => id !== product.id);
-    localStorage.setItem(REMOVED_KEY, JSON.stringify(currentRemoved));
-  } catch {}
-  broadcastProductChange(product, 'update');
-}
-
-export function removeStoredCustomProduct(productId) {
-  if (typeof window === 'undefined' || !productId) return;
-  try {
-    const existing = getStoredCustomProducts();
-    const updated = existing.filter((p) => p.id !== productId);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    const currentRemoved = Array.from(new Set([...getStoredRemovedProductIds(), productId]));
-    localStorage.setItem(REMOVED_KEY, JSON.stringify(currentRemoved));
-  } catch {}
-  broadcastProductChange({ id: productId }, 'delete');
-}
-
 /**
- * Merges server products with any locally saved updates
+ * Returns server list unchanged. Local storage overrides are disallowed.
  */
 export function mergeWithStoredProducts(baseProducts = []) {
-  if (typeof window === 'undefined') return baseProducts;
-  try {
-    const custom = getStoredCustomProducts();
-    const removedSet = new Set(getStoredRemovedProductIds());
-    const productMap = new Map();
-
-    for (const p of (Array.isArray(baseProducts) ? baseProducts : [])) {
-      if (p && p.id && !removedSet.has(p.id)) {
-        productMap.set(p.id, { ...p });
-      }
-    }
-
-    for (const p of custom) {
-      if (p && p.id && !removedSet.has(p.id)) {
-        const prev = productMap.get(p.id) || {};
-        productMap.set(p.id, { ...prev, ...p });
-      }
-    }
-
-    return Array.from(productMap.values());
-  } catch {
-    return Array.isArray(baseProducts) ? baseProducts : [];
-  }
-}
-
-export function getSingleStoredProduct(productId, serverProduct = null) {
-  if (typeof window === 'undefined') return serverProduct || null;
-  const custom = getStoredCustomProducts();
-  const match = custom.find((p) => p.id === productId);
-  return match || serverProduct || null;
+  return Array.isArray(baseProducts) ? baseProducts : [];
 }
 
 export function clearObsoleteClientCache() {
@@ -127,12 +69,7 @@ export function clearObsoleteClientCache() {
 }
 
 export function resetToServerCatalog() {
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(REMOVED_KEY);
-    } catch {}
-  }
+  runStorageMigration();
   broadcastProductChange(null, 'catalog_reset');
 }
 
@@ -168,26 +105,18 @@ export function broadcastStockAlert(product, previousStock = 1, message = '') {
   broadcastProductChange(product, 'out_of_stock_alert', {
     previousStock,
     wasLastUnit: previousStock === 1,
-    message: message || `"${product.title || product.name}" is now Out of Stock.`,
+    message: message || `"${product?.title || product?.name || 'Product'}" is now Out of Stock.`,
   });
 }
 
 /**
- * Update product stock via authoritative server API
+ * Update product stock via authoritative server API.
+ * Uses server response exclusively.
  */
-export async function updateStoredProductStock(productId, newStock, fallbackProduct = null) {
+export async function updateStoredProductStock(productId, newStock) {
   if (typeof window === 'undefined' || !productId) return null;
   try {
     const finalStock = Math.max(0, Number(newStock ?? 0));
-    const target = fallbackProduct || { id: productId };
-    const currentStock = target.stock !== undefined ? Number(target.stock) : 10;
-
-    const updatedProduct = {
-      ...target,
-      stock: finalStock,
-      updatedAt: new Date().toISOString(),
-    };
-
     const res = await fetch('/api/products/stock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -199,12 +128,22 @@ export async function updateStoredProductStock(productId, newStock, fallbackProd
       }),
     });
 
-    if (finalStock === 0) {
-      broadcastStockAlert(updatedProduct, currentStock);
+    if (!res.ok) {
+      throw new Error(`Server returned status ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (!data.success || !data.product) {
+      throw new Error(data.error || 'Stock update failed');
+    }
+
+    const updatedProduct = data.product;
+    if (data.newStock === 0) {
+      broadcastStockAlert(updatedProduct, data.previousStock);
     } else {
       broadcastProductChange(updatedProduct, 'stock_change', {
-        previousStock: currentStock,
-        newStock: finalStock,
+        previousStock: data.previousStock,
+        newStock: data.newStock,
       });
     }
 
@@ -216,47 +155,48 @@ export async function updateStoredProductStock(productId, newStock, fallbackProd
 }
 
 /**
- * Decrement product stock via authoritative server API
+ * Decrement product stock via authoritative server API.
+ * Uses server response exclusively.
  */
-export async function decrementStoredProductStock(productId, quantity = 1, fallbackProduct = null) {
+export async function decrementStoredProductStock(productId, quantity = 1) {
   if (typeof window === 'undefined' || !productId) return null;
   try {
-    const currentStock = fallbackProduct?.stock !== undefined ? Number(fallbackProduct.stock) : 10;
-    const newStock = Math.max(0, currentStock - Number(quantity || 1));
-    const wasLastUnit = currentStock === 1 && newStock === 0;
-
-    const updatedProduct = {
-      ...(fallbackProduct || { id: productId }),
-      stock: newStock,
-      updatedAt: new Date().toISOString(),
-    };
-
-    fetch('/api/products/stock', {
+    const res = await fetch('/api/products/stock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
       body: JSON.stringify({
         productId,
-        quantity,
+        quantity: Number(quantity || 1),
         action: 'decrement',
       }),
-    }).catch(() => {});
+    });
 
-    if (wasLastUnit || newStock === 0) {
-      broadcastStockAlert(updatedProduct, currentStock);
+    if (!res.ok) {
+      throw new Error(`Server returned status ${res.status}`);
+    }
+
+    const data = await res.json();
+    if (!data.success || !data.product) {
+      throw new Error(data.error || 'Stock decrement failed');
+    }
+
+    const updatedProduct = data.product;
+    if (data.wasLastUnit || data.newStock === 0) {
+      broadcastStockAlert(updatedProduct, data.previousStock);
     } else {
       broadcastProductChange(updatedProduct, 'stock_change', {
-        previousStock: currentStock,
-        newStock,
+        previousStock: data.previousStock,
+        newStock: data.newStock,
       });
     }
 
     return {
       success: true,
       product: updatedProduct,
-      previousStock: currentStock,
-      newStock,
-      wasLastUnit,
+      previousStock: data.previousStock,
+      newStock: data.newStock,
+      wasLastUnit: Boolean(data.wasLastUnit),
     };
   } catch (err) {
     console.error('Error decrementing product stock:', err);
@@ -264,15 +204,11 @@ export async function decrementStoredProductStock(productId, quantity = 1, fallb
   }
 }
 
-// Deprecated push helper (no-op; admin actions write directly to database)
-export async function syncClientEditsToServer() {
-  return { success: true };
-}
-
 /**
  * Real-time storefront catalog synchronization:
- * Subscribes to local tab broadcasts and polls the server API every 4s
+ * Subscribes to local tab broadcasts and polls the server API every 30s
  * to ensure all devices display database updates within seconds.
+ * Polling replaces state directly with the server result.
  */
 export function subscribeToProductChanges(callback) {
   if (typeof window === 'undefined' || typeof callback !== 'function') {
@@ -321,11 +257,10 @@ export function subscribeToProductChanges(callback) {
   window.addEventListener('focus', handleVisibilityOrFocus);
   document.addEventListener('visibilitychange', handleVisibilityOrFocus);
 
-  // Poll server every 45 seconds to protect Upstash quota while maintaining freshness
   const pollInterval = setInterval(() => {
     if (typeof document !== 'undefined' && document.hidden) return;
     fetchLatestProducts();
-  }, 45000);
+  }, 30000);
 
   return () => {
     if (channel) {

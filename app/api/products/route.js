@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
-import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server.js';
+import { revalidatePath } from 'next/cache.js';
+import { cookies } from 'next/headers.js';
 import { 
   getAuthoritativeProducts, 
   saveAuthoritativeProduct, 
@@ -18,12 +18,25 @@ const NO_CACHE_HEADERS = {
   'Expires': '0',
 };
 
-import { verifyAdminSessionToken } from '../../../src/lib/auth';
+import { verifyAdminSessionToken, verifyAdminPassphrase } from '../../../src/lib/auth.js';
 
-async function isAdminAuthorized() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('admin_auth')?.value;
-  return verifyAdminSessionToken(token);
+async function isAdminAuthorized(request) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('admin_auth')?.value;
+    if (token && verifyAdminSessionToken(token)) return true;
+  } catch {}
+
+  const authHeader = request?.headers?.get('authorization') || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.slice(7).trim();
+    if (verifyAdminSessionToken(bearer) || verifyAdminPassphrase(bearer)) return true;
+  }
+
+  const passHeader = request?.headers?.get('x-admin-passphrase');
+  if (passHeader && verifyAdminPassphrase(passHeader)) return true;
+
+  return false;
 }
 
 export async function GET(request) {
@@ -57,7 +70,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
-    if (!(await isAdminAuthorized())) {
+    if (!(await isAdminAuthorized(request))) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized: Administrator authentication required' },
         { status: 401, headers: NO_CACHE_HEADERS }
@@ -98,7 +111,7 @@ export async function POST(request) {
       createdAt: new Date().toISOString()
     };
 
-    await saveAuthoritativeProduct(newProduct);
+    const saved = await saveAuthoritativeProduct(newProduct);
 
     try {
       revalidatePath('/', 'page');
@@ -109,7 +122,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      product: newProduct
+      product: saved
     }, { headers: NO_CACHE_HEADERS });
   } catch (err) {
     console.error('Error adding product:', err);
@@ -122,7 +135,7 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    if (!(await isAdminAuthorized())) {
+    if (!(await isAdminAuthorized(request))) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized: Administrator authentication required' },
         { status: 401, headers: NO_CACHE_HEADERS }
@@ -155,7 +168,7 @@ export async function PUT(request) {
       updatedAt: new Date().toISOString()
     };
 
-    await saveAuthoritativeProduct(updatedProduct);
+    const saved = await saveAuthoritativeProduct(updatedProduct);
 
     try {
       revalidatePath('/', 'page');
@@ -166,7 +179,7 @@ export async function PUT(request) {
 
     return NextResponse.json({
       success: true,
-      product: updatedProduct
+      product: saved
     }, { headers: NO_CACHE_HEADERS });
   } catch (err) {
     console.error('Error updating product:', err);
@@ -179,7 +192,7 @@ export async function PUT(request) {
 
 export async function DELETE(request) {
   try {
-    if (!(await isAdminAuthorized())) {
+    if (!(await isAdminAuthorized(request))) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized: Administrator authentication required' },
         { status: 401, headers: NO_CACHE_HEADERS }

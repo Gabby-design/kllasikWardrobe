@@ -39,9 +39,7 @@ import { KlasikLogo } from '../KlasikLogo';
 import { 
   startLiveCatalogSync,
   resetToServerCatalog,
-  runStorageMigration,
-  saveStoredCustomProduct,
-  removeStoredCustomProduct
+  runStorageMigration
 } from '../../utils/productSync.js';
 
 export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfigured = true }) {
@@ -66,9 +64,10 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
     const finalStock = Math.max(0, Number(targetStock || 0));
     try {
       const res = await updateProductAction({ ...prod, stock: finalStock });
-      if (res?.success) {
-        setProducts((prev) => prev.map((p) => (p.id === prod.id ? { ...p, stock: finalStock } : p)));
-        toast.success(`Updated stock for "${prod.title}" to ${finalStock}!`, { id: `quick-stock-${prod.id}` });
+      if (res?.success && res?.product) {
+        setProducts((prev) => prev.map((p) => (p.id === prod.id ? res.product : p)));
+        const timeStr = new Date().toLocaleTimeString('en-GB');
+        toast.success(`Saved to database at ${timeStr}`, { id: `quick-stock-${prod.id}` });
       } else {
         toast.error(res?.error || 'Could not update stock in database');
       }
@@ -772,16 +771,16 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
 
     try {
       const res = await updateProductAction(payload);
-      if (!res?.success) {
+      if (!res?.success || !res?.product) {
         toast.error(res?.error || 'Failed to update product in database');
         setSavingEdit(false);
         return;
       }
 
-      const updated = res.product || payload;
+      const updated = res.product;
       setProducts((prev) => prev.map((p) => (p.id === payload.id ? updated : p)));
-      saveStoredCustomProduct(updated);
-      toast.success(`Saved "${payload.title}" to database! Live on website.`);
+      const timeStr = new Date().toLocaleTimeString('en-GB');
+      toast.success(`Saved to database at ${timeStr}`);
       setIsEditModalOpen(false);
       setEditingProduct(null);
       setSavingEdit(false);
@@ -836,17 +835,17 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
 
     try {
       const res = await createProductAction(productPayload);
-      if (!res?.success) {
+      if (!res?.success || !res?.product) {
         toast.error(res?.error || 'Failed to publish product to database');
         setLoading(false);
         return;
       }
 
-      const finalProduct = res.product || { ...productPayload, id: `kwt-custom-${Date.now().toString().slice(-6)}` };
-      setProducts([finalProduct, ...products]);
-      saveStoredCustomProduct(finalProduct);
+      const finalProduct = res.product;
+      setProducts((prev) => [finalProduct, ...prev]);
 
-      toast.success('Product published to database & live store!');
+      const timeStr = new Date().toLocaleTimeString('en-GB');
+      toast.success(`Saved to database at ${timeStr}`);
 
       // Reset form fields
       setTitle('');
@@ -877,8 +876,8 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
       }
 
       setProducts((prev) => prev.filter((p) => p.id !== productId));
-      removeStoredCustomProduct(productId);
-      toast.success('Product removed from database and live store');
+      const timeStr = new Date().toLocaleTimeString('en-GB');
+      toast.success(`Saved to database at ${timeStr}`);
       router.refresh();
     } catch (err) {
       toast.error('Delete error: ' + err.message);
@@ -914,10 +913,10 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
             disabled={manualSyncing}
             onClick={handleManualSyncToAllDevices}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] border border-[#7C3AED] px-4 py-2 rounded-full transition-all cursor-pointer shadow-xs disabled:opacity-60"
-            title="Push local edits to code & synchronize across all devices"
+            title="Refresh latest product catalog from server"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${manualSyncing ? 'animate-spin' : ''}`} />
-            <span>{manualSyncing ? 'Syncing Devices...' : 'Sync All Devices'}</span>
+            <span>{manualSyncing ? 'Refreshing...' : 'Refresh from server'}</span>
           </button>
 
           <button
@@ -2356,7 +2355,7 @@ export function AdminDashboard({ initialProducts, initialOrders, isDatabaseConfi
                             : 'bg-white text-gray-400 border-black/[0.08] line-through hover:border-gray-300'
                         }`}
                       >
-                        {sz} {isSelected ? '✓' : ''}
+                        {sz} {isSelected ? <Check className="w-3 h-3 inline ml-1" /> : null}
                       </button>
                     );
                   })}

@@ -30,8 +30,6 @@ globalThis.document = {
 const {
   runStorageMigration,
   mergeWithStoredProducts,
-  getSingleStoredProduct,
-  getStoredCustomProducts,
   resetToServerCatalog
 } = await import('../src/utils/productSync.js');
 
@@ -88,13 +86,6 @@ const res3 = mergeWithStoredProducts(baseServerProducts);
 const kwt05 = res3.find((p) => p.id === 'kwt-05');
 assert.strictEqual(kwt05.title, 'Klasik Money Bags Graphic Heavyweight Tee', 'Server product must override any local edit');
 console.log('PASS: Server catalog is sole source of truth');
-
-// TEST 4: getSingleStoredProduct returns serverProduct directly
-console.log('\n[TEST 4] Single product fetch delegates to server product');
-const single = getSingleStoredProduct('kwt-01', baseServerProducts[0]);
-assert.strictEqual(single.id, 'kwt-01');
-assert.strictEqual(single.title, 'Server Shirt 1');
-console.log('PASS: getSingleStoredProduct returns server product');
 
 // TEST 5: Image URL validation rejects data: and blob: URLs
 console.log('\n[TEST 5] Reject base64 data: and blob: URLs');

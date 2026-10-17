@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCartStore } from '../store/cartStore';
 import { useRouter } from 'next/navigation';
 import { ShoppingBag, X, Plus, Minus, ArrowRight, Truck, ShieldCheck, AlertTriangle, Trash2 } from 'lucide-react';
-import { getSingleStoredProduct, subscribeToProductChanges } from '../utils/productSync';
+import { subscribeToProductChanges } from '../utils/productSync';
 import toast from 'react-hot-toast';
 
 export function CartDrawer() {
@@ -36,8 +36,7 @@ export function CartDrawer() {
 
   // Check if any cart items are out of stock
   const cartWithStockStatus = cart.map((item) => {
-    const stored = getSingleStoredProduct(item.id);
-    const currentStock = stored?.stock !== undefined ? Number(stored.stock) : (item.stock !== undefined ? Number(item.stock) : 10);
+    const currentStock = item.stock !== undefined ? Number(item.stock) : 10;
     return {
       ...item,
       isSoldOut: currentStock <= 0,

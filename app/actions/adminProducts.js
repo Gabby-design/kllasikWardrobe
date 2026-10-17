@@ -65,10 +65,10 @@ export async function createProductAction(productData) {
     };
 
     validateProductImageUrls(newProduct);
-    const res = await saveAuthoritativeProduct(newProduct);
+    const verifiedProduct = await saveAuthoritativeProduct(newProduct);
     revalidateAllProductPaths(id);
 
-    return { success: true, product: res.product || newProduct };
+    return { success: true, product: verifiedProduct };
   } catch (err) {
     console.error('createProductAction error:', err);
     return { success: false, error: err.message };
@@ -120,10 +120,10 @@ export async function updateProductAction(productData) {
     };
 
     validateProductImageUrls(updatedProduct);
-    const res = await saveAuthoritativeProduct(updatedProduct);
+    const verifiedProduct = await saveAuthoritativeProduct(updatedProduct);
     revalidateAllProductPaths(productData.id);
 
-    return { success: true, product: res.product || updatedProduct };
+    return { success: true, product: verifiedProduct };
   } catch (err) {
     console.error('updateProductAction error:', err);
     return { success: false, error: err.message };

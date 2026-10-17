@@ -7,7 +7,7 @@ import AddToCartSection from './AddToCartSection';
 import ProductGallerySlider from './ProductGallerySlider';
 import { Navbar } from '../../../src/components/Navbar';
 import { CartDrawer } from '../../../src/components/CartDrawer';
-import { getSingleStoredProduct, getStoredRemovedProductIds, subscribeToProductChanges } from '../../../src/utils/productSync';
+import { subscribeToProductChanges } from '../../../src/utils/productSync';
 import toast from 'react-hot-toast';
 
 export default function ProductPageClient({ initialProduct }) {
@@ -30,17 +30,6 @@ export default function ProductPageClient({ initialProduct }) {
           }
         }
       } catch {}
-
-      const stored = getSingleStoredProduct(initialProduct.id, initialProduct);
-      if (stored) {
-        setProduct((prev) => ({
-          ...prev,
-          ...stored,
-          gallery: Array.isArray(stored.gallery) && stored.gallery.length > 0
-            ? stored.gallery
-            : (stored.image ? [stored.image] : prev.gallery)
-        }));
-      }
     }
 
     syncProduct();

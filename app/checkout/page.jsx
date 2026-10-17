@@ -32,7 +32,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { getWhatsAppOrderLink } from '../../src/utils/whatsapp';
-import { getSingleStoredProduct, decrementStoredProductStock, subscribeToProductChanges } from '../../src/utils/productSync';
+import { decrementStoredProductStock, subscribeToProductChanges } from '../../src/utils/productSync';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -91,8 +91,7 @@ export default function CheckoutPage() {
   const handleWhatsAppCheckout = () => {
     // Check if any cart item is sold out
     const soldOutItem = cart.find((item) => {
-      const sp = getSingleStoredProduct(item.id);
-      const stock = sp?.stock !== undefined ? Number(sp.stock) : (item.stock !== undefined ? Number(item.stock) : 10);
+      const stock = item.stock !== undefined ? Number(item.stock) : 10;
       return stock <= 0;
     });
 
@@ -157,8 +156,7 @@ export default function CheckoutPage() {
 
     // Check if any cart item is sold out
     const soldOutItem = cart.find((item) => {
-      const sp = getSingleStoredProduct(item.id);
-      const stock = sp?.stock !== undefined ? Number(sp.stock) : (item.stock !== undefined ? Number(item.stock) : 10);
+      const stock = item.stock !== undefined ? Number(item.stock) : 10;
       return stock <= 0;
     });
 
@@ -231,8 +229,7 @@ export default function CheckoutPage() {
   };
 
   const soldOutItem = cart.find((item) => {
-    const sp = getSingleStoredProduct(item.id);
-    const stock = sp?.stock !== undefined ? Number(sp.stock) : (item.stock !== undefined ? Number(item.stock) : 10);
+    const stock = item.stock !== undefined ? Number(item.stock) : 10;
     return stock <= 0;
   });
 

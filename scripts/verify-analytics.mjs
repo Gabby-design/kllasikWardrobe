@@ -53,6 +53,14 @@ function executeRedisCommand(cmd) {
       return next;
     }
 
+    case 'incrby': {
+      const [key, increment] = args;
+      const cur = parseInt(stringStore.get(key) || '0', 10);
+      const next = cur + Number(increment);
+      stringStore.set(key, String(next));
+      return next;
+    }
+
     case 'get': {
       const key = args[0];
       const val = stringStore.get(key);
@@ -197,17 +205,26 @@ function executeRedisCommand(cmd) {
   }
 }
 
+function encodeResult(v, isBase64) {
+  if (!isBase64 || v === null || v === undefined) return v;
+  if (typeof v === 'string') return Buffer.from(v).toString('base64');
+  if (Array.isArray(v)) return v.map((item) => encodeResult(item, isBase64));
+  return v;
+}
+
 // Start Mock HTTP server for Upstash REST
 const mockServer = http.createServer((req, res) => {
   let body = '';
   req.on('data', (chunk) => (body += chunk));
   req.on('end', () => {
     try {
+      const isBase64 = String(req.headers['upstash-encoding']).toLowerCase() === 'base64';
+
       if (req.url === '/pipeline') {
         const pipeline = JSON.parse(body);
         const results = pipeline.map((cmd) => {
           const rawResult = executeRedisCommand(cmd);
-          return { result: rawResult };
+          return { result: encodeResult(rawResult, isBase64) };
         });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(results));
@@ -220,7 +237,7 @@ const mockServer = http.createServer((req, res) => {
         if (Array.isArray(parsed)) {
           const rawResult = executeRedisCommand(parsed);
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ result: rawResult }));
+          res.end(JSON.stringify({ result: encodeResult(rawResult, isBase64) }));
           return;
         }
       }
@@ -230,7 +247,7 @@ const mockServer = http.createServer((req, res) => {
       if (parts.length > 0) {
         const rawResult = executeRedisCommand(parts);
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ result: rawResult }));
+        res.end(JSON.stringify({ result: encodeResult(rawResult, isBase64) }));
         return;
       }
 
@@ -406,8 +423,85 @@ async function runTestSuite() {
     assert.strictEqual(m6.totalPageViews, 3, 'Counts untouched by admin/static hits');
     console.log('PASS: Admin and static resource paths successfully filtered.');
 
-    // TEST 7: Redis unavailable error check (Requirement 1: No fake zeros)
-    console.log('\n[TEST 7] Redis unavailable: getAnalyticsMetrics must throw explicit error');
+    // TEST 7: Device Category and OS Breakdown Verification
+    console.log('\n[TEST 7] Visitor Device and Operating System breakdown');
+    // Send visit with an Android Tablet
+    const reqTablet = new Request('http://localhost:3000/api/track', {
+      method: 'POST',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 12; SM-T870) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Safari/537.36',
+        'x-vercel-ip-country': 'UK',
+      },
+      body: JSON.stringify({ visitorId: 'visitor-c-uuid-9999', path: '/categories' }),
+    });
+    const resTablet = await trackHandler(reqTablet);
+    const jsonTablet = await resTablet.json();
+    assert.strictEqual(jsonTablet.counted, true);
+    assert.strictEqual(jsonTablet.device, 'Tablet');
+    assert.strictEqual(jsonTablet.os, 'Android');
+
+    const m7 = await getAnalyticsMetrics();
+    console.log('Device metrics recorded:', m7.devices);
+    console.log('Operating systems recorded:', m7.operatingSystems);
+
+    assert.strictEqual(m7.devices.Mobile, 2, 'Should record 2 Mobile visits (Test 1 and Test 3)');
+    assert.strictEqual(m7.devices.Desktop, 1, 'Should record 1 Desktop visit (Test 4)');
+    assert.strictEqual(m7.devices.Tablet, 1, 'Should record 1 Tablet visit (Test 7)');
+    assert.strictEqual(m7.devices.totalHits, 4, 'Total device hits should be 4');
+    assert.strictEqual(m7.devices.mobilePct, 50, 'Mobile percentage should be 50%');
+    assert.strictEqual(m7.devices.desktopPct, 25, 'Desktop percentage should be 25%');
+    assert.strictEqual(m7.devices.tabletPct, 25, 'Tablet percentage should be 25%');
+    assert.strictEqual(m7.operatingSystems.iOS, 2, 'iOS count should be 2');
+    assert.strictEqual(m7.operatingSystems.macOS, 1, 'macOS count should be 1');
+    assert.strictEqual(m7.operatingSystems.Android, 1, 'Android count should be 1');
+    console.log('PASS: Device category and OS breakdowns accurately recorded and calculated.');
+
+    // TEST 8: Session Heartbeat and Active Duration Tracking
+    console.log('\n[TEST 8] Active session heartbeats and average time on site');
+    // Heartbeat 1 from Visitor A: 20s
+    await trackHandler(new Request('http://localhost:3000/api/track', {
+      method: 'POST',
+      body: JSON.stringify({ heartbeat: true, visitorId: 'visitor-a-uuid-1234', durationSeconds: 20, deltaSeconds: 20 }),
+    }));
+
+    // Heartbeat 2 from Visitor A: 40s (+20s delta)
+    await trackHandler(new Request('http://localhost:3000/api/track', {
+      method: 'POST',
+      body: JSON.stringify({ heartbeat: true, visitorId: 'visitor-a-uuid-1234', durationSeconds: 40, deltaSeconds: 20 }),
+    }));
+
+    // Heartbeat from Visitor B: 70s (delta 50s)
+    await trackHandler(new Request('http://localhost:3000/api/track', {
+      method: 'POST',
+      body: JSON.stringify({ heartbeat: true, visitorId: 'visitor-b-uuid-5678', durationSeconds: 70, deltaSeconds: 50 }),
+    }));
+
+    // Heartbeat from Visitor C: 15s (delta 15s)
+    await trackHandler(new Request('http://localhost:3000/api/track', {
+      method: 'POST',
+      body: JSON.stringify({ heartbeat: true, visitorId: 'visitor-c-uuid-9999', durationSeconds: 15, deltaSeconds: 15 }),
+    }));
+
+    const m8 = await getAnalyticsMetrics();
+    console.log('Duration metrics:', {
+      avgDurationSec: m8.avgDurationSec,
+      avgDurationFormatted: m8.avgDurationFormatted,
+      durationBuckets: m8.durationBuckets,
+    });
+
+    // Total seconds = 20 + 20 + 50 + 15 = 105s across 3 visitors = 35s average
+    assert.strictEqual(m8.avgDurationSec, 35, 'Average duration seconds should be 35s');
+    assert.strictEqual(m8.avgDurationFormatted, '35s', 'Formatted duration should be 35s');
+    console.log('PASS: Heartbeats accurately incremented total duration and computed average session length.');
+
+    // TEST 9: Duration Engagement Buckets
+    console.log('\n[TEST 9] Duration engagement buckets (< 30s, 30s - 2m, etc.)');
+    assert.ok(Number(m8.durationBuckets['< 30s'] || 0) >= 1, '< 30s bucket must be recorded');
+    assert.ok(Number(m8.durationBuckets['30s - 2m'] || 0) >= 1, '30s - 2m bucket must be recorded');
+    console.log('PASS: Duration engagement buckets correctly categorized.');
+
+    // TEST 10: Redis unavailable error check (Requirement 1: No fake zeros)
+    console.log('\n[TEST 10] Redis unavailable: getAnalyticsMetrics must throw explicit error');
     // Shut down mock server to simulate Redis connection failure / network outage
     await new Promise((resolve) => mockServer.close(resolve));
 
@@ -423,7 +517,7 @@ async function runTestSuite() {
     console.log('PASS: Redis unavailable correctly throws and never returns fake zeros.');
 
     console.log('\n===========================================================');
-    console.log('ALL 7 VISITOR ANALYTICS VERIFICATION TESTS PASSED!');
+    console.log('ALL 10 VISITOR ANALYTICS VERIFICATION TESTS PASSED!');
     console.log('===========================================================');
     return;
   } finally {

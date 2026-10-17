@@ -36,6 +36,9 @@ import {
   UserCheck,
   Activity,
   Globe,
+  Smartphone,
+  Monitor,
+  Tablet,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { createProductAction, deleteProductAction, updateProductAction, resetCatalogAction } from '../../../app/actions/adminProducts';
@@ -2234,7 +2237,7 @@ export function AdminDashboard({
           {/* 4 Primary KPI Metric Cards (Requirement 5 & 7) */}
           {analytics && !analyticsError && (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 {/* 1. All-Time Unique Visitors */}
                 <div className="bg-white rounded-[20px] p-5 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)] relative overflow-hidden">
                   <div className="flex items-center justify-between mb-2">
@@ -2304,6 +2307,24 @@ export function AdminDashboard({
                   </div>
                   <span className="text-[11px] text-gray-500 font-medium block mt-1">
                     Store impressions today
+                  </span>
+                </div>
+
+                {/* 5. Average Time on Site */}
+                <div className="bg-white rounded-[20px] p-5 border border-black/[0.04] shadow-[0_8px_24px_rgba(17,17,17,0.06)] relative overflow-hidden">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-bold tracking-wider text-amber-600 uppercase">
+                      Avg Time on Site
+                    </span>
+                    <span className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
+                      <Clock className="w-4 h-4" />
+                    </span>
+                  </div>
+                  <div className="text-3xl font-extrabold text-amber-600 tracking-tight">
+                    {analytics.avgDurationFormatted || '0s'}
+                  </div>
+                  <span className="text-[11px] text-gray-500 font-medium block mt-1">
+                    Active session average today
                   </span>
                 </div>
               </div>
@@ -2407,6 +2428,155 @@ export function AdminDashboard({
                             ))}
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Device Category & Session Duration Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Device Breakdown (Mobile vs Desktop vs Tablet) */}
+                <div className="lg:col-span-6 bg-white rounded-[24px] border border-black/[0.04] p-6 shadow-[0_8px_24px_rgba(17,17,17,0.06)] flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-black/[0.04]">
+                      <div>
+                        <h4 className="font-bold text-sm text-[#111111]">Visitor Devices</h4>
+                        <p className="text-xs text-gray-400">Hardware categories accessing the storefront today</p>
+                      </div>
+                      <span className="text-[11px] font-bold text-[#7C3AED] bg-[#EDE9FE] px-2.5 py-1 rounded-full">
+                        {analytics.devices?.totalHits || 0} Telemetry Hits
+                      </span>
+                    </div>
+
+                    {/* Device Category Cards */}
+                    <div className="grid grid-cols-3 gap-3 mb-5">
+                      <div className="p-3.5 rounded-2xl bg-[#EDE9FE]/50 border border-[#DDD6FE]/60 text-center">
+                        <Smartphone className="w-5 h-5 mx-auto text-[#7C3AED] mb-1" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block">Mobile</span>
+                        <span className="text-lg font-extrabold text-[#7C3AED] block">
+                          {analytics.devices?.mobilePct || 0}%
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-mono">
+                          {analytics.devices?.Mobile || 0} visits
+                        </span>
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200/60 text-center">
+                        <Monitor className="w-5 h-5 mx-auto text-gray-700 mb-1" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block">Desktop</span>
+                        <span className="text-lg font-extrabold text-[#111111] block">
+                          {analytics.devices?.desktopPct || 0}%
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-mono">
+                          {analytics.devices?.Desktop || 0} visits
+                        </span>
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl bg-gray-50 border border-gray-200/60 text-center">
+                        <Tablet className="w-5 h-5 mx-auto text-gray-400 mb-1" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 block">Tablet</span>
+                        <span className="text-lg font-extrabold text-gray-600 block">
+                          {analytics.devices?.tabletPct || 0}%
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-mono">
+                          {analytics.devices?.Tablet || 0} visits
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Segmented Percentage Bar */}
+                    <div className="mb-4">
+                      <div className="h-2.5 w-full bg-gray-100 rounded-full overflow-hidden flex">
+                        <div
+                          style={{ width: `${analytics.devices?.mobilePct || 0}%` }}
+                          className="bg-[#7C3AED] h-full transition-all duration-500"
+                          title={`Mobile: ${analytics.devices?.mobilePct || 0}%`}
+                        />
+                        <div
+                          style={{ width: `${analytics.devices?.desktopPct || 0}%` }}
+                          className="bg-gray-800 h-full transition-all duration-500"
+                          title={`Desktop: ${analytics.devices?.desktopPct || 0}%`}
+                        />
+                        <div
+                          style={{ width: `${analytics.devices?.tabletPct || 0}%` }}
+                          className="bg-gray-300 h-full transition-all duration-500"
+                          title={`Tablet: ${analytics.devices?.tabletPct || 0}%`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Operating System Pills */}
+                    {analytics.operatingSystems && Object.keys(analytics.operatingSystems).length > 0 && (
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-2">
+                          Operating Systems
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {Object.entries(analytics.operatingSystems)
+                            .sort(([, a], [, b]) => Number(b) - Number(a))
+                            .map(([os, count]) => (
+                              <span
+                                key={os}
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-[11px] font-medium"
+                              >
+                                <span className="font-semibold">{os}:</span>
+                                <span className="font-mono text-[#7C3AED]">{Number(count).toLocaleString()}</span>
+                              </span>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Session Duration & Engagement */}
+                <div className="lg:col-span-6 bg-white rounded-[24px] border border-black/[0.04] p-6 shadow-[0_8px_24px_rgba(17,17,17,0.06)] flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-black/[0.04]">
+                      <div>
+                        <h4 className="font-bold text-sm text-[#111111]">Time Spent on Website</h4>
+                        <p className="text-xs text-gray-400">Active browsing duration and visit depth</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                        <Clock className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Avg: {analytics.avgDurationFormatted || '0s'}</span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-gray-500 mb-4">
+                      Measures active foreground attention while visitors explore garments, select sizes, and view details.
+                    </p>
+
+                    {/* Duration Buckets */}
+                    <div className="space-y-3">
+                      {[
+                        { label: '< 30s', desc: 'Bounced / Quick scan', key: '< 30s', color: 'bg-gray-400' },
+                        { label: '30s - 2m', desc: 'Engaged browsing', key: '30s - 2m', color: 'bg-[#DDD6FE]' },
+                        { label: '2m - 5m', desc: 'Deep interest / Reading', key: '2m - 5m', color: 'bg-[#7C3AED]' },
+                        { label: '5m+', desc: 'High intent / Checkout', key: '5m+', color: 'bg-emerald-500' },
+                      ].map((b) => {
+                        const count = Number(analytics.durationBuckets?.[b.key] || 0);
+                        const totalBucketHits = Object.values(analytics.durationBuckets || {}).reduce((s, c) => s + Number(c || 0), 0);
+                        const pct = totalBucketHits > 0 ? Math.round((count / totalBucketHits) * 100) : 0;
+
+                        return (
+                          <div key={b.key} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-gray-800">{b.label} <span className="text-gray-400 font-normal">({b.desc})</span></span>
+                              <div className="flex items-center gap-2 font-mono text-[11px]">
+                                <span className="font-bold text-gray-900">{count} visits</span>
+                                <span className="text-gray-400">({pct}%)</span>
+                              </div>
+                            </div>
+                            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                              <div
+                                style={{ width: `${pct}%` }}
+                                className={`h-full rounded-full ${b.color} transition-all duration-500`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

@@ -31,44 +31,102 @@ function getOrCreateVisitorId() {
   }
 }
 
+function sendTrackPayload(payloadObj) {
+  try {
+    const payload = JSON.stringify(payloadObj);
+    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+      const blob = new Blob([payload], { type: 'text/plain' });
+      navigator.sendBeacon('/api/track', blob);
+    } else {
+      fetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {});
+    }
+  } catch {
+    // Non-blocking catch
+  }
+}
+
 export function VisitorTracker() {
   const pathname = usePathname();
   const lastTrackedRef = useRef(null);
+  const sessionStartRef = useRef(Date.now());
+  const lastPingRef = useRef(Date.now());
 
+  // 1. Track route changes
   useEffect(() => {
     if (!pathname) return;
-
-    // Skip tracking when the admin session cookie is present
     if (hasAdminSessionCookie()) return;
-
-    // Ignore admin and API paths
     if (pathname.startsWith('/admin') || pathname.startsWith('/api')) return;
 
-    // Avoid double-firing on identical path render
     if (lastTrackedRef.current === pathname) return;
     lastTrackedRef.current = pathname;
 
     const visitorId = getOrCreateVisitorId();
     if (!visitorId) return;
 
-    const payload = JSON.stringify({ visitorId, path: pathname });
-
-    try {
-      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-        const blob = new Blob([payload], { type: 'text/plain' });
-        navigator.sendBeacon('/api/track', blob);
-      } else {
-        fetch('/api/track', {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: payload,
-          keepalive: true,
-        }).catch(() => {});
-      }
-    } catch {
-      // Non-blocking catch
-    }
+    sendTrackPayload({ visitorId, path: pathname });
   }, [pathname]);
+
+  // 2. Active Session Duration Heartbeat (every 20 seconds while user is browsing)
+  useEffect(() => {
+    if (hasAdminSessionCookie()) return;
+    if (typeof window === 'undefined') return;
+
+    const emitHeartbeat = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      const visitorId = getOrCreateVisitorId();
+      if (!visitorId) return;
+
+      const now = Date.now();
+      const deltaSeconds = Math.round((now - lastPingRef.current) / 1000);
+      const totalSessionSeconds = Math.round((now - sessionStartRef.current) / 1000);
+      lastPingRef.current = now;
+
+      if (deltaSeconds >= 5) {
+        sendTrackPayload({
+          visitorId,
+          heartbeat: true,
+          durationSeconds: totalSessionSeconds,
+          deltaSeconds,
+        });
+      }
+    };
+
+    const intervalId = setInterval(emitHeartbeat, 20000);
+
+    // Also send heartbeat when user leaves or switches away from page
+    const handleVisibilityOrUnload = () => {
+      const visitorId = getOrCreateVisitorId();
+      if (!visitorId) return;
+
+      const now = Date.now();
+      const deltaSeconds = Math.round((now - lastPingRef.current) / 1000);
+      const totalSessionSeconds = Math.round((now - sessionStartRef.current) / 1000);
+      lastPingRef.current = now;
+
+      if (deltaSeconds >= 3) {
+        sendTrackPayload({
+          visitorId,
+          heartbeat: true,
+          durationSeconds: totalSessionSeconds,
+          deltaSeconds,
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrUnload);
+    window.addEventListener('pagehide', handleVisibilityOrUnload);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityOrUnload);
+      window.removeEventListener('pagehide', handleVisibilityOrUnload);
+    };
+  }, []);
 
   return null;
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server.js';
-import { recordVisitorHit } from '../../../src/lib/analytics.js';
+import { recordVisitorHit, recordSessionHeartbeat } from '../../../src/lib/analytics.js';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -41,7 +41,13 @@ export async function POST(req) {
       return NextResponse.json({ ok: false, error: 'malformed_json' }, { status: 200 });
     }
 
-    const { visitorId, path = '/' } = body || {};
+    const {
+      visitorId,
+      path = '/',
+      heartbeat = false,
+      durationSeconds = 0,
+      deltaSeconds = 0,
+    } = body || {};
 
     // 3. Validate visitorId (UUID-like, max 64 chars)
     if (
@@ -53,7 +59,17 @@ export async function POST(req) {
       return NextResponse.json({ ok: false, error: 'invalid_visitor_id' }, { status: 200 });
     }
 
-    // 4. Validate path (starts with "/", max 200 chars)
+    // 4. Handle Heartbeat (active session duration)
+    if (heartbeat) {
+      await recordSessionHeartbeat({
+        visitorId,
+        durationSeconds: Number(durationSeconds || 0),
+        deltaSeconds: Number(deltaSeconds || 0),
+      });
+      return NextResponse.json({ ok: true, heartbeat: true }, { status: 200 });
+    }
+
+    // 5. Validate path (starts with "/", max 200 chars)
     if (
       !path ||
       typeof path !== 'string' ||
@@ -63,7 +79,7 @@ export async function POST(req) {
       return NextResponse.json({ ok: false, error: 'invalid_path' }, { status: 200 });
     }
 
-    // 5. Ignore /admin, /api, and static paths
+    // 6. Ignore /admin, /api, and static paths
     if (
       path.startsWith('/admin') ||
       path.startsWith('/api') ||
@@ -75,14 +91,14 @@ export async function POST(req) {
       return NextResponse.json({ ok: true, ignored: 'internal_or_static' }, { status: 200 });
     }
 
-    // 6. Optional: extract country from x-vercel-ip-country header
+    // 7. Optional country detection from edge headers
     const country =
       req.headers.get('x-vercel-ip-country') ||
       req.headers.get('cf-ipcountry') ||
       'Unknown';
 
-    // 7. Execute tracking hit (handles per-visitor rate limit & single pipeline)
-    const result = await recordVisitorHit({ visitorId, path, country });
+    // 8. Record visitor hit with device classification
+    const result = await recordVisitorHit({ visitorId, path, country, userAgent });
     return NextResponse.json({ ok: true, ...result }, { status: 200 });
   } catch (err) {
     // Always return 200 quickly and never throw to the client

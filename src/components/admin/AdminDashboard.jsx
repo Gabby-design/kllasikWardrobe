@@ -670,29 +670,186 @@ export function AdminDashboard({
     });
   };
 
+  // Instant client-side palette extractor using HTML5 canvas
+  const extractPaletteFromImageFile = (file) => {
+    return new Promise((resolve) => {
+      if (!file || typeof window === 'undefined') return resolve([]);
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.crossOrigin = 'anonymous';
+
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        try {
+          const canvas = document.createElement('canvas');
+          const sampleSize = 100;
+          canvas.width = sampleSize;
+          canvas.height = sampleSize;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (!ctx) return resolve([]);
+
+          ctx.drawImage(img, 0, 0, sampleSize, sampleSize);
+          const imgData = ctx.getImageData(0, 0, sampleSize, sampleSize).data;
+
+          const getRegionAvg = (xStart, xEnd) => {
+            let r = 0, g = 0, b = 0, count = 0;
+            for (let y = 0; y < sampleSize; y += 2) {
+              for (let x = xStart; x < xEnd; x += 2) {
+                const idx = (y * sampleSize + x) * 4;
+                const red = imgData[idx];
+                const green = imgData[idx + 1];
+                const blue = imgData[idx + 2];
+                const alpha = imgData[idx + 3];
+                // Exclude pure white / blown out backgrounds
+                if (alpha > 128 && !(red > 245 && green > 245 && blue > 245)) {
+                  r += red;
+                  g += green;
+                  b += blue;
+                  count++;
+                }
+              }
+            }
+            if (count === 0) return null;
+            return {
+              r: Math.round(r / count),
+              g: Math.round(g / count),
+              b: Math.round(b / count),
+            };
+          };
+
+          const fullAvg = getRegionAvg(0, sampleSize);
+          const leftAvg = getRegionAvg(0, Math.floor(sampleSize * 0.48));
+          const rightAvg = getRegionAvg(Math.floor(sampleSize * 0.52), sampleSize);
+
+          const rgbToHex = (r, g, b) =>
+            '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+          const nameColor = (r, g, b) => {
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            if (brightness < 45) return 'Obsidian Black';
+            if (brightness > 225) return 'Pure White';
+            if (brightness > 195 && r > g && g > b) return 'Cream Off-White';
+            if (r > 130 && g < 85 && b < 85) return 'Burgundy Red';
+            if (b > 120 && b > r && b > g) return 'Navy Blue';
+            if (g > 100 && g > r && g > b) return 'Olive Green';
+            if (r > 120 && g > 100 && b < 85) return 'Sand Khaki';
+            if (Math.abs(r - g) < 18 && Math.abs(g - b) < 18)
+              return brightness < 110 ? 'Washed Charcoal' : 'Heather Grey';
+            return 'Custom Color';
+          };
+
+          const colors = [];
+          if (leftAvg && rightAvg) {
+            const dist = Math.hypot(leftAvg.r - rightAvg.r, leftAvg.g - rightAvg.g, leftAvg.b - rightAvg.b);
+            if (dist > 45) {
+              colors.push({
+                name: nameColor(leftAvg.r, leftAvg.g, leftAvg.b),
+                hex: rgbToHex(leftAvg.r, leftAvg.g, leftAvg.b),
+                image: '',
+              });
+              colors.push({
+                name: nameColor(rightAvg.r, rightAvg.g, rightAvg.b),
+                hex: rgbToHex(rightAvg.r, rightAvg.g, rightAvg.b),
+                image: '',
+              });
+              return resolve(colors);
+            }
+          }
+
+          if (fullAvg) {
+            colors.push({
+              name: nameColor(fullAvg.r, fullAvg.g, fullAvg.b),
+              hex: rgbToHex(fullAvg.r, fullAvg.g, fullAvg.b),
+              image: '',
+            });
+          }
+          resolve(colors);
+        } catch {
+          resolve([]);
+        }
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve([]);
+      };
+
+      img.src = objectUrl;
+    });
+  };
+
   // AI Garment Analysis Engine for New Product Form
-  const analyzeGarmentWithAi = async (file, imageUrl) => {
+  const analyzeGarmentWithAi = async (filesOrFile, imageUrl) => {
     setIsAnalyzingAi(true);
     try {
-      let base64 = null;
-      if (file) {
+      const files = Array.isArray(filesOrFile)
+        ? filesOrFile.filter(Boolean)
+        : filesOrFile
+        ? [filesOrFile]
+        : [];
+
+      // 1. Instant client-side color extraction for immediate swatches
+      const localColors = [];
+      for (const f of files.slice(0, 4)) {
         try {
-          const dataUrl = await fileToDataUrl(file);
-          if (typeof dataUrl === 'string') {
-            base64 = dataUrl.split(',')[1] || null;
+          const pal = await extractPaletteFromImageFile(f);
+          localColors.push(...pal);
+        } catch {}
+      }
+
+      if (localColors.length > 0) {
+        setNewProductColors((prev) => {
+          const isDefault =
+            prev.length <= 1 &&
+            (prev[0]?.name === 'Obsidian Black' || prev[0]?.hex === '#111111');
+          if (isDefault) {
+            const unique = [];
+            const seen = new Set();
+            for (const c of localColors) {
+              const h = (c.hex || '').toLowerCase();
+              if (!seen.has(h)) {
+                seen.add(h);
+                unique.push(c);
+              }
+            }
+            return unique.length > 0 ? unique : prev;
+          }
+          return prev;
+        });
+      }
+
+      // 2. Pre-compress each file to 1024px before base64 to avoid Vercel 4.5MB payload limit
+      const imagesPayload = [];
+      for (const f of files.slice(0, 4)) {
+        try {
+          const optimized = await resizeImageForUpload(f, 1024, 0.8);
+          const dataUrl = await fileToDataUrl(optimized);
+          if (typeof dataUrl === 'string' && dataUrl.includes(',')) {
+            const base64 = dataUrl.split(',')[1];
+            imagesPayload.push({
+              name: f.name || 'product_photo.jpg',
+              mimeType: 'image/jpeg',
+              base64,
+            });
           }
         } catch {}
       }
+
+      const primaryFile = files[0];
+      const primaryBase64 = imagesPayload[0]?.base64 || null;
 
       const res = await fetch('/api/admin/analyze-product', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageUrl: imageUrl || undefined,
-          fileName: file?.name || undefined,
-          mimeType: file?.type || 'image/jpeg',
-          base64: base64 || undefined,
-          customApiKey: (typeof window !== 'undefined' ? localStorage.getItem('klasik_gemini_api_key') : null) || undefined,
+          fileName: primaryFile?.name || undefined,
+          mimeType: 'image/jpeg',
+          base64: primaryBase64 || undefined,
+          images: imagesPayload.length > 0 ? imagesPayload : undefined,
+          customApiKey:
+            (typeof window !== 'undefined' ? localStorage.getItem('klasik_gemini_api_key') : null) ||
+            undefined,
         }),
       });
 
@@ -712,24 +869,40 @@ export function AdminDashboard({
           if (a.fit) setFit(a.fit);
           if (a.description) setDescription(a.description);
           if (Array.isArray(a.sizes) && a.sizes.length > 0) setSizes(a.sizes);
+
           if (Array.isArray(a.colors) && a.colors.length > 0) {
-            setNewProductColors(
-              a.colors.map((c) => ({
-                name: c.name || 'Custom Color',
-                hex: c.hex || '#111111',
-                image: '',
-              }))
-            );
+            const aiMapped = a.colors.map((c) => ({
+              name: c.name || 'Custom Color',
+              hex: c.hex || '#111111',
+              image: '',
+            }));
+
+            setNewProductColors((prev) => {
+              const isDefault =
+                prev.length <= 1 &&
+                (prev[0]?.name === 'Obsidian Black' || prev[0]?.hex === '#111111');
+              if (isDefault) return aiMapped;
+              const seen = new Set(prev.map((p) => (p.hex || '').toLowerCase()));
+              const fresh = aiMapped.filter((c) => !seen.has((c.hex || '').toLowerCase()));
+              return [...prev, ...fresh];
+            });
           }
+
           setAiAnalysisNotice({
             category: a.category,
             title: a.title,
             source: data.source,
           });
-          const colorNotice = Array.isArray(a.colors) && a.colors.length > 1
-            ? ` (${a.colors.length} colors: ${a.colors.map((c) => c.name).join(', ')})`
-            : '';
-          toast.success(`✨ AI Identified Garment: ${a.category}${colorNotice}! Details auto-filled.`, { duration: 4500 });
+
+          const colorCount = Array.isArray(a.colors) ? a.colors.length : 1;
+          const colorListStr =
+            Array.isArray(a.colors) && a.colors.length > 1
+              ? ` (${colorCount} colors: ${a.colors.map((c) => c.name).join(', ')})`
+              : '';
+          toast.success(
+            `AI Identified Garment: ${a.category}${colorListStr}! Form auto-populated.`,
+            { duration: 5000 }
+          );
         }
       }
     } catch (err) {
@@ -740,28 +913,45 @@ export function AdminDashboard({
   };
 
   // AI Garment Analysis Engine for Edit Product Modal
-  const analyzeEditGarmentWithAi = async (imageUrl, file) => {
+  const analyzeEditGarmentWithAi = async (imageUrl, filesOrFile) => {
     setEditIsAnalyzingAi(true);
     try {
-      let base64 = null;
-      if (file) {
+      const files = Array.isArray(filesOrFile)
+        ? filesOrFile.filter(Boolean)
+        : filesOrFile
+        ? [filesOrFile]
+        : [];
+
+      const imagesPayload = [];
+      for (const f of files.slice(0, 4)) {
         try {
-          const dataUrl = await fileToDataUrl(file);
-          if (typeof dataUrl === 'string') {
-            base64 = dataUrl.split(',')[1] || null;
+          const optimized = await resizeImageForUpload(f, 1024, 0.8);
+          const dataUrl = await fileToDataUrl(optimized);
+          if (typeof dataUrl === 'string' && dataUrl.includes(',')) {
+            imagesPayload.push({
+              name: f.name || 'edit_photo.jpg',
+              mimeType: 'image/jpeg',
+              base64: dataUrl.split(',')[1],
+            });
           }
         } catch {}
       }
+
+      const primaryFile = files[0];
+      const primaryBase64 = imagesPayload[0]?.base64 || null;
 
       const res = await fetch('/api/admin/analyze-product', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageUrl: imageUrl || undefined,
-          fileName: file?.name || undefined,
-          mimeType: file?.type || 'image/jpeg',
-          base64: base64 || undefined,
-          customApiKey: (typeof window !== 'undefined' ? localStorage.getItem('klasik_gemini_api_key') : null) || undefined,
+          fileName: primaryFile?.name || undefined,
+          mimeType: 'image/jpeg',
+          base64: primaryBase64 || undefined,
+          images: imagesPayload.length > 0 ? imagesPayload : undefined,
+          customApiKey:
+            (typeof window !== 'undefined' ? localStorage.getItem('klasik_gemini_api_key') : null) ||
+            undefined,
         }),
       });
 
@@ -775,23 +965,39 @@ export function AdminDashboard({
           if (a.tag) setEditTag(a.tag);
           if (a.description) setEditDescription(a.description);
           if (Array.isArray(a.sizes) && a.sizes.length > 0) setEditSizes(a.sizes);
+
           if (Array.isArray(a.colors) && a.colors.length > 0) {
-            setEditColors(
-              a.colors.map((c) => ({
-                name: c.name || 'Custom Color',
-                hex: c.hex || '#111111',
-                image: '',
-              }))
-            );
+            const aiMapped = a.colors.map((c) => ({
+              name: c.name || 'Custom Color',
+              hex: c.hex || '#111111',
+              image: '',
+            }));
+
+            setEditColors((prev) => {
+              const isDefault =
+                prev.length <= 1 &&
+                (prev[0]?.name === 'Obsidian Black' || prev[0]?.hex === '#111111');
+              if (isDefault) return aiMapped;
+              const seen = new Set(prev.map((p) => (p.hex || '').toLowerCase()));
+              const fresh = aiMapped.filter((c) => !seen.has((c.hex || '').toLowerCase()));
+              return [...prev, ...fresh];
+            });
           }
+
           setEditAiNotice({
             category: a.category,
             title: a.title,
           });
-          const editColorNotice = Array.isArray(a.colors) && a.colors.length > 1
-            ? ` (${a.colors.length} colors: ${a.colors.map((c) => c.name).join(', ')})`
-            : '';
-          toast.success(`✨ AI Re-Identified: ${a.category}${editColorNotice}! Modal updated.`, { duration: 4000 });
+
+          const editColorCount = Array.isArray(a.colors) ? a.colors.length : 1;
+          const editColorStr =
+            Array.isArray(a.colors) && a.colors.length > 1
+              ? ` (${editColorCount} colors: ${a.colors.map((c) => c.name).join(', ')})`
+              : '';
+          toast.success(
+            `AI Re-Identified: ${a.category}${editColorStr}! Modal updated.`,
+            { duration: 4000 }
+          );
         }
       }
     } catch (err) {
@@ -832,8 +1038,6 @@ export function AdminDashboard({
             };
           })
         );
-        // Automatically trigger AI analysis on first uploaded product photo
-        analyzeGarmentWithAi(file, data.url);
         return { success: true, url: data.url };
       } else {
         const errMsg = data?.error || (res.status === 413 ? 'Image exceeds maximum file size' : 'Server failed to save image to storage');
@@ -870,8 +1074,8 @@ export function AdminDashboard({
     const validFiles = Array.from(files || []).filter((f) => f && f.type && f.type.startsWith('image/'));
     if (validFiles.length === 0) return;
 
-    // Trigger AI analysis on first selected photo immediately in parallel
-    analyzeGarmentWithAi(validFiles[0], null);
+    // Trigger AI analysis on all selected photos concurrently (multi-image & multi-colorway extraction)
+    analyzeGarmentWithAi(validFiles, null);
 
     const newItems = validFiles.map((file) => {
       const previewUrl = URL.createObjectURL(file);
@@ -2165,15 +2369,36 @@ export function AdminDashboard({
 
               {/* Available Colors Manager */}
               <div className="bg-[#F7F7F8] rounded-[20px] p-4 sm:p-5 border border-black/[0.04] space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div>
-                    <label className="text-xs font-bold text-[#111111] block">
-                      Available Colors ({newProductColors.length}) *
+                    <label className="text-xs font-bold text-[#111111] flex items-center gap-2">
+                      <span>Available Colors ({newProductColors.length})</span>
+                      <span className="text-[10px] bg-purple-100 text-purple-700 font-bold px-2 py-0.5 rounded-full">
+                        {newProductColors.length > 1 ? 'Multiple Colorways Active' : 'Single Colorway'}
+                      </span>
                     </label>
                     <span className="text-[11px] text-gray-500">
-                      Add colorways available for this product with exact swatch hex codes.
+                      Add each and every colorway for this piece. Customers can select between all of these colors on the live store.
                     </span>
                   </div>
+                  <button
+                    type="button"
+                    disabled={isAnalyzingAi}
+                    onClick={async () => {
+                      const files = newProductImages.map((img) => img.file).filter(Boolean);
+                      const urls = newProductImages.map((img) => img.finalUrl || img.previewUrl).filter(Boolean);
+                      if (files.length === 0 && urls.length === 0) {
+                        toast.error('Please upload product photos first to auto-detect colors.');
+                        return;
+                      }
+                      await analyzeGarmentWithAi(files.length > 0 ? files : null, urls[0] || null);
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#7C3AED] bg-[#EDE9FE] hover:bg-[#DDD6FE] px-3.5 py-1.5 rounded-full transition-all border border-[#7C3AED]/20 cursor-pointer disabled:opacity-50 self-start sm:self-auto shadow-xs"
+                    title="Scan uploaded photos to automatically extract and populate all product colorways"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${isAnalyzingAi ? 'animate-spin' : ''}`} />
+                    <span>{isAnalyzingAi ? 'Scanning Photos for Colors...' : 'Auto-Detect Colors from Photos'}</span>
+                  </button>
                 </div>
 
                 {/* List of currently added colors */}
@@ -2331,7 +2556,7 @@ export function AdminDashboard({
                               title="Analyze active photo with AI to detect category, title, colors, and specs"
                             >
                               <Sparkles className={`w-3.5 h-3.5 ${isAnalyzingAi ? 'animate-spin' : ''}`} />
-                              <span>{isAnalyzingAi ? 'Analyzing Piece...' : '✨ AI Auto-Detect'}</span>
+                              <span>{isAnalyzingAi ? 'Analyzing Piece...' : 'AI Auto-Detect'}</span>
                             </button>
                           )}
                           <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all">
@@ -3964,15 +4189,36 @@ export function AdminDashboard({
 
               {/* Available Colors & Photo Angle Mapping */}
               <div className="bg-[#F7F7F8] rounded-[22px] p-4 sm:p-5 border border-black/[0.04] space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div>
-                    <label className="text-xs font-bold text-[#111111] block">
-                      Available Colors &amp; Photo Mapping ({editColors.length}) *
+                    <label className="text-xs font-bold text-[#111111] flex items-center gap-2">
+                      <span>Available Colors &amp; Photo Mapping ({editColors.length})</span>
+                      <span className="text-[10px] bg-purple-100 text-purple-700 font-bold px-2 py-0.5 rounded-full">
+                        {editColors.length > 1 ? 'Multiple Colorways Active' : 'Single Colorway'}
+                      </span>
                     </label>
                     <span className="text-[11px] text-gray-500">
-                      Configure colors available for this product and link each color to its corresponding photo angle.
+                      Configure each colorway for this piece and link each color to its corresponding photo angle.
                     </span>
                   </div>
+                  <button
+                    type="button"
+                    disabled={editIsAnalyzingAi}
+                    onClick={async () => {
+                      const files = editImages.map((img) => img.file).filter(Boolean);
+                      const urls = editImages.map((img) => img.finalUrl || img.previewUrl).filter(Boolean);
+                      if (files.length === 0 && urls.length === 0) {
+                        toast.error('Please upload or select product photos first to auto-detect colors.');
+                        return;
+                      }
+                      await analyzeEditGarmentWithAi(urls[0] || null, files.length > 0 ? files : null);
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#7C3AED] bg-[#EDE9FE] hover:bg-[#DDD6FE] px-3.5 py-1.5 rounded-full transition-all border border-[#7C3AED]/20 cursor-pointer disabled:opacity-50 self-start sm:self-auto shadow-xs"
+                    title="Scan uploaded photos to automatically extract and populate all product colorways"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${editIsAnalyzingAi ? 'animate-spin' : ''}`} />
+                    <span>{editIsAnalyzingAi ? 'Scanning Photos for Colors...' : 'Auto-Detect Colors from Photos'}</span>
+                  </button>
                 </div>
 
                 {/* List of current colors */}
@@ -4230,7 +4476,7 @@ export function AdminDashboard({
                               title="Analyze active photo to auto-detect category, title, colors, and specs"
                             >
                               <Sparkles className={`w-3.5 h-3.5 ${editIsAnalyzingAi ? 'animate-spin' : ''}`} />
-                              <span>{editIsAnalyzingAi ? 'Analyzing Piece...' : '✨ AI Auto-Detect'}</span>
+                              <span>{editIsAnalyzingAi ? 'Analyzing Piece...' : 'AI Auto-Detect'}</span>
                             </button>
                           )}
                           <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all">

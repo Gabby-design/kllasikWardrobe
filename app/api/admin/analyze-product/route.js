@@ -65,33 +65,58 @@ export async function POST(request) {
 
     let aiResult = null;
 
-    if (apiKey && (imageUrl || body.base64)) {
-      try {
-        let base64Data = body.base64;
-        let mime = mimeType || 'image/jpeg';
+    const imageParts = [];
 
-        // Fetch image bytes if URL provided and base64 not provided
-        if (!base64Data && imageUrl && !imageUrl.startsWith('blob:') && !imageUrl.startsWith('data:')) {
+    if (Array.isArray(body.images) && body.images.length > 0) {
+      for (const item of body.images.slice(0, 4)) {
+        let b64 = item?.base64;
+        let m = item?.mimeType || 'image/jpeg';
+        if (!b64 && item?.url && !item.url.startsWith('blob:') && !item.url.startsWith('data:')) {
+          try {
+            const fetchImg = await fetch(item.url);
+            if (fetchImg.ok) {
+              const buf = await fetchImg.arrayBuffer();
+              b64 = Buffer.from(buf).toString('base64');
+              m = fetchImg.headers.get('content-type') || m;
+            }
+          } catch {}
+        }
+        if (b64) {
+          imageParts.push({ inlineData: { mimeType: m, data: b64 } });
+        }
+      }
+    } else if (body.base64 || imageUrl) {
+      let b64 = body.base64;
+      let m = mimeType || 'image/jpeg';
+      if (!b64 && imageUrl && !imageUrl.startsWith('blob:') && !imageUrl.startsWith('data:')) {
+        try {
           const fetchImg = await fetch(imageUrl);
           if (fetchImg.ok) {
             const buf = await fetchImg.arrayBuffer();
-            base64Data = Buffer.from(buf).toString('base64');
-            mime = fetchImg.headers.get('content-type') || mime;
+            b64 = Buffer.from(buf).toString('base64');
+            m = fetchImg.headers.get('content-type') || m;
           }
-        }
+        } catch {}
+      }
+      if (b64) {
+        imageParts.push({ inlineData: { mimeType: m, data: b64 } });
+      }
+    }
 
-        if (base64Data) {
-          const prompt = `You are an elite luxury streetwear fashion director and AI product specialist for "Klasik Wardrobe" (Nigeria).
+    if (apiKey && imageParts.length > 0) {
+      try {
+        const prompt = `You are an elite luxury streetwear fashion director and AI product specialist for "Klasik Wardrobe" (Nigeria).
 Deeply analyze this garment image with extreme precision:
 
 1. Multi-Product & Multi-Colorway Detection (CRITICAL MANDATORY REQUIREMENT):
-   - Inspect the entire photo frame carefully: Does this photo display TWO (or more) products or colorways (e.g. 2 shirts, 2 tees, 2 hoodies, 2 long-sleeves, or 2 pants displayed side-by-side, folded together, or hanging side-by-side in different colors)?
-   - If two or more garments/colorways are shown in the image:
-     - Recognize that multiple products/colorways are present in the photo.
+   - Inspect all provided images and the entire photo frame carefully:
+   - Does this photo / set of photos display MULTIPLE products, garments, or colorways (e.g. 2 shirts, 2 tees, 2 hoodies, 2 long-sleeves, or 2 pants displayed side-by-side, folded together, or across the different uploaded angles/shots)?
+   - If multiple garments or multiple colorways are shown:
+     - Recognize that multiple products/colorways are present.
      - They are normally colorway variants of the same product line.
      - YOU MUST EXTRACT AND INCLUDE EVERY DISTINCT GARMENT COLORWAY in the "colors" array!
      - Do NOT just add only one color! If there are two colors, YOU MUST ADD THE TWO DIFFERENT COLORS (e.g. [{"name": "Obsidian Black", "hex": "#111111"}, {"name": "Pure White", "hex": "#FAFAFA"}]).
-     - NEVER return only one single color if two different colored products or two garments are visible in the photo!
+     - NEVER return only one single color if two different colored products, two garments, or multiple colorway variants are visible!
    - If only one garment is shown, still provide all dominant and contrast/accent colors of the piece.
 
 2. Text, Numbers & Print Recognition:
@@ -144,56 +169,64 @@ Return ONLY a valid JSON object (no markdown code blocks, no explanation):
   ]
 }`;
 
-          // Cascade across models with separate quota pools
-          const models = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'];
-          for (const model of models) {
-            try {
-              const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-              const aiRes = await fetch(geminiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  contents: [
-                    {
-                      parts: [
-                        { text: prompt },
-                        {
-                          inlineData: {
-                            mimeType: mime,
-                            data: base64Data,
-                          },
-                        },
-                      ],
-                    },
-                  ],
-                  generationConfig: {
-                    responseMimeType: 'application/json',
-                    temperature: 0.15,
+        // Cascade across models with separate quota pools (starting with highest availability)
+        const models = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3.6-flash', 'gemini-3.8-flash'];
+        for (const model of models) {
+          try {
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+            const aiRes = await fetch(geminiUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [
+                      { text: prompt },
+                      ...imageParts,
+                    ],
                   },
-                }),
-              });
+                ],
+                generationConfig: {
+                  responseMimeType: 'application/json',
+                  temperature: 0.15,
+                },
+              }),
+            });
 
-              if (aiRes.ok) {
-                const aiData = await aiRes.json();
-                const rawText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (rawText) {
-                  const cleanText = rawText.replace(/```json\s*|\s*```/g, '').trim();
-                  aiResult = JSON.parse(cleanText);
-                  if (aiResult?.price && typeof aiResult.price === 'string') {
-                    aiResult.price = parseInt(aiResult.price.replace(/[^0-9]/g, ''), 10) || 35000;
-                  }
-                  if (Array.isArray(aiResult?.colors) && aiResult.colors.length > 0) {
-                    aiResult.colors = aiResult.colors.map((c) => ({
-                      name: String(c.name || 'Custom Color').trim(),
-                      hex: String(c.hex || '#111111').trim(),
-                    }));
-                  }
-                  break;
+            if (aiRes.ok) {
+              const aiData = await aiRes.json();
+              const candidate = aiData?.candidates?.[0];
+              const parts = candidate?.content?.parts || [];
+              const textPart = [...parts].reverse().find((p) => p.text && !p.thought) || parts.find((p) => p.text);
+              const rawText = textPart?.text;
+
+              if (rawText) {
+                const cleanText = rawText.replace(/```json\s*|\s*```/g, '').trim();
+                const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+                const jsonToParse = jsonMatch ? jsonMatch[0] : cleanText;
+                aiResult = JSON.parse(jsonToParse);
+                if (aiResult?.price && typeof aiResult.price === 'string') {
+                  aiResult.price = parseInt(aiResult.price.replace(/[^0-9]/g, ''), 10) || 35000;
                 }
+                if (Array.isArray(aiResult?.colors) && aiResult.colors.length > 0) {
+                  aiResult.colors = aiResult.colors.map((c) => ({
+                    name: String(c.name || 'Custom Color').trim(),
+                    hex: String(c.hex || '#111111').trim(),
+                  }));
+                }
+                // Multi-image safeguard: if multiple photos uploaded but only 1 color returned, ensure distinct colorway added
+                if (imageParts.length > 1 && aiResult?.colors && aiResult.colors.length === 1) {
+                  const firstColor = (aiResult.colors[0]?.name || '').toLowerCase();
+                  aiResult.colors.push({
+                    name: firstColor.includes('black') ? 'Bone Off-White' : 'Obsidian Black',
+                    hex: firstColor.includes('black') ? '#F4F1EA' : '#111111',
+                  });
+                }
+                break;
               }
-            } catch (mErr) {
-              console.warn(`[Analyze API] Model ${model} retry:`, mErr.message);
             }
+          } catch (mErr) {
+            console.warn(`[Analyze API] Model ${model} retry:`, mErr.message);
           }
         }
       } catch (geminiErr) {
@@ -277,12 +310,21 @@ Return ONLY a valid JSON object (no markdown code blocks, no explanation):
         colors = [{ name: 'Raw Indigo', hex: '#1e3a8a' }, { name: 'Washed Black', hex: '#262626' }];
       }
 
+      const allNames = [
+        fileName,
+        imageUrl,
+        ...(Array.isArray(body.images) ? body.images.map((im) => im?.name || im?.url) : []),
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      const hasMultiImages = (Array.isArray(body.images) && body.images.length > 1) || imageParts.length > 1;
+
       if (
-        nameLower.includes('dual') ||
-        nameLower.includes('2-pack') ||
-        nameLower.includes('pair') ||
-        nameLower.includes('both') ||
-        (nameLower.includes('black') && (nameLower.includes('white') || nameLower.includes('cream') || nameLower.includes('grey') || nameLower.includes('gray')))
+        hasMultiImages ||
+        allNames.includes('dual') ||
+        allNames.includes('2-pack') ||
+        allNames.includes('pair') ||
+        allNames.includes('both') ||
+        (allNames.includes('black') && (allNames.includes('white') || allNames.includes('cream') || allNames.includes('grey') || allNames.includes('gray')))
       ) {
         tag = 'Dual Colorway';
         if (colors.length < 2) {
@@ -290,6 +332,9 @@ Return ONLY a valid JSON object (no markdown code blocks, no explanation):
             { name: 'Obsidian Black', hex: '#111111' },
             { name: 'Cream Off-White', hex: '#F4F1EA' },
           ];
+        }
+        if ((Array.isArray(body.images) && body.images.length >= 3) || imageParts.length >= 3) {
+          colors.push({ name: 'Heather Grey', hex: '#9CA3AF' });
         }
       }
 

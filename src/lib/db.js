@@ -126,7 +126,16 @@ export async function ensureHashSeeded(redis) {
     }
   } else {
     // Seed new products into existing Redis if not present yet
-    const newProductKeys = ['kwt-jeans-03', 'kwt-jeans-04', 'kwt-cargo-01'];
+    const newProductKeys = [
+      'kwt-jeans-03',
+      'kwt-jeans-04',
+      'kwt-cargo-01',
+      'kwt-cargo-02',
+      'kwt-cargo-03',
+      'kwt-tee-08',
+      'kwt-tee-09',
+      'kwt-tee-10',
+    ];
     for (const id of newProductKeys) {
       try {
         const existing = await redis.hget(REDIS_HASH_KEY, id);

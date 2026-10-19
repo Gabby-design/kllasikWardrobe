@@ -17,15 +17,21 @@ import { verifyAdminSessionToken } from '../../../../src/lib/auth';
 const MAX_FILE_SIZE = 4.5 * 1024 * 1024; // 4.5MB Vercel Serverless payload limit
 const VALID_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 
-async function isAdminAuthorized() {
+async function isAdminAuthorized(request) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('admin_auth')?.value;
-    return Boolean(verifyAdminSessionToken(token));
+    if (token && verifyAdminSessionToken(token)) return true;
   } catch (err) {
     console.error('[Upload API] Error inspecting admin auth cookie:', err);
-    return false;
   }
+
+  const authHeader = request?.headers?.get?.('authorization') || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.slice(7).trim();
+    if (verifyAdminSessionToken(bearer)) return true;
+  }
+  return false;
 }
 
 function getBlobToken() {
@@ -116,7 +122,7 @@ async function processSingleFile(file, blobToken) {
 
 export async function POST(request) {
   try {
-    const isAuthorized = await isAdminAuthorized();
+    const isAuthorized = await isAdminAuthorized(request);
     if (!isAuthorized) {
       console.error('[Upload API] 401 Unauthorized: Admin session token missing or invalid');
       return NextResponse.json(

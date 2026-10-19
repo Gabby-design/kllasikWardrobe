@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -280,6 +280,23 @@ export function AdminDashboard({
   const [repairReport, setRepairReport] = useState(null);
   const [showRepairModal, setShowRepairModal] = useState(false);
 
+  // Inventory Category Filter State
+  const [adminCategoryFilter, setAdminCategoryFilter] = useState('ALL');
+
+  // Dynamically derived list of categories present across all products in store
+  const existingCategories = useMemo(() => {
+    const defaultList = ['T-Shirts', 'Jeans', 'Cargo Pants', 'Short Jeans', 'Beach Pants'];
+    const set = new Set(defaultList);
+    if (Array.isArray(products)) {
+      products.forEach((p) => {
+        if (p.category && typeof p.category === 'string' && p.category.trim()) {
+          set.add(p.category.trim());
+        }
+      });
+    }
+    return Array.from(set);
+  }, [products]);
+
   // Form State (New Product)
   const [categoryPreset, setCategoryPreset] = useState('T-Shirts');
   const [title, setTitle] = useState('');
@@ -389,6 +406,14 @@ export function AdminDashboard({
       setFit('Relaxed Straight Leg');
       defaultImg = '/images/jeans-raw-indigo.jpg';
       defaultDesc = 'Crafted from 14.5oz Japanese shuttle-loom selvedge denim. Features relaxed straight drape and antique brass hardware.';
+    } else if (cat === 'Cargo Pants') {
+      setPrice(45000);
+      setTag('Tactical Drop');
+      setGsm('280 GSM Combat Cotton Twill');
+      setMaterial('100% Military Grade Cotton Twill');
+      setFit('Relaxed Straight-Leg Cargo');
+      defaultImg = '/images/cargo-pants-tactical-black.png';
+      defaultDesc = 'Constructed from high-density 280 GSM military twill cotton with dual deep bellow cargo flap pockets and reinforced knee panels.';
     } else if (cat === 'Short Jeans') {
       setPrice(45000);
       setTag('Vintage Jorts');
@@ -405,6 +430,9 @@ export function AdminDashboard({
       setFit('Relaxed Wide-Leg Flow');
       defaultImg = '/images/beach-pants-linen.jpg';
       defaultDesc = 'Tailored from 240 GSM pure European flax linen with elasticated drawstring waistband and breathable flowy silhouette.';
+    } else {
+      defaultDesc = description || `Crafted with custom ${cat} streetwear tailoring and premium heavyweight finishing.`;
+      defaultImg = newProductImages[0]?.previewUrl || '/images/hero-tee-black.png';
     }
     setDescription(defaultDesc);
     setNewProductImages([
@@ -1647,16 +1675,21 @@ export function AdminDashboard({
               
               {/* Product Category Quick Presets */}
               <div>
-                <label className="text-xs font-bold text-gray-700 block mb-2">
-                  Select Product Category Preset *
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-gray-700">
+                    Product Category Presets & Quick Templates *
+                  </label>
+                  <span className="text-[11px] text-gray-400 font-medium">
+                    Select preset or enter custom below
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
                   <button
                     type="button"
                     onClick={() => handleCategorySelect('T-Shirts')}
                     className={`p-3 rounded-[16px] border text-left transition-all cursor-pointer ${
-                      categoryPreset === 'T-Shirts'
-                        ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs'
+                      categoryPreset === 'T-Shirts' && category === 'T-Shirts'
+                        ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs ring-1 ring-[#7C3AED]/30'
                         : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
                     }`}
                   >
@@ -1669,8 +1702,8 @@ export function AdminDashboard({
                     type="button"
                     onClick={() => handleCategorySelect('Jeans')}
                     className={`p-3 rounded-[16px] border text-left transition-all cursor-pointer ${
-                      categoryPreset === 'Jeans'
-                        ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs'
+                      categoryPreset === 'Jeans' && category === 'Jeans'
+                        ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs ring-1 ring-[#7C3AED]/30'
                         : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
                     }`}
                   >
@@ -1681,10 +1714,24 @@ export function AdminDashboard({
 
                   <button
                     type="button"
+                    onClick={() => handleCategorySelect('Cargo Pants')}
+                    className={`p-3 rounded-[16px] border text-left transition-all cursor-pointer ${
+                      categoryPreset === 'Cargo Pants' && category === 'Cargo Pants'
+                        ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs ring-1 ring-[#7C3AED]/30'
+                        : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-[10px] font-bold text-gray-500 block uppercase">Cargo Pants</span>
+                    <strong className="text-sm font-bold text-[#7C3AED] block">₦45,000</strong>
+                    <span className="text-[10px] text-gray-400">280 GSM Combat</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => handleCategorySelect('Short Jeans')}
                     className={`p-3 rounded-[16px] border text-left transition-all cursor-pointer ${
-                      categoryPreset === 'Short Jeans'
-                        ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs'
+                      categoryPreset === 'Short Jeans' && category === 'Short Jeans'
+                        ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs ring-1 ring-[#7C3AED]/30'
                         : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
                     }`}
                   >
@@ -1697,8 +1744,8 @@ export function AdminDashboard({
                     type="button"
                     onClick={() => handleCategorySelect('Beach Pants')}
                     className={`p-3 rounded-[16px] border text-left transition-all cursor-pointer ${
-                      categoryPreset === 'Beach Pants'
-                        ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs'
+                      categoryPreset === 'Beach Pants' && category === 'Beach Pants'
+                        ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs ring-1 ring-[#7C3AED]/30'
                         : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
                     }`}
                   >
@@ -1742,19 +1789,56 @@ export function AdminDashboard({
               {/* Category & Badge Tag */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">
-                    Collection Category *
-                  </label>
-                  <select
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-gray-700 block">
+                      Product Category *
+                    </label>
+                    <span className="text-[10px] text-[#7C3AED] font-semibold">
+                      Custom name or tap below
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    list="new-product-category-list"
+                    placeholder="e.g. Cargo Pants, Hoodies, Caps, Jackets..."
                     value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-2.5 text-xs text-[#111111] outline-none transition-all cursor-pointer"
-                  >
-                    <option value="T-Shirts">T-Shirts (Heavyweight Cotton)</option>
-                    <option value="Jeans">Jeans (Luxury Denim)</option>
-                    <option value="Short Jeans">Short Jeans (Vintage Denim Jorts)</option>
-                    <option value="Beach Pants">Beach Pants (Pure Linen)</option>
-                  </select>
+                    onChange={(e) => {
+                      setCategory(e.target.value);
+                      setCategoryPreset(e.target.value);
+                    }}
+                    className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-full px-4 py-2.5 text-xs text-[#111111] font-semibold outline-none transition-all"
+                  />
+                  <datalist id="new-product-category-list">
+                    {existingCategories.map((catName) => (
+                      <option key={catName} value={catName} />
+                    ))}
+                  </datalist>
+
+                  {/* Active / Available Category Suggestions */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    <span className="text-[10px] text-gray-400 font-medium mr-1">Existing:</span>
+                    {existingCategories.map((catName) => {
+                      const isSelected = category.toLowerCase().trim() === catName.toLowerCase().trim();
+                      return (
+                        <button
+                          key={catName}
+                          type="button"
+                          onClick={() => {
+                            setCategory(catName);
+                            setCategoryPreset(catName);
+                          }}
+                          className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#7C3AED] text-white border-[#7C3AED] shadow-xs'
+                              : 'bg-white text-gray-600 border-black/[0.08] hover:border-[#7C3AED] hover:text-[#7C3AED]'
+                          }`}
+                        >
+                          {catName}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>
@@ -2403,6 +2487,12 @@ export function AdminDashboard({
           if (inventoryFilter === 'sold-out' && stock !== 0) return false;
           if (inventoryFilter === 'in-stock' && stock <= 3) return false;
 
+          if (adminCategoryFilter !== 'ALL') {
+            if ((prod.category || '').toLowerCase().trim() !== adminCategoryFilter.toLowerCase().trim()) {
+              return false;
+            }
+          }
+
           if (catalogSearch.trim()) {
             const q = catalogSearch.toLowerCase();
             const titleMatch = (prod.title || '').toLowerCase().includes(q);
@@ -2512,6 +2602,43 @@ export function AdminDashboard({
               </div>
             </div>
 
+            {/* Category Filter Pills Row */}
+            <div className="bg-white rounded-[20px] p-3 border border-black/[0.04] flex items-center gap-2 overflow-x-auto scrollbar-none shadow-[0_4px_16px_rgba(17,17,17,0.02)]">
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider shrink-0 pl-1">
+                Category:
+              </span>
+              <button
+                type="button"
+                onClick={() => setAdminCategoryFilter('ALL')}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  adminCategoryFilter === 'ALL'
+                    ? 'bg-[#7C3AED] text-white shadow-xs'
+                    : 'bg-[#EDEDEF] text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All Categories ({products.length})
+              </button>
+              {existingCategories.map((cName) => {
+                const count = products.filter((p) => (p.category || '').toLowerCase().trim() === cName.toLowerCase().trim()).length;
+                if (count === 0) return null;
+                const isSelected = adminCategoryFilter.toLowerCase().trim() === cName.toLowerCase().trim();
+                return (
+                  <button
+                    key={cName}
+                    type="button"
+                    onClick={() => setAdminCategoryFilter(cName)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      isSelected
+                        ? 'bg-[#7C3AED] text-white shadow-xs'
+                        : 'bg-[#EDEDEF] text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {cName} ({count})
+                  </button>
+                );
+              })}
+            </div>
+
             {/* Products Grid */}
             {filteredCatalogProducts.length === 0 ? (
               <div className="bg-white rounded-[20px] p-12 text-center border border-black/[0.04]">
@@ -2522,9 +2649,10 @@ export function AdminDashboard({
                   type="button"
                   onClick={() => {
                     setInventoryFilter('all');
+                    setAdminCategoryFilter('ALL');
                     setCatalogSearch('');
                   }}
-                  className="mt-4 text-xs font-bold text-[#7C3AED] hover:underline"
+                  className="mt-4 text-xs font-bold text-[#7C3AED] hover:underline cursor-pointer"
                 >
                   Reset Filters
                 </button>
@@ -3455,20 +3583,50 @@ export function AdminDashboard({
               {/* Category & Tag */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1.5">
-                    Category
-                  </label>
-                  <select
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-gray-700 block">
+                      Category *
+                    </label>
+                    <span className="text-[10px] text-[#7C3AED] font-semibold">
+                      Custom name or tap pill
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    list="edit-product-category-list"
+                    placeholder="e.g. Cargo Pants, Hoodies, T-Shirts, Jeans..."
                     value={editCategory}
                     onChange={(e) => setEditCategory(e.target.value)}
-                    className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] px-4 py-3 text-xs sm:text-sm text-[#111111] outline-none transition-all font-semibold"
-                  >
-                    <option value="T-Shirts">T-Shirts</option>
-                    <option value="Jeans">Jeans</option>
-                    <option value="Beach Pants">Beach Pants</option>
-                    <option value="Shorts">Shorts</option>
-                    <option value="Tracksuits">Tracksuits</option>
-                  </select>
+                    className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] focus:ring-2 focus:ring-[#7C3AED]/20 rounded-[14px] px-4 py-3 text-xs sm:text-sm text-[#111111] outline-none transition-all font-semibold"
+                  />
+                  <datalist id="edit-product-category-list">
+                    {existingCategories.map((catName) => (
+                      <option key={catName} value={catName} />
+                    ))}
+                  </datalist>
+
+                  {/* Existing category pills for 1-tap switching */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    <span className="text-[10px] text-gray-400 font-medium mr-1">Existing:</span>
+                    {existingCategories.map((catName) => {
+                      const isSelected = editCategory.toLowerCase().trim() === catName.toLowerCase().trim();
+                      return (
+                        <button
+                          key={catName}
+                          type="button"
+                          onClick={() => setEditCategory(catName)}
+                          className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#7C3AED] text-white border-[#7C3AED] shadow-xs'
+                              : 'bg-white text-gray-600 border-black/[0.08] hover:border-[#7C3AED] hover:text-[#7C3AED]'
+                          }`}
+                        >
+                          {catName}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div>

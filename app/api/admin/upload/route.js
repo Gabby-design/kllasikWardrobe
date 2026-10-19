@@ -29,6 +29,9 @@ async function isAdminAuthorized() {
 }
 
 function getBlobToken() {
+  if (process.env.PUBLIC_BLOB_READ_WRITE_TOKEN?.trim()) {
+    return process.env.PUBLIC_BLOB_READ_WRITE_TOKEN.trim();
+  }
   if (process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
     return process.env.BLOB_READ_WRITE_TOKEN.trim();
   }
@@ -77,6 +80,9 @@ async function processSingleFile(file, blobToken) {
     } catch (blobErr) {
       console.error('[Upload API] Vercel Blob put error:', blobErr.message);
       if (process.env.VERCEL) {
+        if (blobErr.message?.includes('private access') || blobErr.message?.includes('private store')) {
+          throw new Error('Vercel Blob store is set to Private. Please connect the Public Blob store (kllasik-wardrobe-public) in Vercel settings.');
+        }
         throw new Error(`Cloud storage upload failed: ${blobErr.message}`);
       }
     }

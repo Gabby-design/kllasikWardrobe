@@ -14,19 +14,21 @@
 - Primary Accent: Purple `#7C3AED` / `#6D28D9` / `#EDE9FE`.
 - Background: `#F7F7F8` soft off-white, cards `#FFFFFF` rounded-3xl (`24px`), images `#EDEDEF` rounded-2xl (`20px`).
 - Catalog Database: Upstash Redis hash `klasik:products_v2` with read-back verification; no local `/tmp` or browser `localStorage` fallback storage.
+- Categories: Fully dynamic and free-form. Products have their own categories without static hardcoded constraints. Storefront dynamically computes filter pills; Admin creation and edit modals support free-text entry with autocomplete and 1-tap chips.
 
 ## Architecture
 
 - Framework: Next.js 16 with Turbopack, Tailwind CSS, Framer Motion, Zustand cart store, Lucide icons.
 - Database: Upstash Redis (`KV_REST_API_URL`, `KV_REST_API_TOKEN`) with atomic stock management and verified write read-back.
-- Media Storage: Vercel Blob (`BLOB_READ_WRITE_TOKEN`).
+- Media Storage: Vercel Blob Public Store (`kllasik-wardrobe-public`, `PUBLIC_BLOB_READ_WRITE_TOKEN` / `BLOB_READ_WRITE_TOKEN`).
 
 ## Features
 
 - Mobile sticky navbar with expandable search and bag count pill.
 - Floating mobile bottom navigation bar (`BottomNav`).
 - Hero carousel with auto-sliding, drag/touch swipe, and dot navigation.
-- 4-card category selector row and responsive product grid (2-column on mobile).
+- Dynamic category pills and responsive product grid (2-column on mobile, up to 5-column on desktop).
+- Admin dashboard catalog management with real-time category filtering and custom category creation/editing.
 - Shop The Look interactive colorway showcase with transparent cutouts.
 - Quick view modal and product detail page with 12px size chips and sticky floating mobile checkout bar.
 - Cart drawer with ₦70,000 free shipping progress meter and Paystack integration.

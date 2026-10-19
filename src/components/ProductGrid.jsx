@@ -151,6 +151,12 @@ export function ProductGrid({
       image: "/images/jeans-raw-indigo.jpg" 
     },
     { 
+      label: "Cargo Pants", 
+      value: "Cargo Pants", 
+      desc: "Tactical Combat Twill", 
+      image: "/images/cargo-pants-tactical-black.png" 
+    },
+    { 
       label: "Short Jeans", 
       value: "Short Jeans", 
       desc: "Denim Cutoff Jorts", 
@@ -183,8 +189,8 @@ export function ProductGrid({
             </Link>
           </div>
 
-          {/* 3 to 4 Rounded Category Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          {/* Rounded Category Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             {categoryCards.map((cat) => {
               const isActive = selectedCategory === cat.value;
               return (

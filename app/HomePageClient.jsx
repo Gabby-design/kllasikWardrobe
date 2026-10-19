@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useCartStore } from '../src/store/cartStore';
 import toast from 'react-hot-toast';
 import { QuickViewModal } from '../src/components/QuickViewModal';
@@ -192,13 +192,36 @@ export function HomePageClient({ initialProducts, initialError }) {
   const startIndex = (activePage - 1) * itemsPerPage;
   const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
 
-  const categories = [
-    { label: 'All Pieces', value: 'ALL' },
-    { label: 'T-Shirts', value: 'T-Shirts' },
-    { label: 'Jeans', value: 'Jeans' },
-    { label: 'Short Jeans', value: 'Short Jeans' },
-    { label: 'Beach Pants', value: 'Beach Pants' },
-  ];
+  const categories = useMemo(() => {
+    const defaultCategories = ['T-Shirts', 'Jeans', 'Cargo Pants', 'Short Jeans', 'Beach Pants'];
+    const dynamicSet = new Set();
+
+    if (Array.isArray(dbProducts)) {
+      dbProducts.forEach((p) => {
+        const cat = p.category?.trim();
+        if (cat) {
+          dynamicSet.add(cat);
+        }
+      });
+    }
+
+    const orderedCategories = [];
+    defaultCategories.forEach((preset) => {
+      const found = Array.from(dynamicSet).find((c) => c.toLowerCase() === preset.toLowerCase());
+      if (found) {
+        orderedCategories.push(found);
+        dynamicSet.delete(found);
+      }
+    });
+
+    const customSorted = Array.from(dynamicSet).sort((a, b) => a.localeCompare(b));
+    orderedCategories.push(...customSorted);
+
+    return [
+      { label: 'All Pieces', value: 'ALL' },
+      ...orderedCategories.map((c) => ({ label: c, value: c }))
+    ];
+  }, [dbProducts]);
 
   const handleCategorySelect = (val) => {
     setSelectedCategory(val);

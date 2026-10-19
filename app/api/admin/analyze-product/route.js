@@ -61,7 +61,7 @@ export async function POST(request) {
       customApiKey?.trim() ||
       process.env.GEMINI_API_KEY?.trim() ||
       process.env.GOOGLE_API_KEY?.trim() ||
-      Buffer.from('QVEuQWI4Uk42SVgxMTFqT09xWHctOWk0X2RWeVZvejgxZmU5UEJKV3huNHdvWkowNXpBVnc=', 'base64').toString('utf8');
+      Buffer.from('QVEuQWI4Uk42SVgxMTFqT09xWHctOWk0X2RXeVZvejgxZmU5UEJKV3huNHdvWkowNXpBVnc=', 'base64').toString('utf8');
 
     let aiResult = null;
 

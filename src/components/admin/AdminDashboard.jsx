@@ -726,7 +726,10 @@ export function AdminDashboard({
             title: a.title,
             source: data.source,
           });
-          toast.success(`✨ AI Identified Garment: ${a.category}! Details auto-filled.`, { duration: 4500 });
+          const colorNotice = Array.isArray(a.colors) && a.colors.length > 1
+            ? ` (${a.colors.length} colors: ${a.colors.map((c) => c.name).join(', ')})`
+            : '';
+          toast.success(`✨ AI Identified Garment: ${a.category}${colorNotice}! Details auto-filled.`, { duration: 4500 });
         }
       }
     } catch (err) {
@@ -785,7 +788,10 @@ export function AdminDashboard({
             category: a.category,
             title: a.title,
           });
-          toast.success(`✨ AI Re-Identified: ${a.category}! Modal updated.`, { duration: 4000 });
+          const editColorNotice = Array.isArray(a.colors) && a.colors.length > 1
+            ? ` (${a.colors.length} colors: ${a.colors.map((c) => c.name).join(', ')})`
+            : '';
+          toast.success(`✨ AI Re-Identified: ${a.category}${editColorNotice}! Modal updated.`, { duration: 4000 });
         }
       }
     } catch (err) {

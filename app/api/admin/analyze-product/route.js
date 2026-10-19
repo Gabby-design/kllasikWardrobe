@@ -84,11 +84,23 @@ export async function POST(request) {
           const prompt = `You are an elite luxury streetwear fashion director and AI product specialist for "Klasik Wardrobe" (Nigeria).
 Deeply analyze this garment image with extreme precision:
 
-1. Text, Numbers & Print Recognition:
-   - Read all visible text, typography, athletic numbers, year stamps, or streetwear codes printed or embroidered on the garment (e.g. "MAKE TRUE 09", "1967", "PARIS", "LOS ANGELES", etc.).
-2. Sports Teams, Logos & Club Crests:
-   - Identify any football/soccer club crest, basketball team, motorsport sponsor, or collegiate emblem.
-3. Garment Silhouette & Category Classification:
+1. Multi-Product & Multi-Colorway Detection (CRITICAL MANDATORY REQUIREMENT):
+   - Inspect the entire photo frame carefully: Does this photo display TWO (or more) products or colorways (e.g. 2 shirts, 2 tees, 2 hoodies, 2 long-sleeves, or 2 pants displayed side-by-side, folded together, or hanging side-by-side in different colors)?
+   - If two or more garments/colorways are shown in the image:
+     - Recognize that multiple products/colorways are present in the photo.
+     - They are normally colorway variants of the same product line.
+     - YOU MUST EXTRACT AND INCLUDE EVERY DISTINCT GARMENT COLORWAY in the "colors" array!
+     - Do NOT just add only one color! If there are two colors, YOU MUST ADD THE TWO DIFFERENT COLORS (e.g. [{"name": "Obsidian Black", "hex": "#111111"}, {"name": "Pure White", "hex": "#FAFAFA"}]).
+     - NEVER return only one single color if two different colored products or two garments are visible in the photo!
+   - If only one garment is shown, still provide all dominant and contrast/accent colors of the piece.
+
+2. Text, Numbers & Print Recognition:
+   - Read all visible text, typography, athletic numbers, year stamps, or streetwear codes printed or embroidered on the garment (e.g. "MAKE TRUE 09", "1967", "PARIS", "LOS ANGELES", "AEVMORI", "NEVER", "DARK", etc.).
+
+3. Sports Teams, Logos & Club Crests:
+   - Identify any football/soccer club crest, basketball team, motorsport sponsor, collegiate emblem, or brand logo.
+
+4. Garment Silhouette & Category Classification:
    - Exactly one of:
      - "Long Sleeves": Long sleeves, layered double-sleeves, thermal contrast undersleeves, or long-sleeve knitwear.
      - "T-Shirts": Standard short sleeves, drop-shoulder graphic tees, ringer tees, or short-sleeve polos.
@@ -97,7 +109,8 @@ Deeply analyze this garment image with extreme precision:
      - "Short Jeans": Denim shorts, baggy cutoffs, jorts.
      - "Beach Pants": Flowy linen or drawstring relaxed pants.
      - "Jeans": Full length denim trousers.
-4. Nigerian Naira (NGN) Pricing:
+
+5. Nigerian Naira (NGN) Pricing:
    - Suggest appropriate Nigerian retail price in Naira as an integer:
      - T-Shirts: 30000 - 38000
      - Long Sleeves: 35000 - 45000
@@ -106,27 +119,33 @@ Deeply analyze this garment image with extreme precision:
      - Short Jeans: 35000 - 45000
      - Beach Pants: 45000 - 52000
      - Up and Down: 55000 - 75000
-5. Colors & Fabric:
-   - Extract primary and secondary color names and exact hex codes.
+
+6. Colors Array:
+   - Must contain every distinct colorway/color shown in the photo.
+   - If 2 garments with different colors are in the photo, you MUST return at least 2 distinct color objects.
+   - Each color object must have:
+     - "name": Elevated luxury streetwear color name (e.g. "Obsidian Black", "Pure White", "Royal Cobalt Blue", "Washed Charcoal").
+     - "hex": Valid 6-character hex code (e.g. "#111111", "#FAFAFA").
 
 Return ONLY a valid JSON object (no markdown code blocks, no explanation):
 {
-  "title": "A compelling title starting with 'Klasik ' incorporating detected print text, team, code, or graphic (e.g. 'Klasik Make True 09 Layered Long-Sleeve Tee', 'Klasik Paris Vintage Graphic Tee')",
+  "title": "A compelling title starting with 'Klasik ' incorporating detected print text, team, code, or graphic",
   "category": "One of: T-Shirts, Long Sleeves, Jeans, Cargo Pants, Short Jeans, Beach Pants, Up and Down",
-  "tag": "Short badge tag (e.g. 'New Drop', 'Layered Drop', 'Co-Ord Drop', 'Tactical Drop', 'Vintage Wash')",
+  "tag": "Short badge tag (e.g. 'Dual Colorway', 'New Drop', 'Layered Drop', 'Co-Ord Drop', 'Tactical Drop', 'Vintage Wash')",
   "price": 35000,
-  "gsm": "Fabric weight string (e.g. '260 GSM Heavyweight Cotton', '280 GSM Combat Cotton Twill', '14.5oz Japanese Selvedge Denim', '240 GSM Pure Flax Linen')",
-  "material": "Material composition (e.g. '100% Combed Organic Cotton', '100% Selvedge Denim')",
-  "fit": "Silhouette description (e.g. 'Oversized Drop-Shoulder', 'Layered Double-Sleeve Streetwear Fit', 'Boxy Overshirt & Relaxed Shorts', 'Relaxed Straight Leg')",
-  "description": "2-3 sentences of elevated fashion description detailing the graphic text, cut, drape, and streetwear styling.",
+  "gsm": "Fabric weight string (e.g. '240 GSM Heavyweight Cotton', '260 GSM Heavyweight Cotton')",
+  "material": "Material composition (e.g. '100% Combed Organic Cotton')",
+  "fit": "Silhouette description (e.g. 'Oversized Drop-Shoulder')",
+  "description": "2-3 sentences of elevated fashion description detailing the graphic text, cut, drape, streetwear styling, and mentioning both colorways if two items are present in the image.",
   "sizes": ["S", "M", "L", "XL", "XXL"],
   "colors": [
-    { "name": "Color Name (e.g. Washed Charcoal, Obsidian Black, Raw Indigo)", "hex": "#111111" }
+    { "name": "Color 1 Name", "hex": "#111111" },
+    { "name": "Color 2 Name", "hex": "#FAFAFA" }
   ]
 }`;
 
-          // Try gemini-3.8-flash first, then gemini-flash-latest
-          const models = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite'];
+          // Cascade across models with separate quota pools
+          const models = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'];
           for (const model of models) {
             try {
               const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -162,6 +181,12 @@ Return ONLY a valid JSON object (no markdown code blocks, no explanation):
                   aiResult = JSON.parse(cleanText);
                   if (aiResult?.price && typeof aiResult.price === 'string') {
                     aiResult.price = parseInt(aiResult.price.replace(/[^0-9]/g, ''), 10) || 35000;
+                  }
+                  if (Array.isArray(aiResult?.colors) && aiResult.colors.length > 0) {
+                    aiResult.colors = aiResult.colors.map((c) => ({
+                      name: String(c.name || 'Custom Color').trim(),
+                      hex: String(c.hex || '#111111').trim(),
+                    }));
                   }
                   break;
                 }
@@ -250,6 +275,22 @@ Return ONLY a valid JSON object (no markdown code blocks, no explanation):
         fit = 'Relaxed Straight Leg';
         desc = 'Crafted from 14.5oz Japanese shuttle-loom selvedge denim featuring relaxed straight drape and antique brass hardware.';
         colors = [{ name: 'Raw Indigo', hex: '#1e3a8a' }, { name: 'Washed Black', hex: '#262626' }];
+      }
+
+      if (
+        nameLower.includes('dual') ||
+        nameLower.includes('2-pack') ||
+        nameLower.includes('pair') ||
+        nameLower.includes('both') ||
+        (nameLower.includes('black') && (nameLower.includes('white') || nameLower.includes('cream') || nameLower.includes('grey') || nameLower.includes('gray')))
+      ) {
+        tag = 'Dual Colorway';
+        if (colors.length < 2) {
+          colors = [
+            { name: 'Obsidian Black', hex: '#111111' },
+            { name: 'Cream Off-White', hex: '#F4F1EA' },
+          ];
+        }
       }
 
       aiResult = {

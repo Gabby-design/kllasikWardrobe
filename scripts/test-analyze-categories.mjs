@@ -90,8 +90,16 @@ async function run() {
   assert.strictEqual(ts.category, 'T-Shirts', 'Should categorize as T-Shirts');
   console.log(`  PASS: Correctly classified "${ts.title}" as "${ts.category}" (₦${ts.price})`);
 
+  // Test 9: Multi-color detection
+  console.log('\n[TEST 9] Testing multi-color and dual product detection...');
+  const mc = await testAnalysis({ fileName: 'streetwear-heavyweight-tee-black-cream-dual-pack.png' });
+  assert.strictEqual(mc.category, 'T-Shirts', 'Should categorize as T-Shirts');
+  assert.ok(Array.isArray(mc.colors) && mc.colors.length >= 2, 'Should detect at least 2 distinct colors for dual product photo');
+  assert.strictEqual(mc.tag, 'Dual Colorway', 'Tag should reflect Dual Colorway');
+  console.log(`  PASS: Correctly detected ${mc.colors.length} colorways (${mc.colors.map(c => c.name).join(', ')}) with tag "${mc.tag}"`);
+
   console.log('\n===========================================================');
-  console.log('ALL 8 AI ANALYSIS & CATEGORY TESTS PASSED (100% SUCCESS)');
+  console.log('ALL 9 AI ANALYSIS & CATEGORY TESTS PASSED (100% SUCCESS)');
   console.log('===========================================================');
 }
 

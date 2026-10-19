@@ -384,6 +384,12 @@ export function AdminDashboard({
     };
   }, []);
 
+  // AI Garment Analysis State
+  const [isAnalyzingAi, setIsAnalyzingAi] = useState(false);
+  const [aiAnalysisNotice, setAiAnalysisNotice] = useState(null);
+  const [editIsAnalyzingAi, setEditIsAnalyzingAi] = useState(false);
+  const [editAiNotice, setEditAiNotice] = useState(null);
+
   // Handle category preset selection
   const handleCategorySelect = (cat) => {
     setCategoryPreset(cat);
@@ -398,6 +404,14 @@ export function AdminDashboard({
       setFit('Oversized Drop-Shoulder');
       defaultImg = '/images/hero-tee-black.png';
       defaultDesc = 'Crafted from 240 GSM combed organic cotton. Features clean minimalist cut with intentional dropped shoulder drape.';
+    } else if (cat === 'Long Sleeves') {
+      setPrice(35000);
+      setTag('Layered Drop');
+      setGsm('260 GSM Heavyweight Cotton');
+      setMaterial('100% Combed Cotton with Ribbed Striped Undersleeve');
+      setFit('Layered Double-Sleeve Streetwear Fit');
+      defaultImg = '/images/tee-make-true-09-charcoal.png';
+      defaultDesc = '260 GSM double-layer streetwear long-sleeve tee in washed charcoal featuring signature gothic Make True 09 distressed chest insignia with contrasting grey horizontal striped undersleeves.';
     } else if (cat === 'Jeans') {
       setPrice(65000);
       setTag('Luxury Denim');
@@ -430,6 +444,14 @@ export function AdminDashboard({
       setFit('Relaxed Wide-Leg Flow');
       defaultImg = '/images/beach-pants-linen.jpg';
       defaultDesc = 'Tailored from 240 GSM pure European flax linen with elasticated drawstring waistband and breathable flowy silhouette.';
+    } else if (cat === 'Up and Down') {
+      setPrice(58000);
+      setTag('Co-Ord Drop');
+      setGsm('280 GSM Heavyweight Washed Twill');
+      setMaterial('100% Premium Washed Cotton Twill');
+      setFit('Boxy Overshirt & Relaxed Utility Shorts');
+      defaultImg = '/images/up-and-down-set.jpg';
+      defaultDesc = 'Luxury two-piece matching co-ord set featuring a boxy cropped utility button-up overshirt and matching relaxed shorts in washed heavyweight twill.';
     } else {
       defaultDesc = description || `Crafted with custom ${cat} streetwear tailoring and premium heavyweight finishing.`;
       defaultImg = newProductImages[0]?.previewUrl || '/images/hero-tee-black.png';
@@ -648,6 +670,129 @@ export function AdminDashboard({
     });
   };
 
+  // AI Garment Analysis Engine for New Product Form
+  const analyzeGarmentWithAi = async (file, imageUrl) => {
+    setIsAnalyzingAi(true);
+    try {
+      let base64 = null;
+      if (file) {
+        try {
+          const dataUrl = await fileToDataUrl(file);
+          if (typeof dataUrl === 'string') {
+            base64 = dataUrl.split(',')[1] || null;
+          }
+        } catch {}
+      }
+
+      const res = await fetch('/api/admin/analyze-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl: imageUrl || undefined,
+          fileName: file?.name || undefined,
+          mimeType: file?.type || 'image/jpeg',
+          base64: base64 || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success && data.analysis) {
+          const a = data.analysis;
+          if (a.title) setTitle(a.title);
+          if (a.category) {
+            setCategory(a.category);
+            setCategoryPreset(a.category);
+          }
+          if (a.price) setPrice(Number(a.price));
+          if (a.tag) setTag(a.tag);
+          if (a.gsm) setGsm(a.gsm);
+          if (a.material) setMaterial(a.material);
+          if (a.fit) setFit(a.fit);
+          if (a.description) setDescription(a.description);
+          if (Array.isArray(a.sizes) && a.sizes.length > 0) setSizes(a.sizes);
+          if (Array.isArray(a.colors) && a.colors.length > 0) {
+            setNewProductColors(
+              a.colors.map((c) => ({
+                name: c.name || 'Custom Color',
+                hex: c.hex || '#111111',
+                image: '',
+              }))
+            );
+          }
+          setAiAnalysisNotice({
+            category: a.category,
+            title: a.title,
+            source: data.source,
+          });
+          toast.success(`✨ AI Identified Garment: ${a.category}! Details auto-filled.`, { duration: 4500 });
+        }
+      }
+    } catch (err) {
+      console.warn('[Admin AI] Analysis notice:', err);
+    } finally {
+      setIsAnalyzingAi(false);
+    }
+  };
+
+  // AI Garment Analysis Engine for Edit Product Modal
+  const analyzeEditGarmentWithAi = async (imageUrl, file) => {
+    setEditIsAnalyzingAi(true);
+    try {
+      let base64 = null;
+      if (file) {
+        try {
+          const dataUrl = await fileToDataUrl(file);
+          if (typeof dataUrl === 'string') {
+            base64 = dataUrl.split(',')[1] || null;
+          }
+        } catch {}
+      }
+
+      const res = await fetch('/api/admin/analyze-product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl: imageUrl || undefined,
+          fileName: file?.name || undefined,
+          mimeType: file?.type || 'image/jpeg',
+          base64: base64 || undefined,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success && data.analysis) {
+          const a = data.analysis;
+          if (a.title) setEditTitle(a.title);
+          if (a.category) setEditCategory(a.category);
+          if (a.price) setEditPrice(Number(a.price));
+          if (a.tag) setEditTag(a.tag);
+          if (a.description) setEditDescription(a.description);
+          if (Array.isArray(a.sizes) && a.sizes.length > 0) setEditSizes(a.sizes);
+          if (Array.isArray(a.colors) && a.colors.length > 0) {
+            setEditColors(
+              a.colors.map((c) => ({
+                name: c.name || 'Custom Color',
+                hex: c.hex || '#111111',
+                image: '',
+              }))
+            );
+          }
+          setEditAiNotice({
+            category: a.category,
+            title: a.title,
+          });
+          toast.success(`✨ AI Re-Identified: ${a.category}! Modal updated.`, { duration: 4000 });
+        }
+      }
+    } catch (err) {
+      console.warn('[Admin AI] Edit analysis notice:', err);
+    } finally {
+      setEditIsAnalyzingAi(false);
+    }
+  };
+
   // Process a single file upload to /api/admin/upload for new product
   const processSingleNewProductUpload = async (file, itemId) => {
     try {
@@ -679,6 +824,8 @@ export function AdminDashboard({
             };
           })
         );
+        // Automatically trigger AI analysis on first uploaded product photo
+        analyzeGarmentWithAi(file, data.url);
         return { success: true, url: data.url };
       } else {
         const errMsg = data?.error || (res.status === 413 ? 'Image exceeds maximum file size' : 'Server failed to save image to storage');
@@ -714,6 +861,9 @@ export function AdminDashboard({
   const uploadNewProductFiles = (files) => {
     const validFiles = Array.from(files || []).filter((f) => f && f.type && f.type.startsWith('image/'));
     if (validFiles.length === 0) return;
+
+    // Trigger AI analysis on first selected photo immediately in parallel
+    analyzeGarmentWithAi(validFiles[0], null);
 
     const newItems = validFiles.map((file) => {
       const previewUrl = URL.createObjectURL(file);
@@ -1683,7 +1833,7 @@ export function AdminDashboard({
                     Select preset or enter custom below
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
                   <button
                     type="button"
                     onClick={() => handleCategorySelect('T-Shirts')}
@@ -1696,6 +1846,20 @@ export function AdminDashboard({
                     <span className="text-[10px] font-bold text-gray-500 block uppercase">T-Shirts</span>
                     <strong className="text-sm font-bold text-[#7C3AED] block">₦30,000</strong>
                     <span className="text-[10px] text-gray-400">240 GSM Cotton</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCategorySelect('Long Sleeves')}
+                    className={`p-3 rounded-[16px] border text-left transition-all cursor-pointer ${
+                      categoryPreset === 'Long Sleeves' && category === 'Long Sleeves'
+                        ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs ring-1 ring-[#7C3AED]/30'
+                        : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-[10px] font-bold text-gray-500 block uppercase">Long Sleeves</span>
+                    <strong className="text-sm font-bold text-[#7C3AED] block">₦35,000</strong>
+                    <span className="text-[10px] text-gray-400">260 GSM Layered</span>
                   </button>
 
                   <button
@@ -1753,8 +1917,59 @@ export function AdminDashboard({
                     <strong className="text-sm font-bold text-[#7C3AED] block">₦50,000</strong>
                     <span className="text-[10px] text-gray-400">240 GSM Linen</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCategorySelect('Up and Down')}
+                    className={`p-3 rounded-[16px] border text-left transition-all cursor-pointer ${
+                      categoryPreset === 'Up and Down' && category === 'Up and Down'
+                        ? 'border-[#7C3AED] bg-[#EDE9FE]/50 shadow-xs ring-1 ring-[#7C3AED]/30'
+                        : 'border-black/[0.06] bg-[#F7F7F8] hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-[10px] font-bold text-gray-500 block uppercase">Up and Down</span>
+                    <strong className="text-sm font-bold text-[#7C3AED] block">₦58,000</strong>
+                    <span className="text-[10px] text-gray-400">280 GSM Co-Ord</span>
+                  </button>
                 </div>
               </div>
+
+              {/* AI Auto-Detection Feedback Banner */}
+              {isAnalyzingAi && (
+                <div className="bg-purple-50 border border-purple-200/80 rounded-[18px] p-3.5 flex items-center gap-3 text-xs text-purple-700 animate-pulse">
+                  <div className="w-5 h-5 rounded-full bg-[#7C3AED]/20 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-3.5 h-3.5 text-[#7C3AED] animate-spin" />
+                  </div>
+                  <div>
+                    <strong className="block text-[#7C3AED] font-bold">Scanning garment image with AI...</strong>
+                    <span className="text-gray-600">Analyzing garment silhouette, sleeves, fabric texture, and dominant colorway.</span>
+                  </div>
+                </div>
+              )}
+              {aiAnalysisNotice && (
+                <div className="bg-[#EDE9FE]/60 border border-[#7C3AED]/30 rounded-[18px] p-3.5 flex items-center justify-between text-xs text-[#7C3AED] shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-6 h-6 rounded-full bg-[#7C3AED] text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Sparkles className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="block font-bold text-[#111111]">
+                        AI Auto-Detected: <span className="text-[#7C3AED]">{aiAnalysisNotice.category}</span>
+                      </span>
+                      <span className="text-gray-600 block text-[11px]">
+                        Title: &ldquo;{aiAnalysisNotice.title}&rdquo; &bull; Form specs auto-filled. You can edit any details below.
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAiAnalysisNotice(null)}
+                    className="text-[11px] font-bold text-gray-400 hover:text-gray-700 px-2 py-1 cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
 
               {/* Title & Price Row */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -2093,21 +2308,40 @@ export function AdminDashboard({
                             Upload photos from device, drag &amp; drop files, paste from clipboard, or add URL.
                           </span>
                         </div>
-                        <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all self-start sm:self-auto">
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>
-                            {newProductHasUploading
-                              ? `Uploading (${uploadingCount})...`
-                              : '+ Upload Photos (1 or Multiple)'}
-                          </span>
-                          <input
-                            type="file"
-                            multiple
-                            accept="image/*"
-                            onChange={handleFileUpload}
-                            className="hidden"
-                          />
-                        </label>
+                        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                          {newProductImages.length > 0 && (
+                            <button
+                              type="button"
+                              disabled={isAnalyzingAi}
+                              onClick={() => {
+                                const activeItem = newProductImages[previewActiveIndex] || newProductImages[0];
+                                if (activeItem) {
+                                  analyzeGarmentWithAi(activeItem.file, activeItem.finalUrl || activeItem.previewUrl);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#7C3AED] bg-[#EDE9FE] hover:bg-[#DDD6FE] px-3.5 py-2 rounded-full cursor-pointer transition-all border border-[#7C3AED]/20 disabled:opacity-50"
+                              title="Analyze active photo with AI to detect category, title, colors, and specs"
+                            >
+                              <Sparkles className={`w-3.5 h-3.5 ${isAnalyzingAi ? 'animate-spin' : ''}`} />
+                              <span>{isAnalyzingAi ? 'Analyzing Piece...' : '✨ AI Auto-Detect'}</span>
+                            </button>
+                          )}
+                          <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>
+                              {newProductHasUploading
+                                ? `Uploading (${uploadingCount})...`
+                                : '+ Upload Photos (1 or Multiple)'}
+                            </span>
+                            <input
+                              type="file"
+                              multiple
+                              accept="image/*"
+                              onChange={handleFileUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
                       </div>
 
                       {/* Drag & Drop Prompt Banner */}
@@ -3972,6 +4206,23 @@ export function AdminDashboard({
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                               <span>Reset Photos</span>
+                            </button>
+                          )}
+                          {editImageItems.length > 0 && (
+                            <button
+                              type="button"
+                              disabled={editIsAnalyzingAi}
+                              onClick={() => {
+                                const activeItem = editImageItems[editPreviewActiveIndex] || editImageItems[0];
+                                if (activeItem) {
+                                  analyzeEditGarmentWithAi(activeItem.finalUrl || activeItem.previewUrl, activeItem.file);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#7C3AED] bg-[#EDE9FE] hover:bg-[#DDD6FE] px-3.5 py-2 rounded-full cursor-pointer transition-all border border-[#7C3AED]/20 disabled:opacity-50"
+                              title="Analyze active photo to auto-detect category, title, colors, and specs"
+                            >
+                              <Sparkles className={`w-3.5 h-3.5 ${editIsAnalyzingAi ? 'animate-spin' : ''}`} />
+                              <span>{editIsAnalyzingAi ? 'Analyzing Piece...' : '✨ AI Auto-Detect'}</span>
                             </button>
                           )}
                           <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all">

@@ -193,7 +193,7 @@ export function HomePageClient({ initialProducts, initialError }) {
   const paginatedProducts = filteredProducts.slice(startIndex, startIndex + itemsPerPage);
 
   const categories = useMemo(() => {
-    const defaultCategories = ['T-Shirts', 'Jeans', 'Cargo Pants', 'Short Jeans', 'Beach Pants'];
+    const defaultCategories = ['T-Shirts', 'Long Sleeves', 'Jeans', 'Cargo Pants', 'Short Jeans', 'Beach Pants', 'Up and Down'];
     const dynamicSet = new Set();
 
     if (Array.isArray(dbProducts)) {

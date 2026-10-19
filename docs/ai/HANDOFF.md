@@ -14,19 +14,18 @@ last_reviewed: "2026-09-25"
 **No active work.** All tasks complete.
 
 ## Task Summary
-**Objective:** Enable each product to have custom category and resolve Vercel Blob private store upload error.
+**Objective:** Add dedicated "Long Sleeves" and "Up and Down" categories across storefront and admin, and implement automatic AI product detection/analysis on image upload.
 **Work completed:**
-- Free-form category inputs with autocomplete and 1-tap chips in Admin dashboard (`src/components/admin/AdminDashboard.jsx`).
-- Dynamic category filter aggregation in storefront (`app/HomePageClient.jsx`).
-- Cargo pants category creation and Redis database migration (`klasik:products_v2`).
-- Connected public Vercel Blob store (`kllasik-wardrobe-public`) with `PUBLIC_BLOB_READ_WRITE_TOKEN`.
-- Updated `app/api/admin/upload/route.js` to prioritize `PUBLIC_BLOB_READ_WRITE_TOKEN`.
+- Created `/api/admin/analyze-product` endpoint combining Google Gemini vision capabilities with intelligent luxury streetwear heuristics for automatic category classification, product title generation, pricing, specs, sizes, and color detection.
+- Added "Long Sleeves" and "Up and Down" categories across storefront category pills, 7-card category showcase (`ProductGrid.jsx`), footer collections, and admin quick preset templates.
+- Added AI Auto-Detection to Admin Dashboard (`src/components/admin/AdminDashboard.jsx`) for both new product creation and edit product modal, with real-time status banners, toasts, and manual trigger controls.
+- Re-categorized existing layered long sleeve tees (`kwt-tee-08`, `kwt-tee-09`, `kwt-tee-10`) to "Long Sleeves" and seeded "Up and Down" co-ord set (`kwt-set-01`) in catalog and Upstash Redis (`klasik:products_v2`).
 **Verification:**
-- `npm run build`: 13 routes compiled cleanly.
-- `scripts/verify-sync.mjs`: 6/6 tests passed.
-- `scripts/verify-analytics.mjs`: 10/10 tests passed.
-- Live Vercel Blob upload/delete verified.
+- `npm run build`: 13 routes compiled cleanly with Next.js Turbopack in 11.5s.
+- `scripts/verify-sync.mjs`: 6/6 tests passed (100% success).
+- `scripts/verify-analytics.mjs`: 10/10 tests passed (100% success).
+- `scripts/test-analyze-categories.mjs`: 8/8 tests passed (100% success).
 
 ## Git status
 
-No branch, stage, commit or history operation performed by agent. Working tree contains uncommitted changes ready for Master review.
+No branch, stage, commit or history operation performed by agent. Working tree contains uncommitted changes ready for Master review and commit.

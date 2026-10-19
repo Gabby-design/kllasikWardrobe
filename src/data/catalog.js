@@ -627,7 +627,7 @@ export const PRODUCTS = [
     title: 'Klasik Make True 09 Layered Long-Sleeve Tee',
     price: 35000,
     stock: 12,
-    category: 'T-Shirts',
+    category: 'Long Sleeves',
     tag: 'New Release',
     rating: 5.0,
     reviews: 34,
@@ -650,7 +650,7 @@ export const PRODUCTS = [
     title: 'Klasik Mafa Vintage 1967 Layered Long-Sleeve Tee',
     price: 35000,
     stock: 12,
-    category: 'T-Shirts',
+    category: 'Long Sleeves',
     tag: 'Vintage Drop',
     rating: 5.0,
     reviews: 29,
@@ -673,7 +673,7 @@ export const PRODUCTS = [
     title: 'Klasik Mark Fairwhale Camo Layered Long-Sleeve Tee',
     price: 35000,
     stock: 12,
-    category: 'T-Shirts',
+    category: 'Long Sleeves',
     tag: 'Urban Camo',
     rating: 5.0,
     reviews: 42,
@@ -689,6 +689,31 @@ export const PRODUCTS = [
     fallbackImage: '/images/tee-mark-fairwhale-camo-black.png',
     gallery: [
       '/images/tee-mark-fairwhale-camo-black.png',
+    ],
+  },
+
+  // --- UP AND DOWN CATEGORY ---
+  {
+    id: 'kwt-set-01',
+    title: 'Klasik Heavyweight Textured Boxy Co-Ord Set',
+    price: 58000,
+    stock: 10,
+    category: 'Up and Down',
+    tag: 'Co-Ord Drop',
+    rating: 5.0,
+    reviews: 48,
+    description: 'Luxury two-piece matching co-ord set featuring a boxy cropped utility button-up overshirt and matching relaxed cargo shorts in washed charcoal heavyweight twill.',
+    gsm: '280 GSM Heavyweight Washed Twill',
+    material: '100% Premium Washed Cotton Twill',
+    fit: 'Boxy Overshirt & Relaxed Utility Shorts',
+    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+    colors: [
+      { name: 'Washed Charcoal', hex: '#333333', image: '/images/up-and-down-set.jpg' },
+    ],
+    image: '/images/up-and-down-set.jpg',
+    fallbackImage: '/images/up-and-down-set.jpg',
+    gallery: [
+      '/images/up-and-down-set.jpg',
     ],
   },
 

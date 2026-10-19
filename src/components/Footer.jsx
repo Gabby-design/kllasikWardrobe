@@ -36,14 +36,23 @@ export function Footer() {
             <Link href="/catalog?category=T-Shirts" className="hover:text-purple-300 transition-colors">
               Heavyweight T-Shirts
             </Link>
+            <Link href="/catalog?category=Long+Sleeves" className="hover:text-purple-300 transition-colors">
+              Layered Long Sleeves
+            </Link>
             <Link href="/catalog?category=Jeans" className="hover:text-purple-300 transition-colors">
               Luxury Denim Jeans
+            </Link>
+            <Link href="/catalog?category=Cargo+Pants" className="hover:text-purple-300 transition-colors">
+              Tactical Cargo Pants
             </Link>
             <Link href="/catalog?category=Short+Jeans" className="hover:text-purple-300 transition-colors">
               Short Jeans &amp; Jorts
             </Link>
             <Link href="/catalog?category=Beach+Pants" className="hover:text-purple-300 transition-colors">
               Pure Linen Beach Pants
+            </Link>
+            <Link href="/catalog?category=Up+and+Down" className="hover:text-purple-300 transition-colors">
+              Co-Ord Sets (Up &amp; Down)
             </Link>
             <Link href="/catalog" className="hover:text-purple-300 transition-colors font-semibold text-gray-300">
               Full Archive Drop

@@ -141,8 +141,14 @@ export function ProductGrid({
     { 
       label: "T-Shirts", 
       value: "T-Shirts", 
-      desc: "Heavyweight Cotton", 
+      desc: "Short Sleeve Cotton", 
       image: "/images/media__1786369656046.jpg" 
+    },
+    { 
+      label: "Long Sleeves", 
+      value: "Long Sleeves", 
+      desc: "Layered & Thermal", 
+      image: "/images/tee-make-true-09-charcoal.png" 
     },
     { 
       label: "Jeans", 
@@ -168,6 +174,12 @@ export function ProductGrid({
       desc: "Relaxed Linen Pants", 
       image: "/images/beach-pants-linen.jpg" 
     },
+    { 
+      label: "Up and Down", 
+      value: "Up and Down", 
+      desc: "Co-Ord Matching Sets", 
+      image: "/images/up-and-down-set.jpg" 
+    },
   ];
 
   return (
@@ -190,7 +202,7 @@ export function ProductGrid({
           </div>
 
           {/* Rounded Category Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-3.5">
             {categoryCards.map((cat) => {
               const isActive = selectedCategory === cat.value;
               return (

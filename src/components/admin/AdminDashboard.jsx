@@ -29,6 +29,7 @@ import {
   SlidersHorizontal,
   RefreshCw,
   RotateCcw,
+  RotateCw,
   ChevronLeft,
   ChevronRight,
   BarChart3,
@@ -176,7 +177,18 @@ export function AdminDashboard({
       setLoading(true);
       for (const prod of parsed) {
         if (prod && prod.id && prod.title) {
-          await createProductAction(prod);
+          const isBadUrl = (u) => typeof u === 'string' && (u.trim().toLowerCase().startsWith('data:') || u.trim().toLowerCase().startsWith('blob:'));
+          if (isBadUrl(prod.image) || isBadUrl(prod.fallbackImage) || (Array.isArray(prod.gallery) && prod.gallery.some(isBadUrl))) {
+            toast.error(`Cannot import "${prod.title}": contains invalid data: or blob: image URLs. Please use "Repair Images" or host images before importing.`);
+            setLoading(false);
+            return;
+          }
+          const res = await createProductAction(prod);
+          if (!res?.success) {
+            toast.error(`Import error for "${prod.title}": ${res?.error || 'Failed to save'}`);
+            setLoading(false);
+            return;
+          }
         }
       }
       toast.success(`Imported and saved ${parsed.length} products to database!`, { duration: 4500 });
@@ -248,14 +260,20 @@ export function AdminDashboard({
   const [newEditColorHexText, setNewEditColorHexText] = useState('#111111');
   const [newEditLastValidHex, setNewEditLastValidHex] = useState('#111111');
   const [newEditColorImage, setNewEditColorImage] = useState('');
-  const [editImage, setEditImage] = useState('');
-  const [editGallery, setEditGallery] = useState([]);
+  // Edit Product Images State (Tracked with upload status & retry capabilities)
+  const [editImageItems, setEditImageItems] = useState([]);
+  const [editUrlInput, setEditUrlInput] = useState('');
+  const [editUrlError, setEditUrlError] = useState('');
+  const [isDraggingEditPhoto, setIsDraggingEditPhoto] = useState(false);
   const [editDescription, setEditDescription] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [uploadingEditImage, setUploadingEditImage] = useState(false);
   const [uploadingEditGallery, setUploadingEditGallery] = useState(false);
   const [invalidImageIndices, setInvalidImageIndices] = useState([]);
+
+  // Derived for display / backwards compatibility
+  const editGallery = editImageItems.map((img) => img.previewUrl);
+  const editImage = editImageItems[0]?.previewUrl || '';
 
   // Repair Images Modal & State
   const [repairingImages, setRepairingImages] = useState(false);
@@ -277,10 +295,27 @@ export function AdminDashboard({
   const [addFormColorHexText, setAddFormColorHexText] = useState('#111111');
   const [addFormLastValidHex, setAddFormLastValidHex] = useState('#111111');
   const [addFormColorImage, setAddFormColorImage] = useState('');
-  const [image, setImage] = useState('/images/hero-tee-black.png');
-  const [gallery, setGallery] = useState(['/images/hero-tee-black.png']);
+  
+  // New Product Images State (Tracked with upload status & retry capabilities)
+  const [newProductImages, setNewProductImages] = useState([
+    {
+      id: 'default-cover-1',
+      file: null,
+      previewUrl: '/images/hero-tee-black.png',
+      isObjectUrl: false,
+      finalUrl: '/images/hero-tee-black.png',
+      status: 'uploaded',
+      error: null,
+    },
+  ]);
   const [urlInput, setUrlInput] = useState('');
+  const [urlInputError, setUrlInputError] = useState('');
+  const [isDraggingNewPhoto, setIsDraggingNewPhoto] = useState(false);
   const [previewActiveIndex, setPreviewActiveIndex] = useState(0);
+
+  // Derived for preview card / backwards compatibility
+  const gallery = newProductImages.map((img) => img.previewUrl);
+  const image = newProductImages[0]?.previewUrl || '/images/hero-tee-black.png';
   const [description, setDescription] = useState('Crafted from 240 GSM combed organic cotton. Features clean minimalist cut with intentional dropped shoulder drape.');
   const [stock, setStock] = useState(15);
 
@@ -316,51 +351,74 @@ export function AdminDashboard({
 
   const standardSizes = ['S', 'M', 'L', 'XL', 'XXL'];
 
+  // Cleanup object URLs on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      newProductImages.forEach((img) => {
+        if (img.isObjectUrl && img.previewUrl?.startsWith('blob:')) {
+          try { URL.revokeObjectURL(img.previewUrl); } catch {}
+        }
+      });
+      editImageItems.forEach((img) => {
+        if (img.isObjectUrl && img.previewUrl?.startsWith('blob:')) {
+          try { URL.revokeObjectURL(img.previewUrl); } catch {}
+        }
+      });
+    };
+  }, []);
+
   // Handle category preset selection
   const handleCategorySelect = (cat) => {
     setCategoryPreset(cat);
     setCategory(cat);
+    let defaultImg = '/images/hero-tee-black.png';
+    let defaultDesc = 'Crafted from 240 GSM combed organic cotton. Features clean minimalist cut with intentional dropped shoulder drape.';
     if (cat === 'T-Shirts') {
       setPrice(30000);
       setTag('Heavyweight Tee');
       setGsm('240 GSM Heavyweight');
       setMaterial('100% Combed Organic Cotton');
       setFit('Oversized Drop-Shoulder');
-      setImage('/images/hero-tee-black.png');
-      setGallery(['/images/hero-tee-black.png']);
-      setPreviewActiveIndex(0);
-      setDescription('Crafted from 240 GSM combed organic cotton. Features clean minimalist cut with intentional dropped shoulder drape.');
+      defaultImg = '/images/hero-tee-black.png';
+      defaultDesc = 'Crafted from 240 GSM combed organic cotton. Features clean minimalist cut with intentional dropped shoulder drape.';
     } else if (cat === 'Jeans') {
       setPrice(65000);
       setTag('Luxury Denim');
       setGsm('14.5oz Heavyweight Denim');
       setMaterial('100% Shuttle-Loom Selvedge Cotton');
       setFit('Relaxed Straight Leg');
-      setImage('/images/jeans-raw-indigo.jpg');
-      setGallery(['/images/jeans-raw-indigo.jpg']);
-      setPreviewActiveIndex(0);
-      setDescription('Crafted from 14.5oz Japanese shuttle-loom selvedge denim. Features relaxed straight drape and antique brass hardware.');
+      defaultImg = '/images/jeans-raw-indigo.jpg';
+      defaultDesc = 'Crafted from 14.5oz Japanese shuttle-loom selvedge denim. Features relaxed straight drape and antique brass hardware.';
     } else if (cat === 'Short Jeans') {
       setPrice(45000);
       setTag('Vintage Jorts');
       setGsm('13oz Heavyweight Denim');
       setMaterial('100% Vintage Washed Cotton');
       setFit('Baggy Knee-Length Jorts');
-      setImage('/images/short-jeans-jorts.jpg');
-      setGallery(['/images/short-jeans-jorts.jpg']);
-      setPreviewActiveIndex(0);
-      setDescription('13oz heavyweight vintage washed denim shorts with signature raw frayed hem, relaxed baggy streetwear silhouette.');
+      defaultImg = '/images/short-jeans-jorts.jpg';
+      defaultDesc = '13oz heavyweight vintage washed denim shorts with signature raw frayed hem, relaxed baggy streetwear silhouette.';
     } else if (cat === 'Beach Pants') {
       setPrice(50000);
       setTag('Pure Linen');
       setGsm('240 GSM Pure Flax Linen');
       setMaterial('100% Breathable European Linen');
       setFit('Relaxed Wide-Leg Flow');
-      setImage('/images/beach-pants-linen.jpg');
-      setGallery(['/images/beach-pants-linen.jpg']);
-      setPreviewActiveIndex(0);
-      setDescription('Tailored from 240 GSM pure European flax linen with elasticated drawstring waistband and breathable flowy silhouette.');
+      defaultImg = '/images/beach-pants-linen.jpg';
+      defaultDesc = 'Tailored from 240 GSM pure European flax linen with elasticated drawstring waistband and breathable flowy silhouette.';
     }
+    setDescription(defaultDesc);
+    setNewProductImages([
+      {
+        id: `preset-${cat.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+        file: null,
+        previewUrl: defaultImg,
+        isObjectUrl: false,
+        finalUrl: defaultImg,
+        status: 'uploaded',
+        error: null,
+      },
+    ]);
+    setPreviewActiveIndex(0);
   };
 
   // Toggle size availability
@@ -377,66 +435,115 @@ export function AdminDashboard({
   };
 
   // Reorder or set main image for new product
-  const handleSetPrimaryImage = (idx) => {
-    setGallery((prev) => {
+  const handleSetPrimaryNewProductImage = (idx) => {
+    setNewProductImages((prev) => {
       const target = prev[idx];
       const rest = prev.filter((_, i) => i !== idx);
-      const nextGallery = [target, ...rest];
-      setImage(target);
-      setPreviewActiveIndex(0);
-      return nextGallery;
+      return [target, ...rest];
     });
+    setPreviewActiveIndex(0);
     toast.success('Set as primary cover image');
   };
+  const handleSetPrimaryImage = handleSetPrimaryNewProductImage;
 
-  const handleRemoveImage = (idx) => {
-    if (gallery.length <= 1) {
-      toast.error('Product must have at least one image');
-      return;
-    }
-    setGallery((prev) => {
-      const next = prev.filter((_, i) => i !== idx);
-      setImage(next[0]);
-      setPreviewActiveIndex(0);
+  const handleRemoveNewProductImage = (itemId) => {
+    setNewProductImages((prev) => {
+      const target = prev.find((item) => item.id === itemId || item === itemId);
+      if (target?.isObjectUrl && target?.previewUrl?.startsWith('blob:')) {
+        try { URL.revokeObjectURL(target.previewUrl); } catch {}
+      }
+      const next = prev.filter((item, idx) => item.id !== itemId && idx !== itemId);
+      if (next.length === 0) {
+        return [
+          {
+            id: `default-${Date.now()}`,
+            file: null,
+            previewUrl: '/images/hero-tee-black.png',
+            isObjectUrl: false,
+            finalUrl: '/images/hero-tee-black.png',
+            status: 'uploaded',
+            error: null,
+          },
+        ];
+      }
       return next;
     });
+    setPreviewActiveIndex(0);
   };
+  const handleRemoveImage = handleRemoveNewProductImage;
 
   const handleAddUrlToGallery = () => {
     if (!urlInput.trim()) return;
     const clean = urlInput.trim();
-    setGallery((prev) => {
-      const isInitialDefault = prev.length === 1 && prev[0] === '/images/hero-tee-black.png';
-      return isInitialDefault ? [clean] : [...prev, clean];
+    const lower = clean.toLowerCase();
+
+    if (lower.startsWith('data:') || lower.startsWith('blob:')) {
+      setUrlInputError('data: and blob: URLs are temporary and cannot be stored. Please upload the photo file instead.');
+      toast.error('Direct data: or blob: URLs are not allowed. Please upload the image file.');
+      return;
+    }
+
+    if (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.startsWith('/images/')) {
+      setUrlInputError('Please enter a valid https:// image URL or relative /images/ path.');
+      toast.error('Invalid image URL format');
+      return;
+    }
+
+    setUrlInputError('');
+    setNewProductImages((prev) => {
+      const isDefaultPlaceholder =
+        prev.length === 1 &&
+        !prev[0].isObjectUrl &&
+        prev[0].finalUrl === '/images/hero-tee-black.png';
+      const newItem = {
+        id: `url_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        file: null,
+        previewUrl: clean,
+        isObjectUrl: false,
+        finalUrl: clean,
+        status: 'uploaded',
+        error: null,
+      };
+      return isDefaultPlaceholder ? [newItem] : [...prev, newItem];
     });
-    setImage(clean);
     setUrlInput('');
     toast.success('Image URL added to gallery!');
   };
 
   const handleSelectPreset = (pUrl) => {
-    setGallery((prev) => {
-      if (prev.includes(pUrl)) return prev;
-      const isInitialDefault = prev.length === 1 && prev[0] === '/images/hero-tee-black.png';
-      return isInitialDefault ? [pUrl] : [...prev, pUrl];
+    if (typeof pUrl !== 'string' || pUrl.startsWith('data:') || pUrl.startsWith('blob:')) return;
+    setNewProductImages((prev) => {
+      if (prev.some((item) => item.finalUrl === pUrl)) return prev;
+      const isDefaultPlaceholder =
+        prev.length === 1 &&
+        !prev[0].isObjectUrl &&
+        prev[0].finalUrl === '/images/hero-tee-black.png';
+      const newItem = {
+        id: `preset_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        file: null,
+        previewUrl: pUrl,
+        isObjectUrl: false,
+        finalUrl: pUrl,
+        status: 'uploaded',
+        error: null,
+      };
+      return isDefaultPlaceholder ? [newItem] : [...prev, newItem];
     });
-    setImage(pUrl);
     toast.success('Preset added to product photos!');
   };
 
   // Reorder gallery images for new product
   const handleMoveNewGalleryImage = (idx, offset) => {
     const targetIdx = idx + offset;
-    if (targetIdx < 0 || targetIdx >= gallery.length) return;
-    setGallery((prev) => {
+    if (targetIdx < 0 || targetIdx >= newProductImages.length) return;
+    setNewProductImages((prev) => {
       const next = [...prev];
       const temp = next[idx];
       next[idx] = next[targetIdx];
       next[targetIdx] = temp;
-      setImage(next[0]);
-      setPreviewActiveIndex(0);
       return next;
     });
+    setPreviewActiveIndex(0);
   };
 
   // Resize and compress image in browser (max ~1600px, JPEG 0.85)
@@ -513,61 +620,147 @@ export function AdminDashboard({
     });
   };
 
-  // Handle multi-image upload from device for new product
-  const handleFileUpload = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    setUploadingImage(true);
+  // Process a single file upload to /api/admin/upload for new product
+  const processSingleNewProductUpload = async (file, itemId) => {
     try {
-      const finalUrls = [];
-      for (const f of files) {
-        try {
-          const optimizedFile = await resizeImageForUpload(f, 1600, 0.85);
-          let uploadedUrl = null;
+      const optimizedFile = await resizeImageForUpload(file, 1600, 0.85);
+      const fd = new FormData();
+      fd.append('file', optimizedFile);
 
-          try {
-            const fd = new FormData();
-            fd.append('file', optimizedFile);
-            const res = await fetch('/api/admin/upload', {
-              method: 'POST',
-              body: fd,
-            });
-            const data = await res.json().catch(() => ({}));
-            if (res.ok && data?.url) {
-              uploadedUrl = data.url;
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: fd,
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data?.url && !data.url.startsWith('data:') && !data.url.startsWith('blob:')) {
+        setNewProductImages((prev) =>
+          prev.map((item) => {
+            if (item.id !== itemId) return item;
+            if (item.isObjectUrl && item.previewUrl?.startsWith('blob:')) {
+              try { URL.revokeObjectURL(item.previewUrl); } catch {}
             }
-          } catch (netErr) {
-            console.warn('[Admin Dashboard] Network upload notice:', netErr.message);
-          }
-
-          if (!uploadedUrl) {
-            toast.error(`Upload failed for ${f.name}. Please ensure network and server storage are connected.`);
-            continue;
-          }
-
-          finalUrls.push(uploadedUrl);
-        } catch (uploadErr) {
-          console.warn('[Admin Dashboard] Upload error:', uploadErr.message);
-          toast.error(`Could not process ${f.name}: ${uploadErr.message}`);
-        }
-      }
-
-      if (finalUrls.length > 0) {
-        setGallery(finalUrls);
-        setImage(finalUrls[0]);
-        setPreviewActiveIndex(0);
-        toast.success(
-          finalUrls.length > 1
-            ? `${finalUrls.length} photos ready!`
-            : 'Photo ready!'
+            return {
+              ...item,
+              previewUrl: data.url,
+              finalUrl: data.url,
+              isObjectUrl: false,
+              status: 'uploaded',
+              error: null,
+            };
+          })
         );
+        return { success: true, url: data.url };
+      } else {
+        const errMsg = data?.error || (res.status === 413 ? 'Image exceeds maximum file size' : 'Server failed to save image to storage');
+        setNewProductImages((prev) =>
+          prev.map((item) => {
+            if (item.id !== itemId) return item;
+            return {
+              ...item,
+              status: 'failed',
+              error: errMsg,
+            };
+          })
+        );
+        return { success: false, error: errMsg };
       }
-    } catch (err) {
-      toast.error('Upload notice: ' + err.message);
-    } finally {
-      setUploadingImage(false);
-      if (e.target) e.target.value = '';
+    } catch (netErr) {
+      const errMsg = netErr.message || 'Network upload failed';
+      setNewProductImages((prev) =>
+        prev.map((item) => {
+          if (item.id !== itemId) return item;
+          return {
+            ...item,
+            status: 'failed',
+            error: errMsg,
+          };
+        })
+      );
+      return { success: false, error: errMsg };
+    }
+  };
+
+  // Upload multiple files for new product (from input, drag/drop, paste)
+  const uploadNewProductFiles = (files) => {
+    const validFiles = Array.from(files || []).filter((f) => f && f.type && f.type.startsWith('image/'));
+    if (validFiles.length === 0) return;
+
+    const newItems = validFiles.map((file) => {
+      const previewUrl = URL.createObjectURL(file);
+      return {
+        id: `upload_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        file,
+        previewUrl,
+        isObjectUrl: true,
+        finalUrl: null,
+        status: 'uploading',
+        error: null,
+      };
+    });
+
+    setNewProductImages((prev) => {
+      const isDefault =
+        prev.length === 1 &&
+        !prev[0].isObjectUrl &&
+        prev[0].finalUrl === '/images/hero-tee-black.png';
+      return isDefault ? newItems : [...prev, ...newItems];
+    });
+
+    // Start uploads concurrently
+    newItems.forEach((item) => {
+      processSingleNewProductUpload(item.file, item.id);
+    });
+  };
+
+  // Retry a failed upload for new product
+  const handleRetryNewProductImage = (itemId) => {
+    setNewProductImages((prev) => {
+      const target = prev.find((item) => item.id === itemId);
+      if (!target || !target.file) {
+        toast.error('Source file is no longer available. Please remove and re-select the image.');
+        return prev;
+      }
+      setTimeout(() => {
+        processSingleNewProductUpload(target.file, target.id);
+      }, 50);
+      return prev.map((item) =>
+        item.id === itemId ? { ...item, status: 'uploading', error: null } : item
+      );
+    });
+  };
+
+  // Handle multi-image upload from device for new product
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      uploadNewProductFiles(files);
+    }
+    if (e.target) e.target.value = '';
+  };
+
+  // Drag and drop handler for new product photos
+  const handleNewProductDrop = (e) => {
+    e.preventDefault();
+    setIsDraggingNewPhoto(false);
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length > 0) {
+      uploadNewProductFiles(files);
+    }
+  };
+
+  // Paste handler for new product photos
+  const handleNewProductPaste = (e) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const files = items
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter(Boolean);
+    if (files.length > 0) {
+      e.preventDefault();
+      uploadNewProductFiles(files);
+      toast.success(`Pasted ${files.length} photo${files.length > 1 ? 's' : ''}!`);
     }
   };
 
@@ -608,17 +801,41 @@ export function AdminDashboard({
     const initialGallery = Array.isArray(product.gallery) && product.gallery.length > 0
       ? product.gallery
       : (product.image ? [product.image] : []);
-    setEditGallery(initialGallery);
-    setEditImage(initialGallery[0] || product.image || '');
     setEditDescription(product.description || '');
 
-    // Check for any legacy data: or blob: images in the product
+    // Check for any legacy data: or blob: images and map to editImageItems with status
     const initialInvalid = [];
-    initialGallery.forEach((url, i) => {
-      if (typeof url === 'string' && (url.trim().toLowerCase().startsWith('data:') || url.trim().toLowerCase().startsWith('blob:'))) {
-        initialInvalid.push(i);
-      }
+    const mappedItems = initialGallery.map((url, i) => {
+      const isInvalid = typeof url === 'string' && (url.trim().toLowerCase().startsWith('data:') || url.trim().toLowerCase().startsWith('blob:'));
+      if (isInvalid) initialInvalid.push(i);
+      return {
+        id: `edit_img_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+        file: null,
+        previewUrl: url,
+        isObjectUrl: false,
+        finalUrl: isInvalid ? null : url,
+        status: isInvalid ? 'failed' : 'uploaded',
+        error: isInvalid ? 'Legacy data: or blob: URL cannot be stored. Please remove or replace.' : null,
+      };
     });
+
+    setEditImageItems(
+      mappedItems.length > 0
+        ? mappedItems
+        : [
+            {
+              id: `edit_default_${Date.now()}`,
+              file: null,
+              previewUrl: '/images/hero-tee-black.png',
+              isObjectUrl: false,
+              finalUrl: '/images/hero-tee-black.png',
+              status: 'uploaded',
+              error: null,
+            },
+          ]
+    );
+    setEditUrlInput('');
+    setEditUrlError('');
     setInvalidImageIndices(initialInvalid);
     setIsEditModalOpen(true);
 
@@ -714,111 +931,267 @@ export function AdminDashboard({
     }
   };
 
-  // Handle multi-image upload from device for edited product
-  const handleEditFilesUpload = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    setUploadingEditGallery(true);
+  // Process a single file upload to /api/admin/upload for edit modal
+  const processSingleEditUpload = async (file, itemId) => {
     try {
-      const finalUrls = [];
-      for (const f of files) {
-        try {
-          const optimizedFile = await resizeImageForUpload(f, 1600, 0.85);
-          let uploadedUrl = null;
+      const optimizedFile = await resizeImageForUpload(file, 1600, 0.85);
+      const fd = new FormData();
+      fd.append('file', optimizedFile);
 
-          try {
-            const fd = new FormData();
-            fd.append('file', optimizedFile);
-            const res = await fetch('/api/admin/upload', {
-              method: 'POST',
-              body: fd,
-            });
-            const data = await res.json().catch(() => ({}));
-            if (res.ok && data?.url) {
-              uploadedUrl = data.url;
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: fd,
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data?.url && !data.url.startsWith('data:') && !data.url.startsWith('blob:')) {
+        setEditImageItems((prev) =>
+          prev.map((item) => {
+            if (item.id !== itemId) return item;
+            if (item.isObjectUrl && item.previewUrl?.startsWith('blob:')) {
+              try { URL.revokeObjectURL(item.previewUrl); } catch {}
             }
-          } catch (netErr) {
-            console.warn('[Admin Dashboard] Network upload notice:', netErr.message);
-          }
-
-          if (!uploadedUrl) {
-            toast.error(`Upload failed for ${f.name}. Please ensure network and storage are connected.`);
-            continue;
-          }
-
-          finalUrls.push(uploadedUrl);
-        } catch (uploadErr) {
-          console.warn('[Admin Dashboard] Upload error:', uploadErr.message);
-          toast.error(`Could not process ${f.name}: ${uploadErr.message}`);
-        }
-      }
-
-      if (finalUrls.length > 0) {
-        setEditGallery((prev) => [...prev, ...finalUrls]);
-        if (!editImage || editImage === '/images/hero-tee-black.png') {
-          setEditImage(finalUrls[0]);
-        }
-        toast.success(
-          finalUrls.length > 1
-            ? `${finalUrls.length} new photos added!`
-            : 'New photo added!'
+            return {
+              ...item,
+              previewUrl: data.url,
+              finalUrl: data.url,
+              isObjectUrl: false,
+              status: 'uploaded',
+              error: null,
+            };
+          })
         );
+        return { success: true, url: data.url };
+      } else {
+        const errMsg = data?.error || (res.status === 413 ? 'Image exceeds maximum file size' : 'Server failed to save image to storage');
+        setEditImageItems((prev) =>
+          prev.map((item) => {
+            if (item.id !== itemId) return item;
+            return {
+              ...item,
+              status: 'failed',
+              error: errMsg,
+            };
+          })
+        );
+        return { success: false, error: errMsg };
       }
-    } catch (err) {
-      toast.error('Upload notice: ' + err.message);
-    } finally {
-      setUploadingEditGallery(false);
-      if (e.target) e.target.value = '';
+    } catch (netErr) {
+      const errMsg = netErr.message || 'Network upload failed';
+      setEditImageItems((prev) =>
+        prev.map((item) => {
+          if (item.id !== itemId) return item;
+          return {
+            ...item,
+            status: 'failed',
+            error: errMsg,
+          };
+        })
+      );
+      return { success: false, error: errMsg };
+    }
+  };
+
+  // Upload multiple files for edit modal (from input, drag/drop, paste)
+  const uploadEditFiles = (files) => {
+    const validFiles = Array.from(files || []).filter((f) => f && f.type && f.type.startsWith('image/'));
+    if (validFiles.length === 0) return;
+
+    const newItems = validFiles.map((file) => {
+      const previewUrl = URL.createObjectURL(file);
+      return {
+        id: `edit_upload_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        file,
+        previewUrl,
+        isObjectUrl: true,
+        finalUrl: null,
+        status: 'uploading',
+        error: null,
+      };
+    });
+
+    setEditImageItems((prev) => {
+      const isDefault =
+        prev.length === 1 &&
+        !prev[0].isObjectUrl &&
+        prev[0].finalUrl === '/images/hero-tee-black.png';
+      return isDefault ? newItems : [...prev, ...newItems];
+    });
+
+    newItems.forEach((item) => {
+      processSingleEditUpload(item.file, item.id);
+    });
+  };
+
+  // Retry a failed upload for edit modal
+  const handleRetryEditImage = (itemId) => {
+    setEditImageItems((prev) => {
+      const target = prev.find((item) => item.id === itemId);
+      if (!target) return prev;
+      if (!target.file) {
+        toast.error('Source file not available for retry. Please delete and re-upload the photo.');
+        return prev;
+      }
+      setTimeout(() => {
+        processSingleEditUpload(target.file, target.id);
+      }, 50);
+      return prev.map((item) =>
+        item.id === itemId ? { ...item, status: 'uploading', error: null } : item
+      );
+    });
+  };
+
+  // Handle multi-image upload from device for edited product
+  const handleEditFilesUpload = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      uploadEditFiles(files);
+    }
+    if (e.target) e.target.value = '';
+  };
+
+  // Drag and drop handler for edit product photos
+  const handleEditDrop = (e) => {
+    e.preventDefault();
+    setIsDraggingEditPhoto(false);
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length > 0) {
+      uploadEditFiles(files);
+    }
+  };
+
+  // Paste handler for edit product photos
+  const handleEditPaste = (e) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const files = items
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter(Boolean);
+    if (files.length > 0) {
+      e.preventDefault();
+      uploadEditFiles(files);
+      toast.success(`Pasted ${files.length} photo${files.length > 1 ? 's' : ''}!`);
     }
   };
 
   // Move gallery image left or right in edit modal
-  const handleMoveGalleryImage = (idx, offset) => {
+  const handleMoveEditImage = (idx, offset) => {
     const targetIdx = idx + offset;
-    if (targetIdx < 0 || targetIdx >= editGallery.length) return;
-    setEditGallery((prev) => {
+    if (targetIdx < 0 || targetIdx >= editImageItems.length) return;
+    setEditImageItems((prev) => {
       const next = [...prev];
       const temp = next[idx];
       next[idx] = next[targetIdx];
       next[targetIdx] = temp;
-      setEditImage(next[0]);
       return next;
     });
   };
+  const handleMoveGalleryImage = handleMoveEditImage;
 
   const handleSetEditPrimaryImage = (idx) => {
-    setEditGallery((prev) => {
+    setEditImageItems((prev) => {
       const target = prev[idx];
       const rest = prev.filter((_, i) => i !== idx);
-      const nextGallery = [target, ...rest];
-      setEditImage(target);
-      return nextGallery;
+      return [target, ...rest];
     });
     toast.success('Set as primary cover image');
   };
 
-  const handleRemoveGalleryImage = (idx) => {
-    setEditGallery((prev) => {
-      const next = prev.filter((_, i) => i !== idx);
-      if (next.length > 0) {
-        setEditImage(next[0]);
-      } else {
-        setEditImage('');
+  const handleRemoveEditImage = (itemId) => {
+    setEditImageItems((prev) => {
+      const target = prev.find((item) => item.id === itemId);
+      if (target?.isObjectUrl && target?.previewUrl?.startsWith('blob:')) {
+        try { URL.revokeObjectURL(target.previewUrl); } catch {}
+      }
+      const next = prev.filter((item) => item.id !== itemId);
+      if (next.length === 0) {
+        return [
+          {
+            id: `edit_default_${Date.now()}`,
+            file: null,
+            previewUrl: '/images/hero-tee-black.png',
+            isObjectUrl: false,
+            finalUrl: '/images/hero-tee-black.png',
+            status: 'uploaded',
+            error: null,
+          },
+        ];
       }
       return next;
     });
-    toast.success('Photo deleted');
+    toast.success('Photo removed');
+  };
+  const handleRemoveGalleryImage = (idx) => {
+    const item = editImageItems[idx];
+    if (item) handleRemoveEditImage(item.id);
+  };
+
+  // Add image URL in edit modal
+  const handleAddEditUrl = () => {
+    if (!editUrlInput.trim()) return;
+    const clean = editUrlInput.trim();
+    const lower = clean.toLowerCase();
+
+    if (lower.startsWith('data:') || lower.startsWith('blob:')) {
+      setEditUrlError('data: and blob: URLs are temporary and cannot be stored. Please upload the photo file instead.');
+      toast.error('Direct data: or blob: URLs are not allowed. Please upload the image file.');
+      return;
+    }
+
+    if (!clean.startsWith('http://') && !clean.startsWith('https://') && !clean.startsWith('/images/')) {
+      setEditUrlError('Please enter a valid https:// image URL or relative /images/ path.');
+      toast.error('Invalid image URL format');
+      return;
+    }
+
+    setEditUrlError('');
+    setEditImageItems((prev) => {
+      const isDefault =
+        prev.length === 1 &&
+        !prev[0].isObjectUrl &&
+        prev[0].finalUrl === '/images/hero-tee-black.png';
+      const newItem = {
+        id: `edit_url_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        file: null,
+        previewUrl: clean,
+        isObjectUrl: false,
+        finalUrl: clean,
+        status: 'uploaded',
+        error: null,
+      };
+      return isDefault ? [newItem] : [...prev, newItem];
+    });
+    setEditUrlInput('');
+    toast.success('Image URL added to gallery!');
   };
 
   // Submit edited product changes
   const handleSaveEditProduct = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!editingProduct) return;
-    if (uploadingEditGallery) {
-      toast.error('Image is currently uploading. Please wait.');
+
+    if (editImageItems.some((img) => img.status === 'uploading')) {
+      toast.error('Photos are currently uploading. Please wait before saving.');
       return;
     }
+
+    // Detailed position check on failed or non-storage URLs
+    const invalidList = [];
+    editImageItems.forEach((item, i) => {
+      const positionLabel = i === 0 ? 'Cover photo (position 1)' : `Gallery photo ${i + 1}`;
+      if (item.status === 'failed') {
+        invalidList.push(`${positionLabel}: ${item.error || 'Upload failed'}`);
+      } else if (!item.finalUrl || item.finalUrl.startsWith('data:') || item.finalUrl.startsWith('blob:')) {
+        invalidList.push(`${positionLabel}: Invalid temporary URL`);
+      }
+    });
+
+    if (invalidList.length > 0) {
+      toast.error(`Cannot save product:\n${invalidList.join('\n')}`);
+      return;
+    }
+
     if (!editTitle.trim()) {
       toast.error('Product title cannot be empty');
       return;
@@ -827,26 +1200,6 @@ export function AdminDashboard({
       toast.error('Valid product price required');
       return;
     }
-
-    // Check for invalid data: or blob: image URLs
-    const invalidIndices = [];
-    const galleryToCheck = editGallery.length > 0 ? editGallery : [editImage];
-    galleryToCheck.forEach((url, i) => {
-      if (typeof url === 'string' && (url.trim().toLowerCase().startsWith('data:') || url.trim().toLowerCase().startsWith('blob:'))) {
-        invalidIndices.push(i);
-      }
-    });
-    if (typeof editImage === 'string' && (editImage.trim().toLowerCase().startsWith('data:') || editImage.trim().toLowerCase().startsWith('blob:'))) {
-      if (!invalidIndices.includes(0)) invalidIndices.push(0);
-    }
-
-    if (invalidIndices.length > 0) {
-      setInvalidImageIndices(invalidIndices);
-      const positionLabels = invalidIndices.map((i) => (i === 0 ? 'Cover photo' : `Gallery photo ${i + 1}`));
-      toast.error(`Cannot save: ${positionLabels.join(', ')} has an invalid format (data: or blob: URL). Please delete or re-upload.`);
-      return;
-    }
-    setInvalidImageIndices([]);
 
     // Validate and normalize all colors
     const rawColors = editColors.length > 0 ? editColors : [{ name: 'Standard', hex: '#111111', image: '' }];
@@ -865,6 +1218,8 @@ export function AdminDashboard({
 
     setSavingEdit(true);
 
+    const finalGallery = editImageItems.map((item) => item.finalUrl);
+
     const payload = {
       ...editingProduct,
       id: editingProduct.id,
@@ -878,9 +1233,9 @@ export function AdminDashboard({
       fit: editFit,
       sizes: editSizes,
       colors: normalizedColors,
-      image: editGallery[0] || editImage,
-      fallbackImage: editGallery[1] || editGallery[0] || editImage,
-      gallery: editGallery.length > 0 ? editGallery : [editImage],
+      image: finalGallery[0] || '/images/hero-tee-black.png',
+      fallbackImage: finalGallery[1] || finalGallery[0] || '/images/hero-tee-black.png',
+      gallery: finalGallery,
       description: editDescription,
       isCustom: editingProduct.isCustom !== undefined ? editingProduct.isCustom : true,
     };
@@ -910,10 +1265,27 @@ export function AdminDashboard({
   // Submit new product
   const handleSubmitProduct = async (e) => {
     e.preventDefault();
-    if (uploadingImage) {
-      toast.error('Image is currently uploading. Please wait.');
+    if (newProductImages.some((img) => img.status === 'uploading')) {
+      toast.error('Photos are currently uploading. Please wait before publishing.');
       return;
     }
+
+    // Detailed position check on failed or non-storage URLs
+    const invalidList = [];
+    newProductImages.forEach((item, i) => {
+      const positionLabel = i === 0 ? 'Cover photo (position 1)' : `Gallery photo ${i + 1}`;
+      if (item.status === 'failed') {
+        invalidList.push(`${positionLabel}: ${item.error || 'Upload failed'}`);
+      } else if (!item.finalUrl || item.finalUrl.startsWith('data:') || item.finalUrl.startsWith('blob:')) {
+        invalidList.push(`${positionLabel}: Invalid temporary URL`);
+      }
+    });
+
+    if (invalidList.length > 0) {
+      toast.error(`Cannot publish product:\n${invalidList.join('\n')}`);
+      return;
+    }
+
     if (!title.trim()) {
       toast.error('Please enter product title');
       return;
@@ -924,14 +1296,6 @@ export function AdminDashboard({
     }
     if (sizes.length === 0) {
       toast.error('Please select at least one available size');
-      return;
-    }
-
-    // Validate images format
-    const galleryToCheck = gallery && gallery.length > 0 ? gallery : [image];
-    const invalidImageFound = galleryToCheck.some((url) => typeof url === 'string' && (url.trim().toLowerCase().startsWith('data:') || url.trim().toLowerCase().startsWith('blob:')));
-    if (invalidImageFound || (typeof image === 'string' && (image.trim().toLowerCase().startsWith('data:') || image.trim().toLowerCase().startsWith('blob:')))) {
-      toast.error('Cannot publish: Images cannot be data: or blob: URLs. Please upload images to storage.');
       return;
     }
 
@@ -952,6 +1316,8 @@ export function AdminDashboard({
 
     setLoading(true);
 
+    const finalGallery = newProductImages.map((item) => item.finalUrl);
+
     const productPayload = {
       title: title.trim(),
       price: Number(price),
@@ -964,9 +1330,9 @@ export function AdminDashboard({
       colors: normalizedColors,
       colorName: normalizedColors[0]?.name || 'Obsidian Black',
       colorHex: normalizedColors[0]?.hex || '#111111',
-      image: gallery[0] || image,
-      fallbackImage: gallery[1] || gallery[0] || image,
-      gallery: gallery && gallery.length > 0 ? gallery : [image],
+      image: finalGallery[0] || '/images/hero-tee-black.png',
+      fallbackImage: finalGallery[1] || finalGallery[0] || '/images/hero-tee-black.png',
+      gallery: finalGallery,
       description,
       stock: Number(stock) || 15,
       isCustom: true,
@@ -989,8 +1355,19 @@ export function AdminDashboard({
       // Reset form fields
       setTitle('');
       setDescription('');
-      setGallery(['/images/hero-tee-black.png']);
-      setImage('/images/hero-tee-black.png');
+      setNewProductImages([
+        {
+          id: `default-${Date.now()}`,
+          file: null,
+          previewUrl: '/images/hero-tee-black.png',
+          isObjectUrl: false,
+          finalUrl: '/images/hero-tee-black.png',
+          status: 'uploaded',
+          error: null,
+        },
+      ]);
+      setUrlInput('');
+      setUrlInputError('');
       setPreviewActiveIndex(0);
       setActiveTab('catalog');
       router.refresh();
@@ -1598,195 +1975,308 @@ export function AdminDashboard({
               </div>
 
               {/* Product Photos & Angles Gallery Uploader */}
-              <div className="bg-[#F7F7F8] rounded-[22px] p-4 sm:p-5 border border-black/[0.04] space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <label className="text-xs font-bold text-[#111111] block">
-                      Product Photos &amp; Angle Views ({gallery.length}) *
-                    </label>
-                    <span className="text-[11px] text-gray-500">
-                      Upload 1 or more photos from your device (Front view, back view, fabric details).
-                    </span>
-                  </div>
-                  <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all self-start sm:self-auto">
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>{uploadingImage ? 'Uploading Photos...' : '+ Upload Photos (1 or Multiple)'}</span>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                      disabled={uploadingImage}
-                    />
-                  </label>
-                </div>
+              {(() => {
+                const newProductHasUploading = newProductImages.some((img) => img.status === 'uploading');
+                const newProductHasFailed = newProductImages.some((img) => img.status === 'failed');
+                const uploadingCount = newProductImages.filter((img) => img.status === 'uploading').length;
+                const failedCount = newProductImages.filter((img) => img.status === 'failed').length;
 
-                {/* Uploaded Gallery Thumbnails Strip */}
-                {gallery.length > 0 && (
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-gray-400 block mb-2">
-                      Current Product Gallery (Click &quot;Set as Cover&quot; to pick the default angle):
-                    </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {gallery.map((gImg, idx) => (
-                        <div
-                          key={idx}
-                          className={`relative rounded-[14px] bg-[#EDEDEF] overflow-hidden border p-1 group flex flex-col justify-between aspect-[3/4] ${
-                            idx === 0
-                              ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/30'
-                              : 'border-black/[0.08]'
-                          }`}
-                        >
-                          <img src={gImg} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover rounded-[10px]" />
-                          
-                          {/* Angle Badge */}
-                          <div className="absolute top-2 left-2 z-10">
-                            {idx === 0 ? (
-                              <span className="bg-[#7C3AED] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                                Cover Photo
-                              </span>
-                            ) : idx === 1 ? (
-                              <span className="bg-[#111111] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                                Angle 2 / Back
-                              </span>
-                            ) : (
-                              <span className="bg-black/70 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                                Angle {idx + 1}
-                              </span>
-                            )}
+                return (
+                  <>
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDraggingNewPhoto(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        setIsDraggingNewPhoto(false);
+                      }}
+                      onDrop={handleNewProductDrop}
+                      onPaste={handleNewProductPaste}
+                      className={`rounded-[22px] p-4 sm:p-5 border transition-all space-y-4 ${
+                        isDraggingNewPhoto
+                          ? 'bg-[#EDE9FE]/30 border-[#7C3AED] ring-2 ring-[#7C3AED]/30'
+                          : 'bg-[#F7F7F8] border-black/[0.04]'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <label className="text-xs font-bold text-[#111111] block">
+                            Product Photos &amp; Angle Views ({newProductImages.length}) *
+                          </label>
+                          <span className="text-[11px] text-gray-500">
+                            Upload photos from device, drag &amp; drop files, paste from clipboard, or add URL.
+                          </span>
+                        </div>
+                        <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all self-start sm:self-auto">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>
+                            {newProductHasUploading
+                              ? `Uploading (${uploadingCount})...`
+                              : '+ Upload Photos (1 or Multiple)'}
+                          </span>
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {/* Drag & Drop Prompt Banner */}
+                      <div className="border border-dashed border-black/10 rounded-[14px] p-2.5 text-center bg-white/70">
+                        <span className="text-[11px] text-gray-500 font-medium">
+                          Tip: Drag &amp; drop photos anywhere in this box, or paste directly with Ctrl+V
+                        </span>
+                      </div>
+
+                      {/* Uploaded Gallery Thumbnails Strip with Status Lifecycle */}
+                      {newProductImages.length > 0 && (
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-gray-400 block mb-2">
+                            Product Photos (First photo is Cover shown on store cards):
+                          </span>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {newProductImages.map((item, idx) => {
+                              const isUploading = item.status === 'uploading';
+                              const isFailed = item.status === 'failed';
+                              const isUploaded = item.status === 'uploaded';
+
+                              return (
+                                <div
+                                  key={item.id || idx}
+                                  className={`relative rounded-[14px] overflow-hidden border p-1 group flex flex-col justify-between aspect-[3/4] transition-all ${
+                                    isFailed
+                                      ? 'border-red-500 ring-2 ring-red-400 bg-red-50/50'
+                                      : isUploading
+                                      ? 'border-amber-400 ring-2 ring-amber-300 bg-amber-50/50'
+                                      : idx === 0
+                                      ? 'bg-[#EDEDEF] border-[#7C3AED] ring-2 ring-[#7C3AED]/30'
+                                      : 'bg-[#EDEDEF] border-black/[0.08]'
+                                  }`}
+                                >
+                                  <img
+                                    src={item.previewUrl}
+                                    alt={`Photo ${idx + 1}`}
+                                    className="w-full h-full object-cover rounded-[10px]"
+                                  />
+
+                                  {/* Status Badges */}
+                                  <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 items-start max-w-[80%]">
+                                    {isUploading ? (
+                                      <span className="bg-amber-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                                        <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Uploading...
+                                      </span>
+                                    ) : isFailed ? (
+                                      <div className="flex flex-col gap-0.5 items-start">
+                                        <span className="bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                                          <AlertCircle className="w-2.5 h-2.5" />
+                                          Failed - retry
+                                        </span>
+                                        {item.error && (
+                                          <span
+                                            className="bg-black/85 text-red-100 text-[8px] font-medium px-1.5 py-0.5 rounded shadow max-w-[120px] truncate"
+                                            title={item.error}
+                                          >
+                                            {item.error}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : idx === 0 ? (
+                                      <span className="bg-[#7C3AED] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                                        <Check className="w-2.5 h-2.5" />
+                                        Cover Photo
+                                      </span>
+                                    ) : idx === 1 ? (
+                                      <span className="bg-[#111111] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                                        <Check className="w-2.5 h-2.5" />
+                                        Angle 2 / Back
+                                      </span>
+                                    ) : (
+                                      <span className="bg-black/70 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                                        <Check className="w-2.5 h-2.5" />
+                                        Angle {idx + 1}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Top Right: Retry & Remove buttons */}
+                                  <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                                    {isFailed && item.file && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRetryNewProductImage(item.id)}
+                                        className="bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-all cursor-pointer shadow-sm flex items-center justify-center"
+                                        title="Retry upload"
+                                      >
+                                        <RotateCw className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveNewProductImage(item.id)}
+                                      className="bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-90 hover:opacity-100 transition-all cursor-pointer shadow-sm"
+                                      title="Remove photo"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+
+                                  {/* Reorder & Cover Buttons */}
+                                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1 z-10">
+                                    {idx > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleMoveNewGalleryImage(idx, -1)}
+                                        className="bg-black/75 hover:bg-black text-white p-1 rounded-full cursor-pointer transition-all"
+                                        title="Move Left"
+                                      >
+                                        <ChevronLeft className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                    {idx !== 0 && isUploaded && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSetPrimaryNewProductImage(idx)}
+                                        className="flex-1 bg-white/95 hover:bg-white text-[#7C3AED] text-[10px] font-bold py-1 px-1 rounded-full text-center shadow-xs transition-all cursor-pointer"
+                                      >
+                                        Cover
+                                      </button>
+                                    )}
+                                    {idx < newProductImages.length - 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleMoveNewGalleryImage(idx, 1)}
+                                        className="bg-black/75 hover:bg-black text-white p-1 rounded-full cursor-pointer transition-all ml-auto"
+                                        title="Move Right"
+                                      >
+                                        <ChevronRight className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
+                        </div>
+                      )}
 
-                          {/* Delete Button */}
-                          {gallery.length > 1 && (
+                      {/* URL Adder with Inline Error Messaging */}
+                      <div className="space-y-1 pt-1">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Or paste an image URL (https://...)..."
+                            value={urlInput}
+                            onChange={(e) => {
+                              setUrlInput(e.target.value);
+                              if (urlInputError) setUrlInputError('');
+                            }}
+                            className={`flex-1 bg-white border ${
+                              urlInputError ? 'border-red-400 focus:border-red-500' : 'border-black/[0.06]'
+                            } rounded-full px-4 py-2 text-xs text-[#111111] outline-none transition-all`}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddUrlToGallery}
+                            className="bg-[#111111] text-white hover:bg-gray-800 text-xs font-bold px-4 py-2 rounded-full cursor-pointer transition-all shrink-0"
+                          >
+                            + Add URL
+                          </button>
+                        </div>
+                        {urlInputError && (
+                          <p className="text-[11px] text-red-600 font-medium pl-3 pt-0.5 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3 shrink-0" />
+                            <span>{urlInputError}</span>
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Preset image buttons */}
+                      <div className="pt-2 border-t border-black/[0.04]">
+                        <span className="text-[10px] uppercase font-bold text-gray-400 block mb-2">
+                          Or click archive preset to add as another angle:
+                        </span>
+                        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                          {presetImages.map((pImg) => (
                             <button
                               type="button"
-                              onClick={() => handleRemoveImage(idx)}
-                              className="absolute top-2 right-2 bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-90 hover:opacity-100 transition-all cursor-pointer z-10"
-                              title="Remove photo"
+                              key={pImg.url}
+                              onClick={() => handleSelectPreset(pImg.url)}
+                              className="p-1 rounded-[12px] border text-center transition-all cursor-pointer border-black/[0.06] bg-white hover:border-[#7C3AED] hover:shadow-xs"
+                              title={`Add ${pImg.name} to gallery`}
                             >
-                              <X className="w-3 h-3" />
+                              <div className="w-full h-10 rounded-[8px] bg-[#EDEDEF] overflow-hidden mb-1 flex items-center justify-center">
+                                <img src={pImg.url} alt={pImg.name} className="w-full h-full object-cover" />
+                              </div>
+                              <span className="text-[8px] text-gray-600 truncate block font-medium">
+                                {pImg.name.split(' ')[0]}
+                              </span>
                             </button>
-                          )}
-
-                          {/* Reorder & Cover Buttons */}
-                          <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1 z-10">
-                            {idx > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleMoveNewGalleryImage(idx, -1)}
-                                className="bg-black/75 hover:bg-black text-white p-1 rounded-full cursor-pointer transition-all"
-                                title="Move Left"
-                              >
-                                <ChevronLeft className="w-3 h-3" />
-                              </button>
-                            )}
-                            {idx !== 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleSetPrimaryImage(idx)}
-                                className="flex-1 bg-white/95 hover:bg-white text-[#7C3AED] text-[10px] font-bold py-1 px-1 rounded-full text-center shadow-xs transition-all cursor-pointer"
-                              >
-                                Cover
-                              </button>
-                            )}
-                            {idx < gallery.length - 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleMoveNewGalleryImage(idx, 1)}
-                                className="bg-black/75 hover:bg-black text-white p-1 rounded-full cursor-pointer transition-all ml-auto"
-                                title="Move Right"
-                              >
-                                <ChevronRight className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  </div>
-                )}
 
-                {/* Optional URL Adder */}
-                <div className="flex gap-2 pt-1">
-                  <input
-                    type="text"
-                    placeholder="Or paste an image URL to add to gallery..."
-                    value={urlInput}
-                    onChange={(e) => setUrlInput(e.target.value)}
-                    className="flex-1 bg-white border border-black/[0.06] rounded-full px-4 py-2 text-xs text-[#111111] outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddUrlToGallery}
-                    className="bg-[#111111] text-white hover:bg-gray-800 text-xs font-bold px-4 py-2 rounded-full cursor-pointer transition-all shrink-0"
-                  >
-                    + Add URL
-                  </button>
-                </div>
+                    {/* Description */}
+                    <div>
+                      <label className="text-xs font-bold text-gray-700 block mb-1">
+                        Product Description
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[16px] p-3 text-xs text-[#111111] outline-none transition-all leading-relaxed"
+                      />
+                    </div>
 
-                {/* Preset image buttons */}
-                <div className="pt-2 border-t border-black/[0.04]">
-                  <span className="text-[10px] uppercase font-bold text-gray-400 block mb-2">
-                    Or click archive preset to add as another angle:
-                  </span>
-                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-                    {presetImages.map((pImg) => (
-                      <button
-                        type="button"
-                        key={pImg.url}
-                        onClick={() => handleSelectPreset(pImg.url)}
-                        className="p-1 rounded-[12px] border text-center transition-all cursor-pointer border-black/[0.06] bg-white hover:border-[#7C3AED] hover:shadow-xs"
-                        title={`Add ${pImg.name} to gallery`}
-                      >
-                        <div className="w-full h-10 rounded-[8px] bg-[#EDEDEF] overflow-hidden mb-1 flex items-center justify-center">
-                          <img src={pImg.url} alt={pImg.name} className="w-full h-full object-cover" />
+                    {/* Publish Action & Disabled Reason Banner */}
+                    <div className="space-y-2">
+                      {newProductHasUploading && (
+                        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-2.5 rounded-2xl flex items-center gap-2">
+                          <div className="w-3.5 h-3.5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                          <span>Publish is disabled: Photos are currently uploading to storage. Please wait.</span>
                         </div>
-                        <span className="text-[8px] text-gray-600 truncate block font-medium">
-                          {pImg.name.split(' ')[0]}
-                        </span>
+                      )}
+                      {newProductHasFailed && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-4 py-2.5 rounded-2xl flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                          <span>
+                            Publish is disabled: {failedCount} photo upload{failedCount > 1 ? 's' : ''} failed. Click &quot;Retry&quot; or remove failed photos to publish.
+                          </span>
+                        </div>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={loading || newProductHasUploading || newProductHasFailed}
+                        className="w-full bg-[#7C3AED] hover:bg-[#6D28D9] disabled:bg-[#7C3AED]/50 disabled:cursor-not-allowed text-white font-sans text-sm font-bold py-4 px-8 rounded-full shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        {newProductHasUploading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Uploading Photos...</span>
+                          </>
+                        ) : loading ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Publishing Product to Database...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4" />
+                            <span>Publish Product to Store</span>
+                          </>
+                        )}
                       </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">
-                  Product Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[16px] p-3 text-xs text-[#111111] outline-none transition-all leading-relaxed"
-                />
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading || uploadingImage}
-                className="w-full bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-sans text-sm font-bold py-4 px-8 rounded-full shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
-              >
-                {uploadingImage ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Uploading Photo...</span>
+                    </div>
                   </>
-                ) : loading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Publishing Product to Database...</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    <span>Publish Product to Store</span>
-                  </>
-                )}
-              </button>
+                );
+              })()}
 
             </form>
           </div>
@@ -3262,228 +3752,329 @@ export function AdminDashboard({
               </div>
 
               {/* Product Photos & Angles Gallery */}
-              <div className="bg-[#F7F7F8] rounded-[22px] p-4 sm:p-5 border border-black/[0.04] space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <label className="text-xs font-bold text-[#111111] block">
-                      Product Photos &amp; Angle Views ({editGallery.length}) *
-                    </label>
-                    <span className="text-[11px] text-gray-500">
-                      Upload 1 or multiple photos from your device (front, back, fabric details).
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-                    {editGallery.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditGallery([]);
-                          setEditImage('');
-                          toast.success('Old photos deleted. Upload new photos.');
-                        }}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3.5 py-2 rounded-full cursor-pointer transition-all border border-red-200"
-                        title="Remove all photos from this product"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Delete All Old Photos</span>
-                      </button>
-                    )}
-                    <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{uploadingEditGallery ? 'Processing...' : '+ Upload New Photos'}</span>
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handleEditFilesUpload}
-                        className="hidden"
-                        disabled={uploadingEditGallery}
-                      />
-                    </label>
-                  </div>
-                </div>
+              {(() => {
+                const editHasUploading = editImageItems.some((img) => img.status === 'uploading');
+                const editHasFailed = editImageItems.some((img) => img.status === 'failed');
+                const editUploadingCount = editImageItems.filter((img) => img.status === 'uploading').length;
+                const editFailedCount = editImageItems.filter((img) => img.status === 'failed').length;
 
-                {/* Gallery Thumbnails Grid */}
-                {editGallery.length > 0 && (
-                  <div>
-                    {invalidImageIndices.length > 0 && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-3.5 py-2.5 rounded-2xl flex items-center gap-2 mb-3">
-                        <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                        <span>
-                          Invalid format detected at <strong>{invalidImageIndices.map((i) => (i === 0 ? 'Cover photo' : `Gallery photo ${i + 1}`)).join(', ')}</strong>. Please remove or replace before saving.
+                return (
+                  <>
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDraggingEditPhoto(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        setIsDraggingEditPhoto(false);
+                      }}
+                      onDrop={handleEditDrop}
+                      onPaste={handleEditPaste}
+                      className={`rounded-[22px] p-4 sm:p-5 border transition-all space-y-4 ${
+                        isDraggingEditPhoto
+                          ? 'bg-[#EDE9FE]/30 border-[#7C3AED] ring-2 ring-[#7C3AED]/30'
+                          : 'bg-[#F7F7F8] border-black/[0.04]'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                          <label className="text-xs font-bold text-[#111111] block">
+                            Product Photos &amp; Angle Views ({editImageItems.length}) *
+                          </label>
+                          <span className="text-[11px] text-gray-500">
+                            Upload photos from device, drag &amp; drop files, paste from clipboard, or add URL.
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                          {editImageItems.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                editImageItems.forEach((img) => {
+                                  if (img.isObjectUrl && img.previewUrl?.startsWith('blob:')) {
+                                    try { URL.revokeObjectURL(img.previewUrl); } catch {}
+                                  }
+                                });
+                                setEditImageItems([
+                                  {
+                                    id: `edit_default_${Date.now()}`,
+                                    file: null,
+                                    previewUrl: '/images/hero-tee-black.png',
+                                    isObjectUrl: false,
+                                    finalUrl: '/images/hero-tee-black.png',
+                                    status: 'uploaded',
+                                    error: null,
+                                  },
+                                ]);
+                                toast.success('Photos reset to default placeholder. Upload new photos.');
+                              }}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 px-3.5 py-2 rounded-full cursor-pointer transition-all border border-red-200"
+                              title="Reset all photos on this product"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Reset Photos</span>
+                            </button>
+                          )}
+                          <label className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-[#7C3AED] hover:bg-[#6D28D9] px-4 py-2 rounded-full cursor-pointer shadow-xs transition-all">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>
+                              {editHasUploading
+                                ? `Uploading (${editUploadingCount})...`
+                                : '+ Upload New Photos'}
+                            </span>
+                            <input
+                              type="file"
+                              multiple
+                              accept="image/*"
+                              onChange={handleEditFilesUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Drag & Drop Prompt Banner */}
+                      <div className="border border-dashed border-black/10 rounded-[14px] p-2.5 text-center bg-white/70">
+                        <span className="text-[11px] text-gray-500 font-medium">
+                          Tip: Drag &amp; drop photos anywhere in this box, or paste directly with Ctrl+V
                         </span>
                       </div>
-                    )}
-                    <span className="text-[10px] uppercase font-bold text-gray-400 block mb-2">
-                      Photo Angles (First photo is the default Cover shown on store cards):
-                    </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {editGallery.map((gImg, idx) => {
-                        const isLegacyFormat = typeof gImg === 'string' && (gImg.trim().toLowerCase().startsWith('data:') || gImg.trim().toLowerCase().startsWith('blob:'));
-                        const isInvalid = invalidImageIndices.includes(idx) || isLegacyFormat;
 
-                        return (
-                          <div
-                            key={idx}
-                            className={`relative rounded-[14px] overflow-hidden border p-1 group flex flex-col justify-between aspect-[3/4] transition-all ${
-                              isInvalid
-                                ? 'border-red-500 ring-2 ring-red-500 bg-red-50/60'
-                                : idx === 0
-                                ? 'bg-[#EDEDEF] border-[#7C3AED] ring-2 ring-[#7C3AED]/30'
-                                : 'bg-[#EDEDEF] border-black/[0.08]'
-                            }`}
-                          >
-                            <img src={gImg} alt={`Angle ${idx + 1}`} className="w-full h-full object-cover rounded-[10px]" />
-                            
-                            {/* Angle Badge */}
-                            <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 items-start">
-                              {idx === 0 ? (
-                                <span className="bg-[#7C3AED] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                                  Cover Photo
-                                </span>
-                              ) : idx === 1 ? (
-                                <span className="bg-[#111111] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                                  Angle 2 / Back
-                                </span>
-                              ) : (
-                                <span className="bg-black/70 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                                  Angle {idx + 1}
-                                </span>
-                              )}
-                              {isInvalid && (
-                                <span className="bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow">
-                                  {gImg?.startsWith('data:') ? 'data: URL' : 'blob: URL'} (invalid)
-                                </span>
-                              )}
-                            </div>
+                      {/* Gallery Thumbnails Grid with Status Lifecycle */}
+                      {editImageItems.length > 0 && (
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-gray-400 block mb-2">
+                            Photo Angles (First photo is Cover shown on store cards):
+                          </span>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            {editImageItems.map((item, idx) => {
+                              const isUploading = item.status === 'uploading';
+                              const isFailed = item.status === 'failed';
+                              const isUploaded = item.status === 'uploaded';
 
-                          {/* Delete Button */}
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveGalleryImage(idx)}
-                            className="absolute top-2 right-2 bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-90 hover:opacity-100 transition-all cursor-pointer z-10"
-                            title="Remove photo"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                              return (
+                                <div
+                                  key={item.id || idx}
+                                  className={`relative rounded-[14px] overflow-hidden border p-1 group flex flex-col justify-between aspect-[3/4] transition-all ${
+                                    isFailed
+                                      ? 'border-red-500 ring-2 ring-red-400 bg-red-50/50'
+                                      : isUploading
+                                      ? 'border-amber-400 ring-2 ring-amber-300 bg-amber-50/50'
+                                      : idx === 0
+                                      ? 'bg-[#EDEDEF] border-[#7C3AED] ring-2 ring-[#7C3AED]/30'
+                                      : 'bg-[#EDEDEF] border-black/[0.08]'
+                                  }`}
+                                >
+                                  <img
+                                    src={item.previewUrl}
+                                    alt={`Angle ${idx + 1}`}
+                                    className="w-full h-full object-cover rounded-[10px]"
+                                  />
 
-                          {/* Reorder & Set Cover Buttons */}
-                          <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1 z-10">
-                            {idx > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleMoveGalleryImage(idx, -1)}
-                                className="bg-black/75 hover:bg-black text-white p-1 rounded-full cursor-pointer transition-all"
-                                title="Move Left"
-                              >
-                                <ChevronLeft className="w-3 h-3" />
-                              </button>
-                            )}
-                            {idx !== 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleSetEditPrimaryImage(idx)}
-                                className="flex-1 bg-white/95 hover:bg-white text-[#7C3AED] text-[10px] font-bold py-1 px-1 rounded-full text-center shadow-xs transition-all cursor-pointer"
-                              >
-                                Cover
-                              </button>
-                            )}
-                            {idx < editGallery.length - 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleMoveGalleryImage(idx, 1)}
-                                className="bg-black/75 hover:bg-black text-white p-1 rounded-full cursor-pointer transition-all ml-auto"
-                                title="Move Right"
-                              >
-                                <ChevronRight className="w-3 h-3" />
-                              </button>
-                            )}
+                                  {/* Status Badges */}
+                                  <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 items-start max-w-[80%]">
+                                    {isUploading ? (
+                                      <span className="bg-amber-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                                        <div className="w-2.5 h-2.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Uploading...
+                                      </span>
+                                    ) : isFailed ? (
+                                      <div className="flex flex-col gap-0.5 items-start">
+                                        <span className="bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                                          <AlertCircle className="w-2.5 h-2.5" />
+                                          Failed - retry
+                                        </span>
+                                        {item.error && (
+                                          <span
+                                            className="bg-black/85 text-red-100 text-[8px] font-medium px-1.5 py-0.5 rounded shadow max-w-[120px] truncate"
+                                            title={item.error}
+                                          >
+                                            {item.error}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : idx === 0 ? (
+                                      <span className="bg-[#7C3AED] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                                        <Check className="w-2.5 h-2.5" />
+                                        Cover Photo
+                                      </span>
+                                    ) : idx === 1 ? (
+                                      <span className="bg-[#111111] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                                        <Check className="w-2.5 h-2.5" />
+                                        Angle 2 / Back
+                                      </span>
+                                    ) : (
+                                      <span className="bg-black/70 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                                        <Check className="w-2.5 h-2.5" />
+                                        Angle {idx + 1}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Top Right: Retry & Remove buttons */}
+                                  <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
+                                    {isFailed && item.file && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRetryEditImage(item.id)}
+                                        className="bg-red-600 hover:bg-red-700 text-white rounded-full p-1 transition-all cursor-pointer shadow-sm flex items-center justify-center"
+                                        title="Retry upload"
+                                      >
+                                        <RotateCw className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveEditImage(item.id)}
+                                      className="bg-black/70 hover:bg-red-600 text-white rounded-full p-1 opacity-90 hover:opacity-100 transition-all cursor-pointer shadow-sm"
+                                      title="Remove photo"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+
+                                  {/* Reorder & Set Cover Buttons */}
+                                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1 z-10">
+                                    {idx > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleMoveEditImage(idx, -1)}
+                                        className="bg-black/75 hover:bg-black text-white p-1 rounded-full cursor-pointer transition-all"
+                                        title="Move Left"
+                                      >
+                                        <ChevronLeft className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                    {idx !== 0 && isUploaded && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSetEditPrimaryImage(idx)}
+                                        className="flex-1 bg-white/95 hover:bg-white text-[#7C3AED] text-[10px] font-bold py-1 px-1 rounded-full text-center shadow-xs transition-all cursor-pointer"
+                                      >
+                                        Cover
+                                      </button>
+                                    )}
+                                    {idx < editImageItems.length - 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleMoveEditImage(idx, 1)}
+                                        className="bg-black/75 hover:bg-black text-white p-1 rounded-full cursor-pointer transition-all ml-auto"
+                                        title="Move Right"
+                                      >
+                                        <ChevronRight className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                      )}
 
-                {/* Paste URL directly */}
-                <div className="flex gap-2 pt-1">
-                  <input
-                    type="text"
-                    value={editImage}
-                    onChange={(e) => {
-                      setEditImage(e.target.value);
-                      if (e.target.value && !editGallery.includes(e.target.value)) {
-                        setEditGallery((prev) => [e.target.value, ...prev]);
-                      }
-                    }}
-                    placeholder="Or paste an image URL to add..."
-                    className="flex-1 bg-white border border-black/[0.06] rounded-full px-4 py-2 text-xs text-[#111111] outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (editImage && !editGallery.includes(editImage)) {
-                        setEditGallery((prev) => [...prev, editImage]);
-                        toast.success('Added to gallery!');
-                      }
-                    }}
-                    className="bg-[#111111] text-white hover:bg-gray-800 text-xs font-bold px-4 py-2 rounded-full cursor-pointer transition-all shrink-0"
-                  >
-                    + Add URL
-                  </button>
-                </div>
+                      {/* Paste URL directly with inline error */}
+                      <div className="space-y-1 pt-1">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={editUrlInput}
+                            onChange={(e) => {
+                              setEditUrlInput(e.target.value);
+                              if (editUrlError) setEditUrlError('');
+                            }}
+                            placeholder="Or paste an image URL (https://...)..."
+                            className={`flex-1 bg-white border ${
+                              editUrlError ? 'border-red-400 focus:border-red-500' : 'border-black/[0.06]'
+                            } rounded-full px-4 py-2 text-xs text-[#111111] outline-none transition-all`}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddEditUrl}
+                            className="bg-[#111111] text-white hover:bg-gray-800 text-xs font-bold px-4 py-2 rounded-full cursor-pointer transition-all shrink-0"
+                          >
+                            + Add URL
+                          </button>
+                        </div>
+                        {editUrlError && (
+                          <p className="text-[11px] text-red-600 font-medium pl-3 pt-0.5 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3 shrink-0" />
+                            <span>{editUrlError}</span>
+                          </p>
+                        )}
+                      </div>
 
-              </div>
+                    </div>
 
-              {/* Description */}
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1.5">
-                  Product Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] p-3 text-xs text-[#111111] outline-none transition-all leading-relaxed"
-                />
-              </div>
+                    {/* Description */}
+                    <div>
+                      <label className="text-xs font-bold text-gray-700 block mb-1.5">
+                        Product Description
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={editDescription}
+                        onChange={(e) => setEditDescription(e.target.value)}
+                        className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] p-3 text-xs text-[#111111] outline-none transition-all leading-relaxed"
+                      />
+                    </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-black/[0.06]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditModalOpen(false);
-                    setEditingProduct(null);
-                  }}
-                  className="px-5 py-2.5 rounded-full border border-black/[0.1] text-xs font-bold text-gray-600 hover:bg-gray-100 transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingEdit || uploadingEditGallery}
-                  className="inline-flex items-center gap-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold px-6 py-2.5 rounded-full shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-60"
-                >
-                  {uploadingEditGallery ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Uploading Image...</span>
-                    </>
-                  ) : savingEdit ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Saving Changes...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-3.5 h-3.5" />
-                      <span>Save Changes</span>
-                    </>
-                  )}
-                </button>
-              </div>
+                    {/* Action Buttons */}
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-black/[0.06]">
+                      <div className="self-stretch sm:self-auto">
+                        {editHasUploading && (
+                          <div className="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3.5 py-1.5 rounded-2xl flex items-center gap-2">
+                            <div className="w-3 h-3 border-2 border-amber-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                            <span>Photos are currently uploading. Please wait...</span>
+                          </div>
+                        )}
+                        {editHasFailed && (
+                          <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-3.5 py-1.5 rounded-2xl flex items-center gap-2">
+                            <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                            <span>
+                              Fix or remove {editFailedCount} failed photo{editFailedCount > 1 ? 's' : ''} to save.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 self-end sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditModalOpen(false);
+                            setEditingProduct(null);
+                          }}
+                          className="px-5 py-2.5 rounded-full border border-black/[0.1] text-xs font-bold text-gray-600 hover:bg-gray-100 transition-all cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={savingEdit || editHasUploading || editHasFailed}
+                          className="inline-flex items-center gap-2 bg-[#7C3AED] hover:bg-[#6D28D9] disabled:bg-[#7C3AED]/50 disabled:cursor-not-allowed text-white text-xs font-bold px-6 py-2.5 rounded-full shadow-md hover:shadow-lg transition-all cursor-pointer"
+                        >
+                          {editHasUploading ? (
+                            <>
+                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <span>Uploading Photo...</span>
+                            </>
+                          ) : savingEdit ? (
+                            <>
+                              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              <span>Saving Changes...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-3.5 h-3.5" />
+                              <span>Save Changes</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
             </form>
           </div>

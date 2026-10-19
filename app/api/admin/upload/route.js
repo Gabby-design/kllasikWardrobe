@@ -75,8 +75,13 @@ async function processSingleFile(file, blobToken) {
         };
       }
     } catch (blobErr) {
-      console.warn('[Upload API] Vercel Blob put notice, falling back to data URI:', blobErr.message);
+      console.error('[Upload API] Vercel Blob put error:', blobErr.message);
+      if (process.env.VERCEL) {
+        throw new Error(`Cloud storage upload failed: ${blobErr.message}`);
+      }
     }
+  } else if (process.env.VERCEL) {
+    throw new Error('Cloud storage configuration missing: BLOB_READ_WRITE_TOKEN is not set.');
   }
 
   // 2. Local filesystem storage (local development only)
@@ -95,19 +100,12 @@ async function processSingleFile(file, blobToken) {
         storage: 'local-fs',
       };
     } catch (fsErr) {
-      console.warn('[Upload API] Local filesystem notice, falling back to data URI:', fsErr.message);
+      console.error('[Upload API] Local filesystem error:', fsErr.message);
+      throw new Error(`Local storage error: ${fsErr.message}`);
     }
   }
 
-  // 3. Resilient self-contained data URI fallback
-  const mimeType = file.type || 'image/jpeg';
-  const base64Data = buffer.toString('base64');
-  const dataUri = `data:${mimeType};base64,${base64Data}`;
-  return {
-    url: dataUri,
-    fileName: safePathname,
-    storage: 'inline-data',
-  };
+  throw new Error('Storage destination unavailable. Please ensure Vercel Blob is configured.');
 }
 
 export async function POST(request) {

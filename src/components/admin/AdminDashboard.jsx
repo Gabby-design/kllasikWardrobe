@@ -41,7 +41,7 @@ import {
   Tablet,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { createProductAction, deleteProductAction, updateProductAction, resetCatalogAction } from '../../../app/actions/adminProducts';
+import { createProductAction, deleteProductAction, updateProductAction, resetCatalogAction, repairImagesAction } from '../../../app/actions/adminProducts';
 import { getLiveAnalyticsAction } from '../../../app/actions/adminAnalytics';
 import { logoutAdmin } from '../../../app/actions/adminAuth';
 import { KlasikLogo } from '../KlasikLogo';
@@ -50,6 +50,7 @@ import {
   resetToServerCatalog,
   runStorageMigration
 } from '../../utils/productSync.js';
+import { normalizeHex, isValidHex } from '../../lib/colorUtils.js';
 
 export function AdminDashboard({
   initialProducts,
@@ -244,7 +245,8 @@ export function AdminDashboard({
   const [editSizes, setEditSizes] = useState(['S', 'M', 'L', 'XL', 'XXL']);
   const [editColors, setEditColors] = useState([{ name: 'Obsidian Black', hex: '#111111', image: '' }]);
   const [newEditColorName, setNewEditColorName] = useState('');
-  const [newEditColorHex, setNewEditColorHex] = useState('#111111');
+  const [newEditColorHexText, setNewEditColorHexText] = useState('#111111');
+  const [newEditLastValidHex, setNewEditLastValidHex] = useState('#111111');
   const [newEditColorImage, setNewEditColorImage] = useState('');
   const [editImage, setEditImage] = useState('');
   const [editGallery, setEditGallery] = useState([]);
@@ -253,6 +255,12 @@ export function AdminDashboard({
   const [savingEdit, setSavingEdit] = useState(false);
   const [uploadingEditImage, setUploadingEditImage] = useState(false);
   const [uploadingEditGallery, setUploadingEditGallery] = useState(false);
+  const [invalidImageIndices, setInvalidImageIndices] = useState([]);
+
+  // Repair Images Modal & State
+  const [repairingImages, setRepairingImages] = useState(false);
+  const [repairReport, setRepairReport] = useState(null);
+  const [showRepairModal, setShowRepairModal] = useState(false);
 
   // Form State (New Product)
   const [categoryPreset, setCategoryPreset] = useState('T-Shirts');
@@ -266,7 +274,8 @@ export function AdminDashboard({
   const [sizes, setSizes] = useState(['S', 'M', 'L', 'XL', 'XXL']);
   const [newProductColors, setNewProductColors] = useState([{ name: 'Obsidian Black', hex: '#111111', image: '' }]);
   const [addFormColorName, setAddFormColorName] = useState('');
-  const [addFormColorHex, setAddFormColorHex] = useState('#111111');
+  const [addFormColorHexText, setAddFormColorHexText] = useState('#111111');
+  const [addFormLastValidHex, setAddFormLastValidHex] = useState('#111111');
   const [addFormColorImage, setAddFormColorImage] = useState('');
   const [image, setImage] = useState('/images/hero-tee-black.png');
   const [gallery, setGallery] = useState(['/images/hero-tee-black.png']);
@@ -533,17 +542,14 @@ export function AdminDashboard({
           }
 
           if (!uploadedUrl) {
-            uploadedUrl = await fileToDataUrl(optimizedFile);
+            toast.error(`Upload failed for ${f.name}. Please ensure network and server storage are connected.`);
+            continue;
           }
 
-          if (uploadedUrl) {
-            finalUrls.push(uploadedUrl);
-          }
+          finalUrls.push(uploadedUrl);
         } catch (uploadErr) {
-          try {
-            const fallbackUrl = await fileToDataUrl(f);
-            if (fallbackUrl) finalUrls.push(fallbackUrl);
-          } catch {}
+          console.warn('[Admin Dashboard] Upload error:', uploadErr.message);
+          toast.error(`Could not process ${f.name}: ${uploadErr.message}`);
         }
       }
 
@@ -586,15 +592,17 @@ export function AdminDashboard({
       : (product.color ? [{ name: product.color, hex: '#111111', image: '' }] : [{ name: 'Obsidian Black', hex: '#111111', image: '' }]);
     const parsedColors = rawColors.map((c) => {
       if (typeof c === 'string') return { name: c, hex: '#111111', image: '' };
+      const normHex = normalizeHex(c.hex) || '#111111';
       return {
         name: c.name || 'Standard',
-        hex: c.hex || '#111111',
+        hex: normHex,
         image: c.image || '',
       };
     });
     setEditColors(parsedColors);
     setNewEditColorName('');
-    setNewEditColorHex('#111111');
+    setNewEditColorHexText('#111111');
+    setNewEditLastValidHex('#111111');
     setNewEditColorImage('');
 
     const initialGallery = Array.isArray(product.gallery) && product.gallery.length > 0
@@ -603,6 +611,15 @@ export function AdminDashboard({
     setEditGallery(initialGallery);
     setEditImage(initialGallery[0] || product.image || '');
     setEditDescription(product.description || '');
+
+    // Check for any legacy data: or blob: images in the product
+    const initialInvalid = [];
+    initialGallery.forEach((url, i) => {
+      if (typeof url === 'string' && (url.trim().toLowerCase().startsWith('data:') || url.trim().toLowerCase().startsWith('blob:'))) {
+        initialInvalid.push(i);
+      }
+    });
+    setInvalidImageIndices(initialInvalid);
     setIsEditModalOpen(true);
 
     setTimeout(() => {
@@ -624,14 +641,20 @@ export function AdminDashboard({
       toast.error('Please enter a color name (e.g. Pure White)');
       return;
     }
+    const validatedHex = normalizeHex(newEditColorHexText);
+    if (!validatedHex) {
+      toast.error(`Invalid hex code "${newEditColorHexText}". Must be valid #RGB or #RRGGBB format.`);
+      return;
+    }
     const newEntry = {
       name: newEditColorName.trim(),
-      hex: newEditColorHex || '#111111',
+      hex: validatedHex,
       image: newEditColorImage || '',
     };
     setEditColors((prev) => [...prev, newEntry]);
     setNewEditColorName('');
-    setNewEditColorHex('#111111');
+    setNewEditColorHexText('#111111');
+    setNewEditLastValidHex('#111111');
     setNewEditColorImage('');
     toast.success(`Color "${newEntry.name}" added to product!`);
   };
@@ -652,14 +675,20 @@ export function AdminDashboard({
       toast.error('Please enter a color name (e.g. Pure White)');
       return;
     }
+    const validatedHex = normalizeHex(addFormColorHexText);
+    if (!validatedHex) {
+      toast.error(`Invalid hex code "${addFormColorHexText}". Must be valid #RGB or #RRGGBB format.`);
+      return;
+    }
     const newEntry = {
       name: addFormColorName.trim(),
-      hex: addFormColorHex || '#111111',
+      hex: validatedHex,
       image: addFormColorImage || '',
     };
     setNewProductColors((prev) => [...prev, newEntry]);
     setAddFormColorName('');
-    setAddFormColorHex('#111111');
+    setAddFormColorHexText('#111111');
+    setAddFormLastValidHex('#111111');
     setAddFormColorImage('');
     toast.success(`Color "${newEntry.name}" added!`);
   };
@@ -714,17 +743,14 @@ export function AdminDashboard({
           }
 
           if (!uploadedUrl) {
-            uploadedUrl = await fileToDataUrl(optimizedFile);
+            toast.error(`Upload failed for ${f.name}. Please ensure network and storage are connected.`);
+            continue;
           }
 
-          if (uploadedUrl) {
-            finalUrls.push(uploadedUrl);
-          }
+          finalUrls.push(uploadedUrl);
         } catch (uploadErr) {
-          try {
-            const fallbackUrl = await fileToDataUrl(f);
-            if (fallbackUrl) finalUrls.push(fallbackUrl);
-          } catch {}
+          console.warn('[Admin Dashboard] Upload error:', uploadErr.message);
+          toast.error(`Could not process ${f.name}: ${uploadErr.message}`);
         }
       }
 
@@ -802,6 +828,41 @@ export function AdminDashboard({
       return;
     }
 
+    // Check for invalid data: or blob: image URLs
+    const invalidIndices = [];
+    const galleryToCheck = editGallery.length > 0 ? editGallery : [editImage];
+    galleryToCheck.forEach((url, i) => {
+      if (typeof url === 'string' && (url.trim().toLowerCase().startsWith('data:') || url.trim().toLowerCase().startsWith('blob:'))) {
+        invalidIndices.push(i);
+      }
+    });
+    if (typeof editImage === 'string' && (editImage.trim().toLowerCase().startsWith('data:') || editImage.trim().toLowerCase().startsWith('blob:'))) {
+      if (!invalidIndices.includes(0)) invalidIndices.push(0);
+    }
+
+    if (invalidIndices.length > 0) {
+      setInvalidImageIndices(invalidIndices);
+      const positionLabels = invalidIndices.map((i) => (i === 0 ? 'Cover photo' : `Gallery photo ${i + 1}`));
+      toast.error(`Cannot save: ${positionLabels.join(', ')} has an invalid format (data: or blob: URL). Please delete or re-upload.`);
+      return;
+    }
+    setInvalidImageIndices([]);
+
+    // Validate and normalize all colors
+    const rawColors = editColors.length > 0 ? editColors : [{ name: 'Standard', hex: '#111111', image: '' }];
+    const normalizedColors = [];
+    for (const c of rawColors) {
+      const norm = normalizeHex(c.hex);
+      if (!norm) {
+        toast.error(`Invalid hex color code "${c.hex}" for color "${c.name}". Please enter a valid hex (#RGB or #RRGGBB).`);
+        return;
+      }
+      normalizedColors.push({
+        ...c,
+        hex: norm,
+      });
+    }
+
     setSavingEdit(true);
 
     const payload = {
@@ -816,7 +877,7 @@ export function AdminDashboard({
       material: editMaterial,
       fit: editFit,
       sizes: editSizes,
-      colors: editColors.length > 0 ? editColors : [{ name: 'Standard', hex: '#111111', image: '' }],
+      colors: normalizedColors,
       image: editGallery[0] || editImage,
       fallbackImage: editGallery[1] || editGallery[0] || editImage,
       gallery: editGallery.length > 0 ? editGallery : [editImage],
@@ -866,6 +927,29 @@ export function AdminDashboard({
       return;
     }
 
+    // Validate images format
+    const galleryToCheck = gallery && gallery.length > 0 ? gallery : [image];
+    const invalidImageFound = galleryToCheck.some((url) => typeof url === 'string' && (url.trim().toLowerCase().startsWith('data:') || url.trim().toLowerCase().startsWith('blob:')));
+    if (invalidImageFound || (typeof image === 'string' && (image.trim().toLowerCase().startsWith('data:') || image.trim().toLowerCase().startsWith('blob:')))) {
+      toast.error('Cannot publish: Images cannot be data: or blob: URLs. Please upload images to storage.');
+      return;
+    }
+
+    // Validate and normalize all colors
+    const rawColors = newProductColors.length > 0 ? newProductColors : [{ name: 'Obsidian Black', hex: '#111111', image: '' }];
+    const normalizedColors = [];
+    for (const c of rawColors) {
+      const norm = normalizeHex(c.hex);
+      if (!norm) {
+        toast.error(`Invalid hex color code "${c.hex}" for color "${c.name}". Please enter a valid hex (#RGB or #RRGGBB).`);
+        return;
+      }
+      normalizedColors.push({
+        ...c,
+        hex: norm,
+      });
+    }
+
     setLoading(true);
 
     const productPayload = {
@@ -877,9 +961,9 @@ export function AdminDashboard({
       material,
       fit,
       sizes,
-      colors: newProductColors.length > 0 ? newProductColors : [{ name: colorName || 'Obsidian Black', hex: colorHex || '#111111', image: '' }],
-      colorName: newProductColors[0]?.name || colorName,
-      colorHex: newProductColors[0]?.hex || colorHex,
+      colors: normalizedColors,
+      colorName: normalizedColors[0]?.name || 'Obsidian Black',
+      colorHex: normalizedColors[0]?.hex || '#111111',
       image: gallery[0] || image,
       fallbackImage: gallery[1] || gallery[0] || image,
       gallery: gallery && gallery.length > 0 ? gallery : [image],
@@ -936,6 +1020,32 @@ export function AdminDashboard({
       router.refresh();
     } catch (err) {
       toast.error('Delete error: ' + err.message);
+    }
+  };
+
+  const handleRepairImages = async () => {
+    const confirmed = window.confirm(
+      'Scan and repair legacy images in Redis database?\n\n' +
+      'This will convert legacy data: URLs to Vercel Blob assets, remove broken blob: links, and retain all other product properties.\n\n' +
+      'Click OK to proceed with scan.'
+    );
+    if (!confirmed) return;
+
+    setRepairingImages(true);
+    try {
+      const res = await repairImagesAction();
+      if (!res?.success) {
+        toast.error(res?.error || 'Failed to repair images');
+        return;
+      }
+      setRepairReport(res.report);
+      setShowRepairModal(true);
+      toast.success('Image repair scan completed');
+      await handleManualSyncToAllDevices();
+    } catch (err) {
+      toast.error('Repair failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setRepairingImages(false);
     }
   };
 
@@ -1000,6 +1110,17 @@ export function AdminDashboard({
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset to Server</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={repairingImages}
+            onClick={handleRepairImages}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-700 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 px-3.5 py-2 rounded-full transition-all shadow-xs cursor-pointer disabled:opacity-60"
+            title="Scan Redis for legacy data: and blob: URLs, upload to Blob storage, and cleanup broken links"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${repairingImages ? 'animate-spin' : ''}`} />
+            <span>{repairingImages ? 'Repairing...' : 'Repair Images'}</span>
           </button>
 
           <Link
@@ -1416,15 +1537,27 @@ export function AdminDashboard({
                     <div className="sm:col-span-4 flex items-center gap-2">
                       <input
                         type="color"
-                        value={addFormColorHex}
-                        onChange={(e) => setAddFormColorHex(e.target.value)}
+                        value={addFormLastValidHex}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setAddFormColorHexText(val);
+                          setAddFormLastValidHex(val);
+                        }}
                         className="w-8 h-8 rounded-full cursor-pointer border border-black/[0.1] p-0.5 shrink-0"
                         title="Pick color"
                       />
                       <input
                         type="text"
-                        value={addFormColorHex}
-                        onChange={(e) => setAddFormColorHex(e.target.value)}
+                        value={addFormColorHexText}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setAddFormColorHexText(val);
+                          const norm = normalizeHex(val);
+                          if (norm) {
+                            setAddFormLastValidHex(norm);
+                          }
+                        }}
+                        placeholder="#111111"
                         className="flex-1 bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-full px-3 py-2 text-xs text-[#111111] font-mono outline-none"
                       />
                     </div>
@@ -1448,7 +1581,8 @@ export function AdminDashboard({
                         key={cp.name}
                         onClick={() => {
                           setAddFormColorName(cp.name);
-                          setAddFormColorHex(cp.hex);
+                          setAddFormColorHexText(cp.hex);
+                          setAddFormLastValidHex(cp.hex);
                         }}
                         className="inline-flex items-center gap-1 bg-[#EDEDEF]/70 hover:bg-[#EDEDEF] px-2 py-0.5 rounded-full text-[10px] font-semibold text-gray-700 transition-all cursor-pointer"
                       >
@@ -2963,7 +3097,7 @@ export function AdminDashboard({
                         <div className="relative shrink-0">
                           <input
                             type="color"
-                            value={colorObj.hex || '#111111'}
+                            value={normalizeHex(colorObj.hex) || '#111111'}
                             onChange={(e) => handleUpdateEditColor(idx, 'hex', e.target.value)}
                             className="w-9 h-9 rounded-full cursor-pointer border border-black/10 p-0.5"
                             title="Click to pick color"
@@ -2980,9 +3114,13 @@ export function AdminDashboard({
                             className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[10px] px-3 py-1.5 text-xs text-[#111111] font-semibold outline-none"
                           />
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] font-mono text-gray-400">
-                              {colorObj.hex || '#111111'}
-                            </span>
+                            <input
+                              type="text"
+                              value={colorObj.hex || ''}
+                              placeholder="#111111"
+                              onChange={(e) => handleUpdateEditColor(idx, 'hex', e.target.value)}
+                              className="w-20 bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded px-2 py-0.5 text-[10px] font-mono text-[#111111] outline-none"
+                            />
                             {/* Color presets quick-select */}
                             <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
                               {colorPresets.slice(0, 5).map((cp) => (
@@ -3062,15 +3200,27 @@ export function AdminDashboard({
                     <div className="sm:col-span-4 flex items-center gap-2">
                       <input
                         type="color"
-                        value={newEditColorHex}
-                        onChange={(e) => setNewEditColorHex(e.target.value)}
+                        value={newEditLastValidHex}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setNewEditColorHexText(val);
+                          setNewEditLastValidHex(val);
+                        }}
                         className="w-8 h-8 rounded-full cursor-pointer border border-black/10 p-0.5 shrink-0"
                         title="Pick color hex"
                       />
                       <input
                         type="text"
-                        value={newEditColorHex}
-                        onChange={(e) => setNewEditColorHex(e.target.value)}
+                        value={newEditColorHexText}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setNewEditColorHexText(val);
+                          const norm = normalizeHex(val);
+                          if (norm) {
+                            setNewEditLastValidHex(norm);
+                          }
+                        }}
+                        placeholder="#111111"
                         className="flex-1 bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[10px] px-3 py-2 text-xs text-[#111111] font-mono outline-none"
                       />
                     </div>
@@ -3094,7 +3244,8 @@ export function AdminDashboard({
                         key={cp.name}
                         onClick={() => {
                           setNewEditColorName(cp.name);
-                          setNewEditColorHex(cp.hex);
+                          setNewEditColorHexText(cp.hex);
+                          setNewEditLastValidHex(cp.hex);
                         }}
                         className="inline-flex items-center gap-1 bg-[#EDEDEF]/70 hover:bg-[#EDEDEF] px-2 py-0.5 rounded-full text-[10px] font-semibold text-gray-700 transition-all cursor-pointer"
                       >
@@ -3155,37 +3306,56 @@ export function AdminDashboard({
                 {/* Gallery Thumbnails Grid */}
                 {editGallery.length > 0 && (
                   <div>
+                    {invalidImageIndices.length > 0 && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-3.5 py-2.5 rounded-2xl flex items-center gap-2 mb-3">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                        <span>
+                          Invalid format detected at <strong>{invalidImageIndices.map((i) => (i === 0 ? 'Cover photo' : `Gallery photo ${i + 1}`)).join(', ')}</strong>. Please remove or replace before saving.
+                        </span>
+                      </div>
+                    )}
                     <span className="text-[10px] uppercase font-bold text-gray-400 block mb-2">
                       Photo Angles (First photo is the default Cover shown on store cards):
                     </span>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {editGallery.map((gImg, idx) => (
-                        <div
-                          key={idx}
-                          className={`relative rounded-[14px] bg-[#EDEDEF] overflow-hidden border p-1 group flex flex-col justify-between aspect-[3/4] ${
-                            idx === 0
-                              ? 'border-[#7C3AED] ring-2 ring-[#7C3AED]/30'
-                              : 'border-black/[0.08]'
-                          }`}
-                        >
-                          <img src={gImg} alt={`Angle ${idx + 1}`} className="w-full h-full object-cover rounded-[10px]" />
-                          
-                          {/* Angle Badge */}
-                          <div className="absolute top-2 left-2 z-10">
-                            {idx === 0 ? (
-                              <span className="bg-[#7C3AED] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                                Cover Photo
-                              </span>
-                            ) : idx === 1 ? (
-                              <span className="bg-[#111111] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                                Angle 2 / Back
-                              </span>
-                            ) : (
-                              <span className="bg-black/70 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                                Angle {idx + 1}
-                              </span>
-                            )}
-                          </div>
+                      {editGallery.map((gImg, idx) => {
+                        const isLegacyFormat = typeof gImg === 'string' && (gImg.trim().toLowerCase().startsWith('data:') || gImg.trim().toLowerCase().startsWith('blob:'));
+                        const isInvalid = invalidImageIndices.includes(idx) || isLegacyFormat;
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`relative rounded-[14px] overflow-hidden border p-1 group flex flex-col justify-between aspect-[3/4] transition-all ${
+                              isInvalid
+                                ? 'border-red-500 ring-2 ring-red-500 bg-red-50/60'
+                                : idx === 0
+                                ? 'bg-[#EDEDEF] border-[#7C3AED] ring-2 ring-[#7C3AED]/30'
+                                : 'bg-[#EDEDEF] border-black/[0.08]'
+                            }`}
+                          >
+                            <img src={gImg} alt={`Angle ${idx + 1}`} className="w-full h-full object-cover rounded-[10px]" />
+                            
+                            {/* Angle Badge */}
+                            <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 items-start">
+                              {idx === 0 ? (
+                                <span className="bg-[#7C3AED] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                  Cover Photo
+                                </span>
+                              ) : idx === 1 ? (
+                                <span className="bg-[#111111] text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                  Angle 2 / Back
+                                </span>
+                              ) : (
+                                <span className="bg-black/70 text-white text-[9px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                                  Angle {idx + 1}
+                                </span>
+                              )}
+                              {isInvalid && (
+                                <span className="bg-red-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow">
+                                  {gImg?.startsWith('data:') ? 'data: URL' : 'blob: URL'} (invalid)
+                                </span>
+                              )}
+                            </div>
 
                           {/* Delete Button */}
                           <button
@@ -3230,10 +3400,11 @@ export function AdminDashboard({
                             )}
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
+              )}
 
                 {/* Paste URL directly */}
                 <div className="flex gap-2 pt-1">
@@ -3315,6 +3486,81 @@ export function AdminDashboard({
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Repair Images Report Modal */}
+      {showRepairModal && repairReport && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="relative w-full max-w-lg bg-white rounded-[28px] border border-black/[0.08] shadow-2xl p-6 sm:p-8 my-8">
+            <div className="flex items-start justify-between pb-4 mb-4 border-b border-black/[0.06]">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#7C3AED]">
+                  Image Repair Tool
+                </span>
+                <h3 className="text-xl font-bold text-[#111111] tracking-tight mt-0.5">
+                  Repair Summary Report
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRepairModal(false)}
+                className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-[#111111] transition-all cursor-pointer"
+                aria-label="Close repair modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-[#F7F7F8] p-3 rounded-2xl text-center border border-black/[0.04]">
+                  <span className="text-2xl font-bold text-[#111111] block">{repairReport.scanned}</span>
+                  <span className="text-[10px] uppercase font-bold text-gray-500">Scanned</span>
+                </div>
+                <div className="bg-emerald-50 p-3 rounded-2xl text-center border border-emerald-100">
+                  <span className="text-2xl font-bold text-emerald-700 block">{repairReport.converted}</span>
+                  <span className="text-[10px] uppercase font-bold text-emerald-700">Converted</span>
+                </div>
+                <div className="bg-amber-50 p-3 rounded-2xl text-center border border-amber-100">
+                  <span className="text-2xl font-bold text-amber-700 block">{repairReport.removed}</span>
+                  <span className="text-[10px] uppercase font-bold text-amber-700">Removed</span>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs font-bold text-gray-700 block mb-1.5">
+                  Products Needing Manual Re-upload ({repairReport.manualReuploadIds?.length || 0}):
+                </span>
+                {repairReport.manualReuploadIds && repairReport.manualReuploadIds.length > 0 ? (
+                  <div className="bg-amber-50/60 border border-amber-200/80 rounded-2xl p-3 max-h-40 overflow-y-auto space-y-1">
+                    <p className="text-xs text-amber-800 font-medium mb-1.5">
+                      The following products had all gallery images removed because they were dead blob: URLs. Default placeholder assigned:
+                    </p>
+                    <ul className="list-disc list-inside text-xs font-mono text-amber-900 space-y-0.5">
+                      {repairReport.manualReuploadIds.map((id) => (
+                        <li key={id}>{id}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div className="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-3 text-xs text-emerald-800 font-medium">
+                    No products require manual re-upload. All product images are valid.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-5 mt-6 border-t border-black/[0.06]">
+              <button
+                type="button"
+                onClick={() => setShowRepairModal(false)}
+                className="bg-[#111111] hover:bg-black text-white text-xs font-bold px-6 py-2.5 rounded-full transition-all cursor-pointer shadow-xs"
+              >
+                Close Report
+              </button>
+            </div>
           </div>
         </div>
       )}

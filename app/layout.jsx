@@ -5,6 +5,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { Footer } from '../src/components/Footer';
 import { Analytics } from '@vercel/analytics/react';
 import { VisitorTracker } from '../src/components/VisitorTracker';
+import { BrowserExtensionErrorFilter } from '../src/components/BrowserExtensionErrorFilter';
 
 export const metadata = {
   title: 'Klasik Wardrobe | Heavyweight Luxury Streetwear Essentials',
@@ -23,6 +24,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body suppressHydrationWarning className="bg-[#F7F7F8] text-[#111111] font-sans antialiased">
+        <BrowserExtensionErrorFilter />
         <Suspense fallback={null}>
           <VisitorTracker />
         </Suspense>

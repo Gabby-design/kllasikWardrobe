@@ -1,13 +1,20 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { put } from '@vercel/blob';
 import { checkAdminSession } from './adminAuth.js';
 import { 
   saveAuthoritativeProduct, 
   deleteAuthoritativeProduct, 
   resetDatabaseToCatalog,
-  validateProductImageUrls
+  validateProductImageUrls,
+  ensureRedis,
+  REDIS_HASH_KEY,
+  REDIS_REMOVED_KEY,
+  parseRedisProduct,
+  ensureHashSeeded
 } from '../../src/lib/db.js';
+import { validateProductColors } from '../../src/lib/colorUtils.js';
 
 function revalidateAllProductPaths(productId) {
   try {
@@ -65,6 +72,7 @@ export async function createProductAction(productData) {
     };
 
     validateProductImageUrls(newProduct);
+    validateProductColors(newProduct.colors);
     const verifiedProduct = await saveAuthoritativeProduct(newProduct);
     revalidateAllProductPaths(id);
 
@@ -120,6 +128,7 @@ export async function updateProductAction(productData) {
     };
 
     validateProductImageUrls(updatedProduct);
+    validateProductColors(updatedProduct.colors);
     const verifiedProduct = await saveAuthoritativeProduct(updatedProduct);
     revalidateAllProductPaths(productData.id);
 
@@ -170,6 +179,205 @@ export async function resetCatalogAction(confirmationText) {
 
     return { success: true };
   } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+function getBlobToken() {
+  if (process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
+    return process.env.BLOB_READ_WRITE_TOKEN.trim();
+  }
+  const matchingKey = Object.keys(process.env).find(
+    (key) => (key.endsWith('_READ_WRITE_TOKEN') || key.includes('BLOB_READ_WRITE')) && process.env[key]?.trim()
+  );
+  if (matchingKey) {
+    return process.env[matchingKey].trim();
+  }
+  return null;
+}
+
+function decodeDataUrl(dataUrl) {
+  const match = dataUrl.match(/^data:([^;,]+)?(?:;(base64))?,(.*)$/s);
+  if (!match) return null;
+  const mimeType = match[1] || 'image/jpeg';
+  const isBase64 = match[2] === 'base64';
+  const rawData = match[3] || '';
+  const buffer = isBase64
+    ? Buffer.from(rawData, 'base64')
+    : Buffer.from(decodeURIComponent(rawData), 'utf8');
+
+  let ext = '.jpg';
+  if (mimeType.includes('png')) ext = '.png';
+  else if (mimeType.includes('webp')) ext = '.webp';
+  else if (mimeType.includes('gif')) ext = '.gif';
+  else if (mimeType.includes('svg')) ext = '.svg';
+
+  return { buffer, mimeType, ext };
+}
+
+async function uploadDataUrlToBlob(dataUrl, blobToken) {
+  const decoded = decodeDataUrl(dataUrl);
+  if (!decoded) {
+    throw new Error('Invalid data: URL format cannot be decoded.');
+  }
+
+  const safePathname = `products/repaired-${Date.now()}-${Math.random().toString(36).slice(2, 8)}${decoded.ext}`;
+  const putOptions = {
+    access: 'public',
+    addRandomSuffix: true,
+    contentType: decoded.mimeType,
+  };
+  if (blobToken) {
+    putOptions.token = blobToken;
+  }
+
+  const blob = await put(safePathname, decoded.buffer, putOptions);
+  return blob.url;
+}
+
+export async function repairImagesAction() {
+  try {
+    const isAuthed = await checkAdminSession();
+    if (!isAuthed) {
+      return { success: false, error: 'Unauthorized: Administrator authentication required' };
+    }
+
+    const redis = ensureRedis();
+    await ensureHashSeeded(redis);
+
+    const [rawValues, removedIds] = await Promise.all([
+      redis.hvals(REDIS_HASH_KEY),
+      redis.smembers(REDIS_REMOVED_KEY).catch(() => []),
+    ]);
+
+    const removedSet = new Set(Array.isArray(removedIds) ? removedIds : []);
+    const blobToken = getBlobToken();
+
+    let productsScanned = 0;
+    let imagesConverted = 0;
+    let imagesRemoved = 0;
+    const manualReuploadSet = new Set();
+    const dataUrlMap = new Map();
+
+    const isDataUrl = (url) => typeof url === 'string' && url.trim().toLowerCase().startsWith('data:');
+    const isBlobUrl = (url) => typeof url === 'string' && url.trim().toLowerCase().startsWith('blob:');
+
+    const getConvertedUrl = async (dataUrl) => {
+      if (dataUrlMap.has(dataUrl)) {
+        return dataUrlMap.get(dataUrl);
+      }
+      const uploadedUrl = await uploadDataUrlToBlob(dataUrl, blobToken);
+      dataUrlMap.set(dataUrl, uploadedUrl);
+      imagesConverted++;
+      return uploadedUrl;
+    };
+
+    const DEFAULT_PLACEHOLDER = '/images/hero-tee-black.png';
+
+    for (const raw of (Array.isArray(rawValues) ? rawValues : [])) {
+      const product = parseRedisProduct(raw);
+      if (!product || !product.id || removedSet.has(product.id)) continue;
+
+      productsScanned++;
+      let modified = false;
+
+      // 1. Process gallery
+      const originalGallery = Array.isArray(product.gallery) ? product.gallery : (product.image ? [product.image] : []);
+      const newGallery = [];
+
+      for (const item of originalGallery) {
+        if (!item || typeof item !== 'string') continue;
+        if (isBlobUrl(item)) {
+          imagesRemoved++;
+          modified = true;
+          continue;
+        }
+        if (isDataUrl(item)) {
+          const convertedUrl = await getConvertedUrl(item);
+          newGallery.push(convertedUrl);
+          modified = true;
+          continue;
+        }
+        newGallery.push(item);
+      }
+
+      // Check if gallery became empty
+      if (newGallery.length === 0) {
+        newGallery.push(DEFAULT_PLACEHOLDER);
+        manualReuploadSet.add(product.id);
+        modified = true;
+      }
+
+      // 2. Process product.image
+      let newImage = product.image;
+      if (isDataUrl(newImage)) {
+        newImage = await getConvertedUrl(newImage);
+        modified = true;
+      } else if (isBlobUrl(newImage) || !newImage) {
+        newImage = newGallery[0] || DEFAULT_PLACEHOLDER;
+        modified = true;
+      }
+
+      // 3. Process product.fallbackImage
+      let newFallback = product.fallbackImage;
+      if (isDataUrl(newFallback)) {
+        newFallback = await getConvertedUrl(newFallback);
+        modified = true;
+      } else if (isBlobUrl(newFallback) || !newFallback) {
+        newFallback = newGallery[1] || newGallery[0] || DEFAULT_PLACEHOLDER;
+        modified = true;
+      }
+
+      // 4. Process product.colors if any have matching or data:/blob: image
+      let updatedColors = product.colors;
+      if (Array.isArray(product.colors)) {
+        let colorsChanged = false;
+        updatedColors = await Promise.all(product.colors.map(async (c) => {
+          if (!c) return c;
+          if (isDataUrl(c.image)) {
+            colorsChanged = true;
+            const converted = await getConvertedUrl(c.image);
+            return { ...c, image: converted };
+          }
+          if (isBlobUrl(c.image)) {
+            colorsChanged = true;
+            return { ...c, image: '' };
+          }
+          return c;
+        }));
+        if (colorsChanged) modified = true;
+      }
+
+      // Never overwrite anything else on the product.
+      if (modified) {
+        const repairedProduct = {
+          ...product,
+          image: newImage,
+          fallbackImage: newFallback,
+          gallery: newGallery,
+          ...(Array.isArray(updatedColors) ? { colors: updatedColors } : {}),
+        };
+
+        await redis.hset(REDIS_HASH_KEY, { [product.id]: JSON.stringify(repairedProduct) });
+        revalidateAllProductPaths(product.id);
+      }
+    }
+
+    return {
+      success: true,
+      report: {
+        productsScanned,
+        imagesConverted,
+        imagesRemoved,
+        manualReuploadIds: Array.from(manualReuploadSet),
+        scanned: productsScanned,
+        converted: imagesConverted,
+        removed: imagesRemoved,
+        idsNeedingReupload: Array.from(manualReuploadSet),
+      },
+    };
+  } catch (err) {
+    console.error('repairImagesAction error:', err);
     return { success: false, error: err.message };
   }
 }

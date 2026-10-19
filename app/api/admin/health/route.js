@@ -42,6 +42,7 @@ export async function GET(request) {
   let redisConnected = false;
   let productCount = 0;
   let newestUpdatedAt = 0;
+  let legacyImageProductsCount = 0;
 
   try {
     const redis = getRedis();
@@ -54,9 +55,27 @@ export async function GET(request) {
 
         const allValues = await redis.hvals(REDIS_HASH_KEY);
         if (Array.isArray(allValues)) {
+          const hasInvalidUrl = (url) => {
+            if (!url || typeof url !== 'string') return false;
+            const lower = url.trim().toLowerCase();
+            return lower.startsWith('data:') || lower.startsWith('blob:');
+          };
+
           for (const raw of allValues) {
             const prod = parseRedisProduct(raw);
-            if (prod && prod.updatedAt) {
+            if (!prod) continue;
+
+            const isLegacy = 
+              hasInvalidUrl(prod.image) ||
+              hasInvalidUrl(prod.fallbackImage) ||
+              (Array.isArray(prod.gallery) && prod.gallery.some(hasInvalidUrl)) ||
+              (Array.isArray(prod.colors) && prod.colors.some((c) => c && hasInvalidUrl(c.image)));
+
+            if (isLegacy) {
+              legacyImageProductsCount++;
+            }
+
+            if (prod.updatedAt) {
               const time = new Date(prod.updatedAt).getTime();
               if (!isNaN(time) && time > newestUpdatedAt) {
                 newestUpdatedAt = time;
@@ -99,6 +118,9 @@ export async function GET(request) {
     redisConnected,
     productCount,
     newestUpdatedAt,
+    legacyImageProductsCount,
+    productsWithLegacyImages: legacyImageProductsCount,
+    invalidImageProductsCount: legacyImageProductsCount,
     blobEnvPresent,
     vercelEnv,
     VERCEL_ENV: vercelEnv,

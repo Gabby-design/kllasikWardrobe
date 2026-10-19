@@ -1,6 +1,7 @@
 import { Redis } from '@upstash/redis';
 import { createRequire } from 'module';
 import { PRODUCTS } from '../data/catalog.js';
+import { validateProductColors } from './colorUtils.js';
 
 const require = createRequire(import.meta.url);
 const customProductsJson = require('../data/custom-products.json');
@@ -91,37 +92,53 @@ export function getInitialSeedProducts() {
  * ONLY when hash is empty; never overwrite existing data.
  * Migrate existing data from old key klasik:products_v1 once if present.
  */
-async function ensureHashSeeded(redis) {
+export async function ensureHashSeeded(redis) {
   const count = await redis.hlen(REDIS_HASH_KEY);
-  if (count > 0) return;
-
-  // 1. Check for legacy klasik:products_v1 list to migrate
-  try {
-    const oldRaw = await redis.get(REDIS_OLD_KEY);
-    const oldList = parseRedisProduct(oldRaw);
-    if (Array.isArray(oldList) && oldList.length > 0) {
-      const removedIds = await redis.smembers(REDIS_REMOVED_KEY).catch(() => []);
-      const removedSet = new Set(Array.isArray(removedIds) ? removedIds : []);
-      for (const item of oldList) {
-        if (item && item.id && !removedSet.has(item.id)) {
-          await redis.hset(REDIS_HASH_KEY, { [item.id]: JSON.stringify(item) });
+  if (count === 0) {
+    // 1. Check for legacy klasik:products_v1 list to migrate
+    try {
+      const oldRaw = await redis.get(REDIS_OLD_KEY);
+      const oldList = parseRedisProduct(oldRaw);
+      if (Array.isArray(oldList) && oldList.length > 0) {
+        const removedIds = await redis.smembers(REDIS_REMOVED_KEY).catch(() => []);
+        const removedSet = new Set(Array.isArray(removedIds) ? removedIds : []);
+        for (const item of oldList) {
+          if (item && item.id && !removedSet.has(item.id)) {
+            await redis.hset(REDIS_HASH_KEY, { [item.id]: JSON.stringify(item) });
+          }
         }
+        const migratedCount = await redis.hlen(REDIS_HASH_KEY);
+        if (migratedCount > 0) return;
       }
-      const migratedCount = await redis.hlen(REDIS_HASH_KEY);
-      if (migratedCount > 0) return;
+    } catch (migErr) {
+      console.warn('[DB] Migration from v1 notice:', migErr.message);
     }
-  } catch (migErr) {
-    console.warn('[DB] Migration from v1 notice:', migErr.message);
-  }
 
-  // 2. Initial seed
-  const seed = getInitialSeedProducts();
-  const removedIds = await redis.smembers(REDIS_REMOVED_KEY).catch(() => []);
-  const removedSet = new Set(Array.isArray(removedIds) ? removedIds : []);
+    // 2. Initial seed
+    const seed = getInitialSeedProducts();
+    const removedIds = await redis.smembers(REDIS_REMOVED_KEY).catch(() => []);
+    const removedSet = new Set(Array.isArray(removedIds) ? removedIds : []);
 
-  for (const item of seed) {
-    if (item && item.id && !removedSet.has(item.id)) {
-      await redis.hset(REDIS_HASH_KEY, { [item.id]: JSON.stringify(item) });
+    for (const item of seed) {
+      if (item && item.id && !removedSet.has(item.id)) {
+        await redis.hset(REDIS_HASH_KEY, { [item.id]: JSON.stringify(item) });
+      }
+    }
+  } else {
+    // Seed new products into existing Redis if not present yet
+    const newProductKeys = ['kwt-jeans-03', 'kwt-jeans-04', 'kwt-cargo-01'];
+    for (const id of newProductKeys) {
+      try {
+        const existing = await redis.hget(REDIS_HASH_KEY, id);
+        if (!existing) {
+          const item = PRODUCTS.find((p) => p.id === id);
+          if (item) {
+            await redis.hset(REDIS_HASH_KEY, { [id]: JSON.stringify(item) });
+          }
+        }
+      } catch (e) {
+        console.warn(`[DB] Notice seeding new product ${id}:`, e.message);
+      }
     }
   }
 }
@@ -137,12 +154,14 @@ export function validateProductImageUrls(product) {
   };
 
   if (isInvalid(product.image)) {
-    throw new Error('data: and blob: URLs are not allowed. Please re-upload your photo.');
+    throw new Error('Cover image is invalid: data: and blob: URLs are not allowed. Please re-upload your photo.');
   }
   if (Array.isArray(product.gallery)) {
-    for (const gUrl of product.gallery) {
+    for (let i = 0; i < product.gallery.length; i++) {
+      const gUrl = product.gallery[i];
       if (isInvalid(gUrl)) {
-        throw new Error('data: and blob: URLs are not allowed. Please re-upload your photo.');
+        const positionName = i === 0 ? 'Cover image (gallery position 1)' : `Gallery photo ${i + 1}`;
+        throw new Error(`${positionName} is invalid: data: and blob: URLs are not allowed. Please re-upload your photo.`);
       }
     }
   }
@@ -231,6 +250,7 @@ export async function saveAuthoritativeProduct(product) {
   }
 
   validateProductImageUrls(product);
+  validateProductColors(product.colors);
   const redis = ensureRedis();
   await ensureHashSeeded(redis);
 

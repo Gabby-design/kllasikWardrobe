@@ -100,5 +100,122 @@
     "stock": 6,
     "isCustom": true,
     "updatedAt": "2026-10-17T13:51:58.187Z"
+  },
+  {
+    "id": "kwt-jeans-03",
+    "title": "Klasik Gothic Cross Washed Black Denim Jeans",
+    "price": 40000,
+    "category": "Jeans",
+    "tag": "New Drop",
+    "rating": 5,
+    "reviews": 26,
+    "description": "14oz heavy washed charcoal black denim featuring gothic cross embroidery and script calligraphy. Relaxed baggy streetwear silhouette with structured drape.",
+    "gsm": "14oz Heavyweight Denim",
+    "material": "100% Combed Cotton Denim",
+    "fit": "Relaxed Wide-Leg Cut",
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "colors": [
+      {
+        "name": "Washed Black",
+        "hex": "#1c1c1e",
+        "image": "/images/jeans-gothic-cross-black.png"
+      }
+    ],
+    "image": "/images/jeans-gothic-cross-black.png",
+    "fallbackImage": "/images/jeans-gothic-cross-black.png",
+    "gallery": [
+      "/images/jeans-gothic-cross-black.png"
+    ],
+    "stock": 8,
+    "isCustom": true,
+    "updatedAt": "2026-10-19T02:00:00.000Z"
+  },
+  {
+    "id": "kwt-jeans-04",
+    "title": "Klasik Star Embroidered Light Wash Baggy Jeans",
+    "price": 40000,
+    "category": "Jeans",
+    "tag": "New Drop",
+    "rating": 5,
+    "reviews": 31,
+    "description": "13.5oz vintage acid-washed light denim with red embroidered star emblems on the pocket and hem. Relaxed flared baggy streetwear silhouette.",
+    "gsm": "13.5oz Vintage Denim",
+    "material": "100% Premium Cotton Denim",
+    "fit": "Flared Baggy Fit",
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "colors": [
+      {
+        "name": "Light Sky Wash",
+        "hex": "#cbd5e1",
+        "image": "/images/jeans-red-star-light-wash.png"
+      }
+    ],
+    "image": "/images/jeans-red-star-light-wash.png",
+    "fallbackImage": "/images/jeans-red-star-light-wash.png",
+    "gallery": [
+      "/images/jeans-red-star-light-wash.png"
+    ],
+    "stock": 8,
+    "isCustom": true,
+    "updatedAt": "2026-10-19T02:00:00.000Z"
+  },
+  {
+    "id": "kwt-cargo-01",
+    "title": "Klasik Heavyweight Tactical Cargo Pants",
+    "price": 45000,
+    "category": "Jeans",
+    "tag": "Tactical Drop",
+    "rating": 5,
+    "reviews": 45,
+    "description": "Constructed from high-density 280 GSM military twill cotton. Features dual deep bellow cargo flap pockets, reinforced knee panels, tailored straight-leg streetwear drape, and durable metal hardware.",
+    "gsm": "280 GSM Combat Cotton Twill",
+    "material": "100% Cotton Twill",
+    "fit": "Relaxed Straight-Leg Cargo",
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "colors": [
+      {
+        "name": "Obsidian Black",
+        "hex": "#111111",
+        "image": "/images/cargo-pants-tactical-black.png"
+      },
+      {
+        "name": "Mocha Brown",
+        "hex": "#5c4033",
+        "image": "/images/cargo-pants-tactical-brown.png"
+      },
+      {
+        "name": "Desert Khaki",
+        "hex": "#c3b091",
+        "image": "/images/cargo-pants-tactical-khaki.png"
+      }
+    ],
+    "image": "/images/cargo-pants-tactical-black.png",
+    "fallbackImage": "/images/cargo-pants-tactical-brown.png",
+    "gallery": [
+      "/images/cargo-pants-tactical-black.png",
+      "/images/cargo-pants-tactical-brown.png",
+      "/images/cargo-pants-tactical-khaki.png"
+    ],
+    "stock": 12,
+    "isCustom": true,
+    "updatedAt": "2026-10-19T02:00:00.000Z"
   }
 ]

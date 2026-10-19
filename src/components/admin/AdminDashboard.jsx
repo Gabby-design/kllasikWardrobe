@@ -692,6 +692,7 @@ export function AdminDashboard({
           fileName: file?.name || undefined,
           mimeType: file?.type || 'image/jpeg',
           base64: base64 || undefined,
+          customApiKey: (typeof window !== 'undefined' ? localStorage.getItem('klasik_gemini_api_key') : null) || undefined,
         }),
       });
 
@@ -757,6 +758,7 @@ export function AdminDashboard({
           fileName: file?.name || undefined,
           mimeType: file?.type || 'image/jpeg',
           base64: base64 || undefined,
+          customApiKey: (typeof window !== 'undefined' ? localStorage.getItem('klasik_gemini_api_key') : null) || undefined,
         }),
       });
 

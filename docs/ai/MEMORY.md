@@ -33,6 +33,7 @@
 - AI Garment Auto-Detection: Automatically detects piece category (including Long Sleeves vs T-Shirts, Up and Down sets, Denim, Cargo, Linen), price, tag, fabric specs, and colors upon image upload.
 - Shop The Look interactive colorway showcase with transparent cutouts.
 - Quick view modal and product detail page with 12px size chips and sticky floating mobile checkout bar.
+- TikTok Styling Video Reels: Integrated in-page interactive video player modal (`TikTokVideoModal`) and direct app launch on product detail and quick view modals, backed by `tiktokUrl` in Upstash Redis and Admin Dashboard.
 - Cart drawer with ₦70,000 free shipping progress meter and Paystack integration.
 
 ## Environment

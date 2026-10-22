@@ -52,6 +52,7 @@ import {
   runStorageMigration
 } from '../../utils/productSync.js';
 import { normalizeHex, isValidHex } from '../../lib/colorUtils.js';
+import { TikTokIcon } from '../TikTokVideoModal';
 
 export function AdminDashboard({
   initialProducts,
@@ -266,6 +267,7 @@ export function AdminDashboard({
   const [editUrlError, setEditUrlError] = useState('');
   const [isDraggingEditPhoto, setIsDraggingEditPhoto] = useState(false);
   const [editDescription, setEditDescription] = useState('');
+  const [editTiktokUrl, setEditTiktokUrl] = useState('');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [uploadingEditGallery, setUploadingEditGallery] = useState(false);
@@ -334,6 +336,7 @@ export function AdminDashboard({
   const gallery = newProductImages.map((img) => img.previewUrl);
   const image = newProductImages[0]?.previewUrl || '/images/hero-tee-black.png';
   const [description, setDescription] = useState('Crafted from 240 GSM combed organic cotton. Features clean minimalist cut with intentional dropped shoulder drape.');
+  const [tiktokUrl, setTiktokUrl] = useState('');
   const [stock, setStock] = useState(15);
 
   const colorPresets = [
@@ -1192,6 +1195,7 @@ export function AdminDashboard({
       ? product.gallery
       : (product.image ? [product.image] : []);
     setEditDescription(product.description || '');
+    setEditTiktokUrl(product.tiktokUrl || '');
 
     // Check for any legacy data: or blob: images and map to editImageItems with status
     const initialInvalid = [];
@@ -1627,6 +1631,7 @@ export function AdminDashboard({
       fallbackImage: finalGallery[1] || finalGallery[0] || '/images/hero-tee-black.png',
       gallery: finalGallery,
       description: editDescription,
+      tiktokUrl: editTiktokUrl?.trim() || null,
       isCustom: editingProduct.isCustom !== undefined ? editingProduct.isCustom : true,
     };
 
@@ -1724,6 +1729,7 @@ export function AdminDashboard({
       fallbackImage: finalGallery[1] || finalGallery[0] || '/images/hero-tee-black.png',
       gallery: finalGallery,
       description,
+      tiktokUrl: tiktokUrl?.trim() || null,
       stock: Number(stock) || 15,
       isCustom: true,
     };
@@ -1745,6 +1751,7 @@ export function AdminDashboard({
       // Reset form fields
       setTitle('');
       setDescription('');
+      setTiktokUrl('');
       setNewProductImages([
         {
           id: `default-${Date.now()}`,
@@ -2784,6 +2791,28 @@ export function AdminDashboard({
                         onChange={(e) => setDescription(e.target.value)}
                         className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[16px] p-3 text-xs text-[#111111] outline-none transition-all leading-relaxed"
                       />
+                    </div>
+
+                    {/* TikTok Video URL */}
+                    <div>
+                      <label className="text-xs font-bold text-[#111111] block mb-1">
+                        TikTok Video / Reel URL (Optional)
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                          <TikTokIcon className="w-4 h-4" />
+                        </div>
+                        <input
+                          type="url"
+                          placeholder="https://www.tiktok.com/@user/video/..."
+                          value={tiktokUrl}
+                          onChange={(e) => setTiktokUrl(e.target.value)}
+                          className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[16px] pl-10 pr-3.5 py-2.5 text-xs text-[#111111] outline-none transition-all font-mono"
+                        />
+                      </div>
+                      <span className="text-[10px] text-gray-400 mt-1 block">
+                        Add a TikTok reel URL to display styling video modal on product details.
+                      </span>
                     </div>
 
                     {/* Publish Action & Disabled Reason Banner */}
@@ -4680,6 +4709,28 @@ export function AdminDashboard({
                         onChange={(e) => setEditDescription(e.target.value)}
                         className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] p-3 text-xs text-[#111111] outline-none transition-all leading-relaxed"
                       />
+                    </div>
+
+                    {/* TikTok Video URL */}
+                    <div>
+                      <label className="text-xs font-bold text-gray-700 block mb-1.5">
+                        TikTok Video / Reel URL (Optional)
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                          <TikTokIcon className="w-4 h-4" />
+                        </div>
+                        <input
+                          type="url"
+                          value={editTiktokUrl}
+                          onChange={(e) => setEditTiktokUrl(e.target.value)}
+                          placeholder="https://www.tiktok.com/@user/video/..."
+                          className="w-full bg-[#EDEDEF] focus:bg-white border border-transparent focus:border-[#EDE9FE] rounded-[14px] pl-10 pr-3.5 py-2.5 text-xs text-[#111111] outline-none transition-all font-mono"
+                        />
+                      </div>
+                      <span className="text-[10px] text-gray-400 mt-1 block">
+                        Add or update a TikTok video URL to display styling video modal on product details.
+                      </span>
                     </div>
 
                     {/* Action Buttons */}

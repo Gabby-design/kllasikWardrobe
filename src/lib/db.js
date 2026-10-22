@@ -195,6 +195,10 @@ export async function getAuthoritativeProducts() {
   for (const val of (Array.isArray(rawValues) ? rawValues : [])) {
     const p = parseRedisProduct(val);
     if (p && p.id && !removedSet.has(p.id)) {
+      const catalogItem = PRODUCTS.find((c) => c.id === p.id);
+      if (catalogItem?.tiktokUrl && !p.tiktokUrl) {
+        p.tiktokUrl = catalogItem.tiktokUrl;
+      }
       products.push(p);
     }
   }
@@ -245,6 +249,11 @@ export async function getAuthoritativeProductById(productId) {
 
   const isRemoved = await redis.sismember(REDIS_REMOVED_KEY, productId).catch(() => 0);
   if (isRemoved) return null;
+
+  const catalogItem = PRODUCTS.find((c) => c.id === productId);
+  if (catalogItem?.tiktokUrl && !product.tiktokUrl) {
+    product.tiktokUrl = catalogItem.tiktokUrl;
+  }
 
   return product;
 }

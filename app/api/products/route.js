@@ -107,6 +107,7 @@ export async function POST(request) {
       fallbackImage: gallery[1] || gallery[0] || body.image || '/images/hero-tee-black.png',
       gallery,
       stock: body.stock !== undefined ? Math.max(0, Number(body.stock)) : 15,
+      tiktokUrl: body.tiktokUrl ? body.tiktokUrl.trim() : null,
       isCustom: true,
       createdAt: new Date().toISOString()
     };

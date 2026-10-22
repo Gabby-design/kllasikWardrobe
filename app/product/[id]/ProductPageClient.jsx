@@ -10,6 +10,7 @@ import { CartDrawer } from '../../../src/components/CartDrawer';
 import { WishlistDrawer } from '../../../src/components/WishlistDrawer';
 import { BottomNav } from '../../../src/components/BottomNav';
 import { subscribeToProductChanges } from '../../../src/utils/productSync';
+import { TikTokVideoModal, TikTokIcon } from '../../../src/components/TikTokVideoModal';
 import toast from 'react-hot-toast';
 
 export default function ProductPageClient({ initialProduct }) {
@@ -19,6 +20,7 @@ export default function ProductPageClient({ initialProduct }) {
     return initialProduct?.colors?.[0]?.name || initialProduct?.colors?.[0] || 'Standard';
   });
   const [selectedImage, setSelectedImage] = useState(null);
+  const [showTikTokModal, setShowTikTokModal] = useState(false);
 
   useEffect(() => {
     async function syncProduct() {
@@ -128,14 +130,31 @@ export default function ProductPageClient({ initialProduct }) {
             </h1>
 
             {/* Brand Row: "Klasik Wardrobe" with verified tick and Following pill */}
-            <div className="flex items-center gap-2 mb-3">
-              <span className="font-sans text-xs sm:text-sm font-semibold text-[#111111]">
-                Klasik Wardrobe
-              </span>
-              <CheckCircle className="w-4 h-4 fill-[#7C3AED] text-white" />
-              <span className="bg-[#111111] text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-full select-none">
-                Following
-              </span>
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="font-sans text-xs sm:text-sm font-semibold text-[#111111]">
+                  Klasik Wardrobe
+                </span>
+                <CheckCircle className="w-4 h-4 fill-[#7C3AED] text-white" />
+                <span className="bg-[#111111] text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-full select-none">
+                  Following
+                </span>
+              </div>
+
+              {product.tiktokUrl && (
+                <button
+                  type="button"
+                  onClick={() => setShowTikTokModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#111111] hover:bg-black text-white text-xs font-semibold rounded-full transition-all duration-200 shadow-sm active:scale-95 group cursor-pointer border border-white/10"
+                  aria-label="Watch styling video on TikTok"
+                >
+                  <TikTokIcon className="w-3.5 h-3.5 text-white group-hover:scale-110 transition-transform" />
+                  <span>Watch on TikTok</span>
+                  <span className="text-[9px] bg-[#7C3AED] text-white px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider">
+                    Video
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* Price & Stock Indicator */}
@@ -215,6 +234,15 @@ export default function ProductPageClient({ initialProduct }) {
       <BottomNav />
       <CartDrawer />
       <WishlistDrawer />
+
+      {product.tiktokUrl && (
+        <TikTokVideoModal
+          isOpen={showTikTokModal}
+          onClose={() => setShowTikTokModal(false)}
+          tiktokUrl={product.tiktokUrl}
+          productTitle={product.title}
+        />
+      )}
     </div>
   );
 }

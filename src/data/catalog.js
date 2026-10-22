@@ -23,6 +23,7 @@ export const PRODUCTS = [
       '/images/wonderland-shirt-front.jpg',
       '/images/wonderland-shirt-detail.jpg',
     ],
+    tiktokUrl: 'https://www.tiktok.com/@tiktok/video/7106594312292453678',
   },
   {
     id: 'kwt-02',

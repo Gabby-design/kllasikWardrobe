@@ -27,7 +27,17 @@ export function getAdminPassphrase() {
 export function verifyAdminPassphrase(input) {
   if (!input || typeof input !== 'string') return false;
   const configured = getAdminPassphrase();
-  return input.trim() === configured;
+  const cleanInput = input.trim();
+  
+  if (cleanInput === configured) return true;
+  // Case-insensitive match
+  if (cleanInput.toLowerCase() === configured.toLowerCase()) return true;
+  // Variant match: Klasik vs Kllasik (single l vs double l)
+  const normInput = cleanInput.toLowerCase().replace(/^klasik/, 'kllasik');
+  const normConfig = configured.toLowerCase().replace(/^klasik/, 'kllasik');
+  if (normInput === normConfig) return true;
+
+  return false;
 }
 
 export function createAdminSessionToken() {

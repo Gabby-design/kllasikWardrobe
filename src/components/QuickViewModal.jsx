@@ -5,6 +5,7 @@ import { ShoppingBag, X, CheckCircle, Plus, Minus, ArrowUpRight, Heart } from 'l
 import Link from 'next/link';
 import { subscribeToProductChanges } from '../utils/productSync';
 import { useWishlistStore } from '../store/wishlistStore';
+import { TikTokVideoModal, TikTokIcon } from './TikTokVideoModal';
 
 export function QuickViewModal({
   quickViewProduct,
@@ -20,6 +21,7 @@ export function QuickViewModal({
 }) {
   const [quantity, setQuantity] = useState(1);
   const [activeSlideIdx, setActiveSlideIdx] = useState(0);
+  const [showTikTokModal, setShowTikTokModal] = useState(false);
   const galleryScrollRef = useRef(null);
   const toggleWishlist = useWishlistStore((state) => state.toggleWishlist);
   const isInWishlist = useWishlistStore((state) => state.isInWishlist(quickViewProduct?.id));
@@ -102,18 +104,20 @@ export function QuickViewModal({
     }
   };
 
-  if (!quickViewProduct) return null;
-
-  const totalPrice = (quickViewProduct.price || 0) * quantity;
+  const totalPrice = (quickViewProduct?.price || 0) * quantity;
 
   return (
-    <AnimatePresence>
-      <div 
-        className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-y-contain flex flex-col justify-start sm:justify-center items-center p-3 sm:p-6 py-6 sm:py-10" 
-        onClick={() => setQuickViewProduct(null)}
-        style={{ WebkitOverflowScrolling: 'touch' }}
-      >
-        <motion.div
+    <>
+      <AnimatePresence>
+        {quickViewProduct && (
+          <div 
+            key="quickview-backdrop"
+            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm overflow-y-auto overscroll-y-contain flex flex-col justify-start sm:justify-center items-center p-3 sm:p-6 py-6 sm:py-10" 
+            onClick={() => setQuickViewProduct(null)}
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            <motion.div
+              key="quickview-modal-card"
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -215,14 +219,28 @@ export function QuickViewModal({
               </h2>
 
               {/* Brand Row: "Klasik Wardrobe" with verified tick */}
-              <div className="flex items-center gap-2 mb-2">
-                <span className="font-sans text-xs sm:text-sm font-semibold text-[#111111]">
-                  Klasik Wardrobe
-                </span>
-                <CheckCircle className="w-4 h-4 fill-[#7C3AED] text-white" />
-                <span className="bg-[#111111] text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-full select-none">
-                  Heavyweight
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-sans text-xs sm:text-sm font-semibold text-[#111111]">
+                    Klasik Wardrobe
+                  </span>
+                  <CheckCircle className="w-4 h-4 fill-[#7C3AED] text-white" />
+                  <span className="bg-[#111111] text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-full select-none">
+                    Heavyweight
+                  </span>
+                </div>
+
+                {quickViewProduct.tiktokUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setShowTikTokModal(true)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-[#111111] hover:bg-black text-white text-[11px] font-semibold rounded-full transition-all active:scale-95 group cursor-pointer border border-white/10"
+                    aria-label="Watch video on TikTok"
+                  >
+                    <TikTokIcon className="w-3 h-3 text-white group-hover:scale-110 transition-transform" />
+                    <span>Watch Video</span>
+                  </button>
+                )}
               </div>
 
               {/* Price & Stock Row */}
@@ -443,8 +461,20 @@ export function QuickViewModal({
 
           </div>
 
-        </motion.div>
-      </div>
-    </AnimatePresence>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {quickViewProduct?.tiktokUrl && (
+        <TikTokVideoModal
+          key="quickview-tiktok-video-modal"
+          isOpen={showTikTokModal}
+          onClose={() => setShowTikTokModal(false)}
+          tiktokUrl={quickViewProduct.tiktokUrl}
+          productTitle={quickViewProduct.title}
+        />
+      )}
+    </>
   );
 }

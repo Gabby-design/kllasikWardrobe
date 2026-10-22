@@ -67,6 +67,7 @@ export async function createProductAction(productData) {
       fallbackImage: gallery[1] || gallery[0] || productData.image?.trim() || '/images/hero-tee-black.png',
       gallery,
       stock: productData.stock !== undefined ? Math.max(0, Number(productData.stock)) : 15,
+      tiktokUrl: productData.tiktokUrl ? productData.tiktokUrl.trim() : null,
       isCustom: true,
       createdAt: new Date().toISOString()
     };
@@ -123,6 +124,7 @@ export async function updateProductAction(productData) {
       fallbackImage: gallery[1] || gallery[0] || productData.image || '/images/hero-tee-black.png',
       gallery,
       stock: productData.stock !== undefined ? Math.max(0, Number(productData.stock)) : 10,
+      tiktokUrl: productData.tiktokUrl !== undefined ? (productData.tiktokUrl?.trim() || null) : null,
       isCustom: true,
       updatedAt: new Date().toISOString()
     };
